@@ -56,7 +56,7 @@
   @media(min-width:640px){.current-user{display:inline;}}
   .app-body{flex:1;display:flex;min-height:0;}
   .sidebar{width:230px;background:var(--white);border-right:1px solid var(--border);padding:14px 10px;
-    display:flex;flex-direction:column;gap:4px;flex-shrink:0;}
+    display:flex;flex-direction:column;gap:4px;flex-shrink:0;overflow-y:auto;}
   .nav-item{display:block;width:100%;text-align:right;background:none;border:none;padding:12px 14px;
     border-radius:8px;font-size:15px;color:var(--ink);text-align:left;}
   .nav-item:hover{background:var(--blue-50);}
@@ -169,6 +169,44 @@
   @keyframes spin{to{transform:rotate(360deg);}}
   .empty-state{text-align:center;padding:40px 16px;color:var(--muted);}
   .empty-state .icon{font-size:40px;margin-bottom:8px;}
+
+  /* ---------- Tabs (ใช้ในหน้าค่ามาตรฐาน/สต๊อก/รายงาน) ---------- */
+  .tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px;border-bottom:1.5px solid var(--border);}
+  .tab-btn{background:none;border:none;padding:10px 14px;font-size:13.5px;color:var(--muted);border-bottom:3px solid transparent;
+    margin-bottom:-1.5px;}
+  .tab-btn.active{color:var(--blue-700);border-bottom-color:var(--blue-700);font-weight:700;}
+  .tab-pane{display:none;} .tab-pane.active{display:block;}
+
+  /* ---------- Purchase order line actions ---------- */
+  .po-line-actions{display:flex;flex-wrap:wrap;gap:4px;}
+  .po-line-actions button{font-size:11px;padding:4px 7px;border-radius:6px;border:1px solid var(--border);background:#fff;color:var(--ink);}
+  .po-line-actions button:hover{background:var(--blue-50);}
+  tr.po-skipped{opacity:.5;text-decoration:line-through;}
+
+  /* ---------- Kitchen today cards ---------- */
+  .kitchen-card{background:#fff;border-radius:var(--radius);box-shadow:var(--shadow);padding:16px;margin-bottom:14px;}
+  .kitchen-card h3{color:var(--blue-900);}
+  .kitchen-qr{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:10px;}
+  .kitchen-qr img{width:100px;height:100px;border:1px solid var(--border);border-radius:8px;}
+
+  /* ---------- Menu poster (print) ---------- */
+  .poster{background:#fff;border-radius:var(--radius);box-shadow:var(--shadow);padding:24px;max-width:1100px;margin:0 auto;}
+  .poster-header{display:flex;align-items:center;justify-content:space-between;border-bottom:3px solid var(--blue-700);
+    padding-bottom:12px;margin-bottom:16px;}
+  .poster-header h1{color:var(--blue-900);font-size:22px;}
+  .poster-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px;}
+  .poster-day{border:1.5px solid var(--border);border-radius:10px;padding:12px;}
+  .poster-day h4{color:#fff;background:var(--blue-700);margin:-12px -12px 10px;padding:8px 12px;border-radius:10px 10px 0 0;}
+  .poster-slot{font-size:13px;margin-bottom:8px;}
+  .poster-slot b{color:var(--blue-900);}
+  .poster-slot[contenteditable="true"]:focus{outline:2px dashed var(--blue-500);background:var(--blue-50);}
+  @media print{
+    body *{visibility:hidden;}
+    #print-area, #print-area *{visibility:visible;}
+    #print-area{position:absolute;left:0;top:0;width:100%;}
+    .poster{box-shadow:none;}
+    @page{size:A4 landscape;margin:10mm;}
+  }
 </style>
 </head>
 <body>
@@ -212,6 +250,13 @@
         <button class="nav-item active" data-view="dashboard">📊 แดชบอร์ด</button>
         <button class="nav-item" data-view="weeklymenu">🗓️ วางแผนเมนูรายสัปดาห์</button>
         <button class="nav-item" data-view="recipes">📖 สูตรอาหารมาตรฐาน</button>
+        <button class="nav-item" data-view="standards">⚙️ ค่ามาตรฐาน &amp; วัตถุดิบ</button>
+        <button class="nav-item" data-view="vendors">🚚 Vendor</button>
+        <button class="nav-item" data-view="stock">📦 สต๊อก</button>
+        <button class="nav-item" data-view="purchase">🧾 ใบสั่งซื้อ</button>
+        <button class="nav-item" data-view="kitchen">🍳 คู่มือครัวประจำวัน</button>
+        <button class="nav-item" data-view="poster">📰 ใบประกาศเมนู</button>
+        <button class="nav-item" data-view="reports">📈 รายงาน</button>
         <button class="nav-item hidden" id="nav-users" data-view="users">👤 ผู้ใช้งาน</button>
       </nav>
       <main class="main-content">
@@ -278,6 +323,213 @@
           </div>
           <div class="recipe-grid" id="recipe-grid"></div>
           <p class="empty-state hidden" id="recipe-empty"><span class="icon">📖</span><br>ไม่พบสูตรอาหารที่ค้นหา</p>
+        </section>
+
+        <!-- ---------- ค่ามาตรฐาน & วัตถุดิบ ---------- -->
+        <section id="view-standards" class="view">
+          <div class="tabs">
+            <button class="tab-btn active" data-tab="ingredients">วัตถุดิบ</button>
+            <button class="tab-btn" data-tab="stdsettings">ค่ามาตรฐานตามหมวดหมู่</button>
+          </div>
+          <div class="tab-pane active" id="tab-ingredients">
+            <div class="toolbar">
+              <input type="search" id="ing-search" placeholder="ค้นหาวัตถุดิบ...">
+              <span class="spacer"></span>
+              <button class="btn btn-primary btn-sm" id="btn-new-ingredient">+ เพิ่มวัตถุดิบ</button>
+            </div>
+            <div class="table-wrap"><table id="ingredients-table">
+              <thead><tr><th>ชื่อวัตถุดิบ</th><th>หมวดหมู่</th><th>หน่วย</th><th>ราคาล่าสุด</th><th>เผื่อ %</th>
+                <th>ปัดหน่วย</th><th>ขั้นต่ำสั่งซื้อ</th><th>Safety Stock</th><th>สถานะ</th><th></th></tr></thead>
+              <tbody></tbody>
+            </table></div>
+          </div>
+          <div class="tab-pane" id="tab-stdsettings">
+            <div class="toolbar">
+              <span class="spacer"></span>
+              <button class="btn btn-primary btn-sm" id="btn-new-stdsetting">+ เพิ่มค่ามาตรฐาน</button>
+            </div>
+            <div class="table-wrap"><table id="stdsettings-table">
+              <thead><tr><th>หมวดหมู่</th><th>เผื่อ %</th><th>Safety Stock</th><th>ปัดหน่วย</th><th>ขั้นต่ำสั่งซื้อ</th>
+                <th>ระยะเวลาสั่งล่วงหน้า</th><th>รอบส่ง</th><th>จุดรับสินค้า</th><th></th></tr></thead>
+              <tbody></tbody>
+            </table></div>
+          </div>
+        </section>
+
+        <!-- ---------- Vendor Master ---------- -->
+        <section id="view-vendors" class="view">
+          <div class="toolbar">
+            <input type="search" id="vendor-search" placeholder="ค้นหา Vendor...">
+            <span class="spacer"></span>
+            <button class="btn btn-primary btn-sm" id="btn-new-vendor">+ เพิ่ม Vendor</button>
+          </div>
+          <div class="table-wrap"><table id="vendors-table">
+            <thead><tr><th>ชื่อ Vendor</th><th>ผู้ติดต่อ</th><th>เบอร์โทร</th><th>วันสั่งซื้อ</th><th>วันส่งสินค้า</th><th>สถานะ</th><th></th></tr></thead>
+            <tbody></tbody>
+          </table></div>
+        </section>
+
+        <!-- ---------- สต๊อก (Stock) ---------- -->
+        <section id="view-stock" class="view">
+          <div class="tabs">
+            <button class="tab-btn active" data-tab="stk-overview">ภาพรวม</button>
+            <button class="tab-btn" data-tab="stk-receive">รับเข้า</button>
+            <button class="tab-btn" data-tab="stk-issue">เบิกใช้</button>
+            <button class="tab-btn" data-tab="stk-transfer">โอนย้าย</button>
+            <button class="tab-btn" data-tab="stk-adjust">ปรับยอด/ตรวจนับ</button>
+            <button class="tab-btn" data-tab="stk-dispose">ของเสีย/หมดอายุ/คืน Vendor</button>
+            <button class="tab-btn" data-tab="stk-history">ประวัติ</button>
+          </div>
+
+          <div class="tab-pane active" id="tab-stk-overview">
+            <div class="table-wrap"><table id="stock-overview-table">
+              <thead><tr><th>วัตถุดิบ</th><th>หมวดหมู่</th><th>คงเหลือรวม</th><th>Safety Stock</th><th>สถานะ</th>
+                <th>จำนวนล็อต</th><th>วันหมดอายุใกล้สุด</th><th>Vendor หลัก</th></tr></thead>
+              <tbody></tbody>
+            </table></div>
+          </div>
+
+          <div class="tab-pane" id="tab-stk-receive">
+            <div class="card" style="max-width:520px;">
+              <div class="field"><label>วัตถุดิบ</label><select id="recv-ingredient"></select></div>
+              <div class="form-row">
+                <div class="field"><label>เลข Lot (เว้นว่างให้ระบบสร้างอัตโนมัติ)</label><input type="text" id="recv-lotnumber"></div>
+                <div class="field"><label>จำนวนรับเข้า</label><input type="number" id="recv-qty" min="0" step="0.01"></div>
+              </div>
+              <div class="form-row">
+                <div class="field"><label>วันที่รับเข้า</label><input type="date" id="recv-receiveddate"></div>
+                <div class="field"><label>วันหมดอายุ</label><input type="date" id="recv-expirydate"></div>
+              </div>
+              <div class="form-row">
+                <div class="field"><label>ราคาต่อหน่วย</label><input type="number" id="recv-price" min="0" step="0.01"></div>
+                <div class="field"><label>Vendor</label><select id="recv-vendor"></select></div>
+              </div>
+              <div class="field"><label>สถานที่จัดเก็บ</label><select id="recv-location"></select></div>
+              <button class="btn btn-primary" id="btn-receive-stock">บันทึกรับเข้า</button>
+            </div>
+          </div>
+
+          <div class="tab-pane" id="tab-stk-issue">
+            <div class="card" style="max-width:520px;">
+              <p style="color:var(--muted);font-size:13px;">ระบบจะตัดสต๊อกตามหลัก FEFO (ล็อตที่หมดอายุก่อนจะถูกเบิกออกก่อนโดยอัตโนมัติ)</p>
+              <div class="field"><label>วัตถุดิบ</label><select id="issue-ingredient"></select></div>
+              <div class="form-row">
+                <div class="field"><label>จำนวนที่เบิก</label><input type="number" id="issue-qty" min="0" step="0.01"></div>
+                <div class="field"><label>สถานที่</label><select id="issue-location"></select></div>
+              </div>
+              <div class="field"><label>เหตุผล/หมายเหตุ</label><input type="text" id="issue-reason"></div>
+              <button class="btn btn-primary" id="btn-issue-stock">บันทึกเบิกใช้</button>
+            </div>
+          </div>
+
+          <div class="tab-pane" id="tab-stk-transfer">
+            <div class="card" style="max-width:520px;">
+              <div class="field"><label>วัตถุดิบ</label><select id="xfer-ingredient"></select></div>
+              <div class="form-row">
+                <div class="field"><label>จำนวน</label><input type="number" id="xfer-qty" min="0" step="0.01"></div>
+                <div class="field"><label>วันหมดอายุ (ปลายทาง)</label><input type="date" id="xfer-expirydate"></div>
+              </div>
+              <div class="form-row">
+                <div class="field"><label>จากสถานที่</label><select id="xfer-from"></select></div>
+                <div class="field"><label>ไปสถานที่</label><select id="xfer-to"></select></div>
+              </div>
+              <div class="field"><label>เหตุผล/หมายเหตุ</label><input type="text" id="xfer-reason"></div>
+              <button class="btn btn-primary" id="btn-transfer-stock">บันทึกโอนย้าย</button>
+            </div>
+          </div>
+
+          <div class="tab-pane" id="tab-stk-adjust">
+            <div class="toolbar"><select id="adjust-ingredient" style="min-width:220px;"></select></div>
+            <div class="table-wrap"><table id="adjust-lots-table">
+              <thead><tr><th>Lot</th><th>วันหมดอายุ</th><th>คงเหลือปัจจุบัน</th><th>จำนวนใหม่</th><th>ประเภท</th><th>เหตุผล</th><th></th></tr></thead>
+              <tbody></tbody>
+            </table></div>
+          </div>
+
+          <div class="tab-pane" id="tab-stk-dispose">
+            <div class="toolbar"><select id="dispose-ingredient" style="min-width:220px;"></select></div>
+            <div class="table-wrap"><table id="dispose-lots-table">
+              <thead><tr><th>Lot</th><th>วันหมดอายุ</th><th>คงเหลือ</th><th>จำนวน</th><th>เหตุผล</th><th>การดำเนินการ</th></tr></thead>
+              <tbody></tbody>
+            </table></div>
+          </div>
+
+          <div class="tab-pane" id="tab-stk-history">
+            <div class="toolbar">
+              <select id="hist-ingredient"><option value="">ทุกวัตถุดิบ</option></select>
+              <select id="hist-type"><option value="">ทุกประเภท</option>
+                <option>รับเข้า</option><option>เบิกใช้</option><option>โอนย้ายออก</option><option>โอนย้ายเข้า</option>
+                <option>ปรับยอด</option><option>ตรวจนับ</option><option>ของเสีย</option><option>หมดอายุ</option><option>คืน Vendor</option>
+              </select>
+              <input type="date" id="hist-from"><input type="date" id="hist-to">
+              <button class="btn btn-secondary btn-sm" id="btn-hist-filter">ค้นหา</button>
+            </div>
+            <div class="table-wrap"><table id="stock-history-table">
+              <thead><tr><th>วันที่</th><th>ประเภท</th><th>วัตถุดิบ</th><th>จำนวน</th><th>หมายเหตุ</th><th>ผู้บันทึก</th></tr></thead>
+              <tbody></tbody>
+            </table></div>
+          </div>
+        </section>
+
+        <!-- ---------- ใบสั่งซื้อ (Purchase Orders) ---------- -->
+        <section id="view-purchase" class="view">
+          <div class="toolbar">
+            <input type="date" id="po-date">
+            <button class="btn btn-primary btn-sm" id="btn-generate-po">สร้าง/รีเฟรชใบสั่งซื้อจากเมนู</button>
+            <button class="btn btn-outline btn-sm" id="btn-pdf-all">สร้าง PDF รวมทั้งวัน</button>
+          </div>
+          <div class="table-wrap"><table id="po-list-table">
+            <thead><tr><th>เลขที่เอกสาร</th><th>Vendor</th><th>วันที่ใช้สินค้า</th><th>สถานะ</th><th>ยอดรวม (บาท)</th><th></th></tr></thead>
+            <tbody></tbody>
+          </table></div>
+          <p class="empty-state hidden" id="po-empty"><span class="icon">🧾</span><br>ยังไม่มีใบสั่งซื้อสำหรับวันที่นี้</p>
+        </section>
+
+        <!-- ---------- คู่มือครัวประจำวัน (Kitchen Today) ---------- -->
+        <section id="view-kitchen" class="view">
+          <div class="toolbar">
+            <input type="date" id="kt-date">
+            <select id="kt-timeslot"><option value="">ทุกช่วงเวลา</option></select>
+          </div>
+          <div id="kitchen-list"></div>
+          <p class="empty-state hidden" id="kitchen-empty"><span class="icon">🍳</span><br>ไม่มีเมนูสำหรับวันและช่วงเวลานี้</p>
+        </section>
+
+        <!-- ---------- ใบประกาศเมนู (Menu Poster) ---------- -->
+        <section id="view-poster" class="view">
+          <div class="toolbar">
+            <input type="date" id="poster-date">
+            <select id="poster-lang"><option value="th">ภาษาไทย</option><option value="en">English</option></select>
+            <span class="spacer"></span>
+            <button class="btn btn-primary btn-sm" id="btn-print-poster">🖨️ พิมพ์ / บันทึก PDF</button>
+          </div>
+          <div id="print-area"><div class="poster" id="poster-content"></div></div>
+        </section>
+
+        <!-- ---------- รายงาน (Reports) ---------- -->
+        <section id="view-reports" class="view">
+          <div class="tabs">
+            <button class="tab-btn active" data-report="cost">ต้นทุนรายวัน</button>
+            <button class="tab-btn" data-report="costbymenu">ต้นทุนต่อเมนู</button>
+            <button class="tab-btn" data-report="vendor">ยอดซื้อตาม Vendor</button>
+            <button class="tab-btn" data-report="usage">วัตถุดิบใช้จริงเทียบมาตรฐาน</button>
+            <button class="tab-btn" data-report="adjustments">รายการปรับบ่อย</button>
+            <button class="tab-btn" data-report="waste">ของเสีย</button>
+            <button class="tab-btn" data-report="expired">ของหมดอายุ</button>
+            <button class="tab-btn" data-report="stockonhand">สต๊อกคงเหลือ</button>
+            <button class="tab-btn" data-report="pricehistory">ประวัติราคา</button>
+          </div>
+          <div class="toolbar">
+            <input type="date" id="rpt-from"><input type="date" id="rpt-to">
+            <select id="rpt-ingredient" class="hidden"></select>
+            <button class="btn btn-secondary btn-sm" id="btn-rpt-load">แสดงรายงาน</button>
+            <span class="spacer"></span>
+            <button class="btn btn-outline btn-sm" id="btn-export-csv">Export CSV</button>
+            <button class="btn btn-outline btn-sm" id="btn-export-pdf">Export PDF</button>
+            <button class="btn btn-outline btn-sm" id="btn-export-xlsx">Export Excel</button>
+          </div>
+          <div class="table-wrap"><table id="report-table"><thead></thead><tbody></tbody></table></div>
+          <p class="empty-state hidden" id="report-empty"><span class="icon">📈</span><br>ไม่มีข้อมูลในช่วงที่เลือก</p>
         </section>
 
         <!-- ---------- Users ---------- -->
@@ -420,6 +672,163 @@
     </div>
   </div>
 
+  <!-- ===================== Modal: วัตถุดิบ (Ingredient) ===================== -->
+  <div class="modal-backdrop hidden" id="modal-ingredient">
+    <div class="modal">
+      <div class="modal-header"><h2 id="ing-title">เพิ่มวัตถุดิบ</h2><button class="icon-btn" data-close="modal-ingredient">&times;</button></div>
+      <div class="modal-body">
+        <div class="form-row">
+          <div class="field"><label>ชื่อวัตถุดิบ *</label><input type="text" id="ing-name" maxlength="80"></div>
+          <div class="field"><label>หมวดหมู่</label><input type="text" id="ing-category" maxlength="40" placeholder="เนื้อสัตว์, ผักสด, ..."></div>
+        </div>
+        <div class="form-row">
+          <div class="field"><label>หน่วย *</label><input type="text" id="ing-unit" maxlength="16" placeholder="กก., ลิตร, ฟอง"></div>
+          <div class="field"><label>ราคาต่อหน่วย (บาท)</label><input type="number" id="ing-price" min="0" step="0.01"></div>
+        </div>
+        <div class="form-row">
+          <div class="field"><label>ค่าเผื่อสูญเสีย (%)</label><input type="number" id="ing-waste" min="0" step="0.1"></div>
+          <div class="field"><label>หน่วยปัดสั่งซื้อ</label><input type="number" id="ing-rounding" min="0" step="0.01"></div>
+        </div>
+        <div class="form-row">
+          <div class="field"><label>จำนวนขั้นต่ำในการสั่งซื้อ</label><input type="number" id="ing-minorder" min="0" step="0.01"></div>
+          <div class="field"><label>ขนาดบรรจุ</label><input type="text" id="ing-packsize" maxlength="40"></div>
+        </div>
+        <div class="form-row">
+          <div class="field"><label>Vendor ประจำ</label><select id="ing-vendor"></select></div>
+          <div class="field"><label>ระยะเวลาสั่งล่วงหน้า (วัน)</label><input type="number" id="ing-leadtime" min="0" step="1"></div>
+        </div>
+        <div class="field"><label>Safety Stock</label><input type="number" id="ing-safetystock" min="0" step="0.01"></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-danger btn-sm hidden" id="ing-deactivate">ปิดใช้งาน</button>
+        <span class="spacer"></span>
+        <button class="btn btn-secondary" data-close="modal-ingredient">ยกเลิก</button>
+        <button class="btn btn-primary" id="ing-save">บันทึก</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================== Modal: ค่ามาตรฐาน (Standard Setting) ===================== -->
+  <div class="modal-backdrop hidden" id="modal-stdsetting">
+    <div class="modal">
+      <div class="modal-header"><h2>ค่ามาตรฐานตามหมวดหมู่</h2><button class="icon-btn" data-close="modal-stdsetting">&times;</button></div>
+      <div class="modal-body">
+        <div class="form-row">
+          <div class="field"><label>หมวดหมู่ *</label><input type="text" id="std-category" maxlength="40"></div>
+          <div class="field"><label>วัตถุดิบเฉพาะ (ถ้ามี)</label><select id="std-ingredient"><option value="">-- ใช้กับทั้งหมวดหมู่ --</option></select></div>
+        </div>
+        <div class="form-row">
+          <div class="field"><label>ค่าเผื่อ (%)</label><input type="number" id="std-allowance" min="0" step="0.1"></div>
+          <div class="field"><label>Safety Stock</label><input type="number" id="std-safetystock" min="0" step="0.01"></div>
+        </div>
+        <div class="form-row">
+          <div class="field"><label>หน่วยปัด</label><input type="number" id="std-rounding" min="0" step="0.01"></div>
+          <div class="field"><label>จำนวนขั้นต่ำสั่งซื้อ</label><input type="number" id="std-minorder" min="0" step="0.01"></div>
+        </div>
+        <div class="form-row">
+          <div class="field"><label>ขนาดบรรจุ</label><input type="text" id="std-packsize"></div>
+          <div class="field"><label>Vendor</label><select id="std-vendor"></select></div>
+        </div>
+        <div class="form-row">
+          <div class="field"><label>ระยะเวลาสั่งล่วงหน้า (วัน)</label><input type="number" id="std-leadtime" min="0" step="1"></div>
+          <div class="field"><label>รอบส่งสินค้า</label><input type="text" id="std-deliverycycle"></div>
+        </div>
+        <div class="field"><label>จุดรับสินค้า</label><input type="text" id="std-receivingpoint"></div>
+        <div class="field"><label>หมายเหตุ</label><input type="text" id="std-notes"></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-danger btn-sm hidden" id="std-delete">ลบ</button>
+        <span class="spacer"></span>
+        <button class="btn btn-secondary" data-close="modal-stdsetting">ยกเลิก</button>
+        <button class="btn btn-primary" id="std-save">บันทึก</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================== Modal: Vendor ===================== -->
+  <div class="modal-backdrop hidden" id="modal-vendor">
+    <div class="modal">
+      <div class="modal-header"><h2 id="ven-title">เพิ่ม Vendor</h2><button class="icon-btn" data-close="modal-vendor">&times;</button></div>
+      <div class="modal-body">
+        <div class="field"><label>ชื่อ Vendor *</label><input type="text" id="ven-name" maxlength="80"></div>
+        <div class="form-row">
+          <div class="field"><label>ผู้ติดต่อ</label><input type="text" id="ven-contact"></div>
+          <div class="field"><label>เบอร์โทร</label><input type="text" id="ven-phone"></div>
+        </div>
+        <div class="form-row">
+          <div class="field"><label>อีเมล</label><input type="email" id="ven-email"></div>
+          <div class="field"><label>LINE</label><input type="text" id="ven-line"></div>
+        </div>
+        <div class="form-row">
+          <div class="field"><label>วันสั่งซื้อ</label><input type="text" id="ven-orderday" placeholder="เช่น จันทร์,พุธ,ศุกร์"></div>
+          <div class="field"><label>วันส่งสินค้า</label><input type="text" id="ven-deliveryday" placeholder="เช่น อังคาร,พฤหัสบดี"></div>
+        </div>
+        <div class="form-row">
+          <div class="field"><label>เวลาส่งสินค้า</label><input type="text" id="ven-deliverytime" placeholder="06:00"></div>
+          <div class="field"><label>หน่วยขั้นต่ำในการสั่ง</label><input type="text" id="ven-minorderunit"></div>
+        </div>
+        <div class="field"><label>เงื่อนไขการสั่งซื้อ</label><input type="text" id="ven-terms"></div>
+        <div class="field"><label>หมายเหตุ</label><textarea id="ven-notes" rows="2"></textarea></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-danger btn-sm hidden" id="ven-deactivate">ปิดใช้งาน</button>
+        <span class="spacer"></span>
+        <button class="btn btn-secondary" data-close="modal-vendor">ยกเลิก</button>
+        <button class="btn btn-primary" id="ven-save">บันทึก</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================== Modal: รายละเอียดใบสั่งซื้อ ===================== -->
+  <div class="modal-backdrop hidden" id="modal-po-detail">
+    <div class="modal" style="max-width:920px;">
+      <div class="modal-header"><h2 id="po-title">ใบสั่งซื้อ</h2><button class="icon-btn" data-close="modal-po-detail">&times;</button></div>
+      <div class="modal-body">
+        <p id="po-meta" style="color:var(--muted);font-size:13px;"></p>
+        <div class="table-wrap"><table id="po-items-table">
+          <thead><tr><th>รายการ</th><th>แนะนำ</th><th>สั่งจริง</th><th>หน่วย</th><th>ราคา/หน่วย</th><th>รวม</th>
+            <th>Vendor</th><th>รอบส่ง</th><th>หมายเหตุ</th><th>การดำเนินการ</th></tr></thead>
+          <tbody></tbody>
+        </table></div>
+        <p style="margin-top:10px;font-weight:700;color:var(--blue-900);">ยอดรวมทั้งใบ: <span id="po-total">0</span> บาท</p>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline btn-sm" id="po-download-pdf">📄 สร้าง / ดาวน์โหลด PDF</button>
+        <button class="btn btn-secondary btn-sm" id="po-approve">✅ อนุมัติใบสั่งซื้อ</button>
+        <span class="spacer"></span>
+        <button class="btn btn-secondary" data-close="modal-po-detail">ปิด</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================== Modal: ประวัติการแก้ไขรายการใบสั่งซื้อ ===================== -->
+  <div class="modal-backdrop hidden" id="modal-po-history">
+    <div class="modal" style="max-width:520px;">
+      <div class="modal-header"><h2>ประวัติการแก้ไข</h2><button class="icon-btn" data-close="modal-po-history">&times;</button></div>
+      <div class="modal-body">
+        <div class="table-wrap"><table id="po-history-table">
+          <thead><tr><th>ฟิลด์</th><th>ค่าเดิม</th><th>ค่าใหม่</th><th>ผู้แก้ไข</th><th>เวลา</th><th>เหตุผล</th></tr></thead>
+          <tbody></tbody>
+        </table></div>
+      </div>
+      <div class="modal-footer"><button class="btn btn-secondary" data-close="modal-po-history">ปิด</button></div>
+    </div>
+  </div>
+
+  <!-- ===================== Modal: ล็อตวัตถุดิบ ===================== -->
+  <div class="modal-backdrop hidden" id="modal-lots">
+    <div class="modal">
+      <div class="modal-header"><h2 id="lots-title">ล็อตวัตถุดิบ</h2><button class="icon-btn" data-close="modal-lots">&times;</button></div>
+      <div class="modal-body">
+        <div class="table-wrap"><table id="lots-table">
+          <thead><tr><th>Lot</th><th>รับเข้า</th><th>หมดอายุ</th><th>คงเหลือ</th><th>ราคา/หน่วย</th><th>สถานที่</th></tr></thead>
+          <tbody></tbody>
+        </table></div>
+      </div>
+      <div class="modal-footer"><button class="btn btn-secondary" data-close="modal-lots">ปิด</button></div>
+    </div>
+  </div>
+
   <!-- ===================== Modal: ยืนยันการทำงาน (Confirm) ===================== -->
   <div class="modal-backdrop hidden" id="modal-confirm">
     <div class="modal" style="max-width:400px;">
@@ -457,8 +866,15 @@ var APP = {
   token: null, user: null,
   ingredients: [], vendors: [], timeSlots: [], locations: [], recipes: [], templates: [],
   weekStart: null, weeklyMenu: null,
-  currentMenuItem: null, currentRecipe: null, editingUserId: null
+  currentMenuItem: null, currentRecipe: null, editingUserId: null,
+  ingredientsFull: [], vendorsFull: [], standardSettings: [],
+  currentPo: null, webAppUrl: '', currentAdjustIngredient: '', currentDisposeIngredient: ''
 };
+
+// ลิงก์ลึกจาก QR Code: ถ้ามาพร้อม ?recipeId=... จะเปิดหน้าสูตรอาหารนั้นทันทีหลังเข้าสู่ระบบ
+var DEEPLINK_RECIPE_ID = '<?= deepLinkRecipeId ?>';
+
+var REPORT_STATE = { type: 'cost', title: '', columns: [], rows: [] };
 
 /* ---------------- ตัวช่วยเรียก Server (google.script.run แบบ Promise) ---------------- */
 function callServer(fnName, args) {
@@ -570,7 +986,14 @@ function enterApp() {
   document.getElementById('app-shell').classList.remove('hidden');
   document.getElementById('current-user').textContent = APP.user.fullName + ' (' + APP.user.role + ')';
   document.getElementById('nav-users').classList.toggle('hidden', APP.user.role !== 'Admin');
-  loadCommonLookups().then(function () { showView('dashboard'); });
+  loadCommonLookups().then(function () {
+    if (DEEPLINK_RECIPE_ID) {
+      showView('recipes');
+      loadRecipes().then(function () { openRecipeViewModal(DEEPLINK_RECIPE_ID); });
+    } else {
+      showView('dashboard');
+    }
+  });
 }
 
 /* ---------------- ตรวจสอบ session เดิมเมื่อเปิดหน้าใหม่ ---------------- */
@@ -588,7 +1011,11 @@ function enterApp() {
 })();
 
 /* ---------------- Sidebar / Navigation ---------------- */
-var VIEW_LABELS = { dashboard: 'แดชบอร์ด', weeklymenu: 'วางแผนเมนูรายสัปดาห์', recipes: 'สูตรอาหารมาตรฐาน', users: 'ผู้ใช้งาน' };
+var VIEW_LABELS = {
+  dashboard: 'แดชบอร์ด', weeklymenu: 'วางแผนเมนูรายสัปดาห์', recipes: 'สูตรอาหารมาตรฐาน',
+  standards: 'ค่ามาตรฐาน & วัตถุดิบ', vendors: 'Vendor', stock: 'สต๊อก', purchase: 'ใบสั่งซื้อ',
+  kitchen: 'คู่มือครัวประจำวัน', poster: 'ใบประกาศเมนู', reports: 'รายงาน', users: 'ผู้ใช้งาน'
+};
 document.querySelectorAll('.nav-item').forEach(function (btn) {
   btn.addEventListener('click', function () { showView(btn.getAttribute('data-view')); });
 });
@@ -611,6 +1038,13 @@ function showView(name) {
   if (name === 'dashboard') loadDashboard();
   if (name === 'weeklymenu') loadWeeklyMenu();
   if (name === 'recipes') loadRecipes();
+  if (name === 'standards') loadStandards();
+  if (name === 'vendors') loadVendors();
+  if (name === 'stock') loadStock();
+  if (name === 'purchase') loadPurchaseOrders();
+  if (name === 'kitchen') loadKitchenToday();
+  if (name === 'poster') loadPoster();
+  if (name === 'reports') loadReport();
   if (name === 'users') loadUsers();
 }
 
@@ -619,9 +1053,25 @@ function loadCommonLookups() {
     apiAuth('apiGetTimeSlots').then(function (d) { APP.timeSlots = d; }),
     apiAuth('apiGetLocations').then(function (d) { APP.locations = d; }),
     apiAuth('apiGetIngredients').then(function (d) { APP.ingredients = d; }),
-    apiAuth('apiGetVendorsBasic').then(function (d) { APP.vendors = d; })
+    apiAuth('apiGetVendorsBasic').then(function (d) { APP.vendors = d; }),
+    // ลิงก์เว็บแอปใช้เฉพาะสร้าง QR Code ในหน้าคู่มือครัว — ไม่ควรทำให้ทั้งระบบเข้าใช้งานไม่ได้หากดึงไม่สำเร็จ
+    apiAuth('apiGetWebAppUrl').then(function (d) { APP.webAppUrl = d || ''; }).catch(function () { APP.webAppUrl = ''; })
   ]);
 }
+
+/* จัดการแท็บภายในหน้าเดียวกัน (ใช้ร่วมกันในหน้าค่ามาตรฐานและหน้าสต๊อก) */
+function initSectionTabs(sectionId) {
+  var section = document.getElementById(sectionId);
+  section.querySelectorAll(':scope > .tabs .tab-btn').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      section.querySelectorAll(':scope > .tabs .tab-btn').forEach(function (b) { b.classList.toggle('active', b === btn); });
+      var target = 'tab-' + btn.getAttribute('data-tab');
+      section.querySelectorAll(':scope > .tab-pane').forEach(function (p) { p.classList.toggle('active', p.id === target); });
+    });
+  });
+}
+initSectionTabs('view-standards');
+initSectionTabs('view-stock');
 
 /* ==================================================================
  * แดชบอร์ด (Dashboard)
@@ -696,6 +1146,9 @@ function shiftWeek(days) {
 function loadWeeklyMenu() {
   if (!APP.weekStart) APP.weekStart = todayLocalStr();
   wkDatePicker.value = APP.weekStart;
+  ['wk-copy-next', 'wk-save-template', 'wk-template-select', 'wk-apply-template'].forEach(function (id) {
+    document.getElementById(id).classList.toggle('hidden', !canEdit());
+  });
   apiAuth('apiGetWeeklyMenu', APP.weekStart).then(function (wm) {
     APP.weeklyMenu = wm;
     APP.weekStart = wm.weekStart;
@@ -714,7 +1167,7 @@ function renderWeekGrid(wm) {
   document.getElementById('wk-range-label').textContent = 'สัปดาห์: ' + wm.weekStart + ' ถึง ' + wm.weekEnd + ' | สถานะ: ' + wm.status;
   var table = document.getElementById('week-grid');
   var headHtml = '<tr><th style="min-width:110px;">ช่วงเวลา</th>' + wm.days.map(function (day, dIdx) {
-    var copyBtn = dIdx > 0
+    var copyBtn = (dIdx > 0 && canEdit())
       ? '<button type="button" class="btn-sm btn-outline day-copy-prev" data-date="' + day.date + '" data-prevdate="' + wm.days[dIdx - 1].date + '" style="margin-top:4px;font-size:10.5px;padding:3px 6px;">คัดลอกจากวันก่อนหน้า</button>'
       : '';
     return '<th><div class="day-header"><span class="dname">วัน' + day.dayName + '</span><span class="ddate">' + shortDate(day.date) + '</span>' + copyBtn + '</div></th>';
@@ -730,8 +1183,8 @@ function renderWeekGrid(wm) {
           '<span class="mname">' + escapeHtml(item.menuName) + '</span>' +
           '<span class="mqty">' + escapeHtml(item.location || '') + ' · ' + item.qtyMorning + '+' + item.qtyNight + '=' + item.qtyTotal + '</span></div>';
       }).join('');
-      return '<td class="day-cell" data-date="' + day.date + '" data-timeslot="' + ts.TimeSlotID + '">' + chips +
-        '<button class="btn-add-cell" data-date="' + day.date + '" data-timeslot="' + ts.TimeSlotID + '">+ เพิ่มเมนู</button></td>';
+      var addBtn = canEdit() ? '<button class="btn-add-cell" data-date="' + day.date + '" data-timeslot="' + ts.TimeSlotID + '">+ เพิ่มเมนู</button>' : '';
+      return '<td class="day-cell" data-date="' + day.date + '" data-timeslot="' + ts.TimeSlotID + '">' + chips + addBtn + '</td>';
     }).join('');
     row += '</tr>';
     return row;
@@ -799,7 +1252,10 @@ function openMenuItemModal(item, date, timeSlotId) {
     document.getElementById('mi-qty-night').value = item ? item.qtyNight : 0;
     document.getElementById('mi-notes').value = item ? item.notes : '';
     updateMiTotal();
-    document.getElementById('mi-delete').classList.toggle('hidden', !item);
+    var editable = canEdit();
+    document.getElementById('mi-delete').classList.toggle('hidden', !item || !editable);
+    document.getElementById('mi-save').classList.toggle('hidden', !editable);
+    document.querySelectorAll('#modal-menuitem input, #modal-menuitem select, #modal-menuitem textarea').forEach(function (el) { el.disabled = !editable; });
     openModal('modal-menuitem');
   });
 }
@@ -885,7 +1341,8 @@ document.getElementById('recipe-filter-category').addEventListener('change', ren
 document.getElementById('recipe-filter-status').addEventListener('change', renderRecipeGrid);
 
 function loadRecipes() {
-  apiAuth('apiGetRecipes').then(function (recipes) {
+  document.getElementById('btn-new-recipe').classList.toggle('hidden', !canEdit());
+  return apiAuth('apiGetRecipes').then(function (recipes) {
     APP.recipes = recipes;
     var categories = Array.from(new Set(recipes.map(function (r) { return r.category; }).filter(Boolean)));
     document.getElementById('recipe-filter-category').innerHTML = '<option value="">ทุกหมวดหมู่</option>' +
@@ -936,6 +1393,7 @@ function openRecipeViewModal(recipeId) {
     document.getElementById('rv-portions').value = 70;
     document.querySelector('#rv-scale-table tbody').innerHTML = '';
     document.getElementById('rv-total-cost').textContent = '0';
+    document.getElementById('rv-edit').classList.toggle('hidden', !canEdit());
     openModal('modal-recipe-view');
   });
 }
@@ -1147,6 +1605,713 @@ guardClick(document.getElementById('us-save'), function () {
     loadUsers();
   });
 });
+
+/* ==================================================================
+ * ค่ามาตรฐาน (Standard Settings) & วัตถุดิบ (Ingredients)
+ * ================================================================== */
+function canEdit() { return APP.user && (APP.user.role === 'Admin' || APP.user.role === 'Supervisor'); }
+function locationOptions() {
+  return APP.locations.map(function (l) { return '<option value="' + escapeHtml(l.LocationName) + '">' + escapeHtml(l.LocationName) + '</option>'; }).join('');
+}
+
+function loadStandards() {
+  document.getElementById('btn-new-ingredient').classList.toggle('hidden', !canEdit());
+  document.getElementById('btn-new-stdsetting').classList.toggle('hidden', !canEdit());
+  apiAuth('apiGetIngredientsFull').then(function (list) {
+    APP.ingredientsFull = list;
+    renderIngredientsTable();
+  });
+  apiAuth('apiGetStandardSettings').then(function (list) {
+    APP.standardSettings = list;
+    renderStdSettingsTable();
+  });
+}
+document.getElementById('ing-search').addEventListener('input', renderIngredientsTable);
+
+function renderIngredientsTable() {
+  var q = document.getElementById('ing-search').value.trim().toLowerCase();
+  var list = APP.ingredientsFull.filter(function (i) { return !q || i.name.toLowerCase().indexOf(q) !== -1; });
+  document.querySelector('#ingredients-table tbody').innerHTML = list.map(function (i) {
+    return '<tr><td>' + escapeHtml(i.name) + '</td><td>' + escapeHtml(i.category || '-') + '</td><td>' + escapeHtml(i.unit) + '</td>' +
+      '<td>' + i.latestPrice.toLocaleString('th-TH') + '</td><td>' + i.wastePercent + '%</td><td>' + i.roundingUnit + '</td>' +
+      '<td>' + i.minOrderQty + '</td><td>' + i.safetyStock + '</td>' +
+      '<td>' + (i.active ? '<span class="badge badge-ok">ใช้งาน</span>' : '<span class="badge badge-warn">ปิดใช้งาน</span>') + '</td>' +
+      '<td><button class="btn btn-secondary btn-sm" data-edit-ing="' + i.ingredientId + '">แก้ไข</button></td></tr>';
+  }).join('');
+  document.querySelectorAll('[data-edit-ing]').forEach(function (btn) {
+    btn.addEventListener('click', function () { openIngredientModal(APP.ingredientsFull.filter(function (i) { return i.ingredientId === btn.getAttribute('data-edit-ing'); })[0]); });
+  });
+}
+
+document.getElementById('btn-new-ingredient').addEventListener('click', function () { openIngredientModal(null); });
+
+function openIngredientModal(ing) {
+  APP.currentIngredient = ing;
+  document.getElementById('ing-title').textContent = ing ? 'แก้ไขวัตถุดิบ' : 'เพิ่มวัตถุดิบ';
+  document.getElementById('ing-name').value = ing ? ing.name : '';
+  document.getElementById('ing-category').value = ing ? ing.category : '';
+  document.getElementById('ing-unit').value = ing ? ing.unit : '';
+  document.getElementById('ing-price').value = ing ? ing.latestPrice : 0;
+  document.getElementById('ing-waste').value = ing ? ing.wastePercent : 0;
+  document.getElementById('ing-rounding').value = ing ? ing.roundingUnit : 0.1;
+  document.getElementById('ing-minorder').value = ing ? ing.minOrderQty : 0;
+  document.getElementById('ing-packsize').value = ing ? ing.packSize : '';
+  var venSel = document.getElementById('ing-vendor');
+  venSel.innerHTML = vendorOptions(ing ? ing.defaultVendorId : '');
+  document.getElementById('ing-leadtime').value = ing ? ing.leadTimeDays : 1;
+  document.getElementById('ing-safetystock').value = ing ? ing.safetyStock : 0;
+  var editable = canEdit();
+  document.getElementById('ing-deactivate').classList.toggle('hidden', !ing || !editable);
+  document.getElementById('ing-save').classList.toggle('hidden', !editable);
+  document.querySelectorAll('#modal-ingredient input, #modal-ingredient select').forEach(function (el) { el.disabled = !editable; });
+  openModal('modal-ingredient');
+}
+
+guardClick(document.getElementById('ing-save'), function () {
+  var payload = {
+    ingredientId: APP.currentIngredient ? APP.currentIngredient.ingredientId : null,
+    name: document.getElementById('ing-name').value.trim(), category: document.getElementById('ing-category').value.trim(),
+    unit: document.getElementById('ing-unit').value.trim(), price: toNum(document.getElementById('ing-price').value),
+    wastePercent: toNum(document.getElementById('ing-waste').value), roundingUnit: toNum(document.getElementById('ing-rounding').value),
+    minOrderQty: toNum(document.getElementById('ing-minorder').value), packSize: document.getElementById('ing-packsize').value.trim(),
+    vendorId: document.getElementById('ing-vendor').value, leadTimeDays: toNum(document.getElementById('ing-leadtime').value),
+    safetyStock: toNum(document.getElementById('ing-safetystock').value)
+  };
+  return apiAuth('apiSaveIngredient', payload).then(function () {
+    toast('บันทึกวัตถุดิบสำเร็จ', 'success');
+    closeModal('modal-ingredient');
+    loadStandards();
+    apiAuth('apiGetIngredients').then(function (d) { APP.ingredients = d; });
+  });
+});
+
+guardClick(document.getElementById('ing-deactivate'), function () {
+  return confirmDialog('ต้องการปิดใช้งานวัตถุดิบนี้ใช่หรือไม่?').then(function (ok) {
+    if (!ok) return;
+    return apiAuth('apiSetIngredientActive', APP.currentIngredient.ingredientId, false).then(function () {
+      toast('ปิดใช้งานสำเร็จ', 'success');
+      closeModal('modal-ingredient');
+      loadStandards();
+    });
+  });
+});
+
+function renderStdSettingsTable() {
+  document.querySelector('#stdsettings-table tbody').innerHTML = APP.standardSettings.map(function (s) {
+    return '<tr><td>' + escapeHtml(s.category) + '</td><td>' + s.allowancePercent + '%</td><td>' + s.safetyStock + '</td>' +
+      '<td>' + s.roundingUnit + '</td><td>' + s.minOrderQty + '</td><td>' + s.leadTimeDays + '</td>' +
+      '<td>' + escapeHtml(s.deliveryCycle || '-') + '</td><td>' + escapeHtml(s.receivingPoint || '-') + '</td>' +
+      '<td><button class="btn btn-secondary btn-sm" data-edit-std="' + s.settingId + '">แก้ไข</button></td></tr>';
+  }).join('');
+  document.querySelectorAll('[data-edit-std]').forEach(function (btn) {
+    btn.addEventListener('click', function () { openStdSettingModal(APP.standardSettings.filter(function (s) { return s.settingId === btn.getAttribute('data-edit-std'); })[0]); });
+  });
+}
+
+document.getElementById('btn-new-stdsetting').addEventListener('click', function () { openStdSettingModal(null); });
+
+function openStdSettingModal(s) {
+  APP.currentStdSetting = s;
+  document.getElementById('std-category').value = s ? s.category : '';
+  document.getElementById('std-ingredient').innerHTML = '<option value="">-- ใช้กับทั้งหมวดหมู่ --</option>' + ingredientOptions(s ? s.ingredientId : '');
+  document.getElementById('std-allowance').value = s ? s.allowancePercent : 0;
+  document.getElementById('std-safetystock').value = s ? s.safetyStock : 0;
+  document.getElementById('std-rounding').value = s ? s.roundingUnit : 0;
+  document.getElementById('std-minorder').value = s ? s.minOrderQty : 0;
+  document.getElementById('std-packsize').value = s ? s.packSize : '';
+  document.getElementById('std-vendor').innerHTML = vendorOptions(s ? s.vendorId : '');
+  document.getElementById('std-leadtime').value = s ? s.leadTimeDays : 1;
+  document.getElementById('std-deliverycycle').value = s ? s.deliveryCycle : '';
+  document.getElementById('std-receivingpoint').value = s ? s.receivingPoint : '';
+  document.getElementById('std-notes').value = s ? s.notes : '';
+  var editable = canEdit();
+  document.getElementById('std-delete').classList.toggle('hidden', !s || !editable);
+  document.getElementById('std-save').classList.toggle('hidden', !editable);
+  document.querySelectorAll('#modal-stdsetting input, #modal-stdsetting select').forEach(function (el) { el.disabled = !editable; });
+  openModal('modal-stdsetting');
+}
+
+guardClick(document.getElementById('std-save'), function () {
+  var payload = {
+    settingId: APP.currentStdSetting ? APP.currentStdSetting.settingId : null,
+    category: document.getElementById('std-category').value.trim(), ingredientId: document.getElementById('std-ingredient').value,
+    allowancePercent: toNum(document.getElementById('std-allowance').value), safetyStock: toNum(document.getElementById('std-safetystock').value),
+    roundingUnit: toNum(document.getElementById('std-rounding').value), minOrderQty: toNum(document.getElementById('std-minorder').value),
+    packSize: document.getElementById('std-packsize').value.trim(), vendorId: document.getElementById('std-vendor').value,
+    leadTimeDays: toNum(document.getElementById('std-leadtime').value), deliveryCycle: document.getElementById('std-deliverycycle').value.trim(),
+    receivingPoint: document.getElementById('std-receivingpoint').value.trim(), notes: document.getElementById('std-notes').value.trim()
+  };
+  if (!payload.category) { toast('กรุณาระบุหมวดหมู่', 'error'); return Promise.resolve(); }
+  return apiAuth('apiSaveStandardSetting', payload).then(function () {
+    toast('บันทึกค่ามาตรฐานสำเร็จ', 'success');
+    closeModal('modal-stdsetting');
+    loadStandards();
+  });
+});
+
+guardClick(document.getElementById('std-delete'), function () {
+  return confirmDialog('ต้องการลบค่ามาตรฐานนี้ใช่หรือไม่?').then(function (ok) {
+    if (!ok) return;
+    return apiAuth('apiDeleteStandardSetting', APP.currentStdSetting.settingId).then(function () {
+      toast('ลบสำเร็จ', 'success');
+      closeModal('modal-stdsetting');
+      loadStandards();
+    });
+  });
+});
+
+/* ==================================================================
+ * Vendor Master
+ * ================================================================== */
+document.getElementById('vendor-search').addEventListener('input', renderVendorsTable);
+
+function loadVendors() {
+  document.getElementById('btn-new-vendor').classList.toggle('hidden', !canEdit());
+  apiAuth('apiGetVendorsFull').then(function (list) {
+    APP.vendorsFull = list;
+    renderVendorsTable();
+  });
+}
+
+function renderVendorsTable() {
+  var q = document.getElementById('vendor-search').value.trim().toLowerCase();
+  var list = APP.vendorsFull.filter(function (v) { return !q || v.vendorName.toLowerCase().indexOf(q) !== -1; });
+  document.querySelector('#vendors-table tbody').innerHTML = list.map(function (v) {
+    return '<tr><td>' + escapeHtml(v.vendorName) + '</td><td>' + escapeHtml(v.contactPerson || '-') + '</td>' +
+      '<td>' + escapeHtml(v.phone || '-') + '</td><td>' + escapeHtml(v.orderDay || '-') + '</td><td>' + escapeHtml(v.deliveryDay || '-') + '</td>' +
+      '<td>' + (v.active ? '<span class="badge badge-ok">ใช้งาน</span>' : '<span class="badge badge-warn">ปิดใช้งาน</span>') + '</td>' +
+      '<td><button class="btn btn-secondary btn-sm" data-edit-ven="' + v.vendorId + '">แก้ไข</button></td></tr>';
+  }).join('');
+  document.querySelectorAll('[data-edit-ven]').forEach(function (btn) {
+    btn.addEventListener('click', function () { openVendorModal(APP.vendorsFull.filter(function (v) { return v.vendorId === btn.getAttribute('data-edit-ven'); })[0]); });
+  });
+}
+
+document.getElementById('btn-new-vendor').addEventListener('click', function () { openVendorModal(null); });
+
+function openVendorModal(v) {
+  APP.currentVendor = v;
+  document.getElementById('ven-title').textContent = v ? 'แก้ไข Vendor' : 'เพิ่ม Vendor';
+  document.getElementById('ven-name').value = v ? v.vendorName : '';
+  document.getElementById('ven-contact').value = v ? v.contactPerson : '';
+  document.getElementById('ven-phone').value = v ? v.phone : '';
+  document.getElementById('ven-email').value = v ? v.email : '';
+  document.getElementById('ven-line').value = v ? v.line : '';
+  document.getElementById('ven-orderday').value = v ? v.orderDay : '';
+  document.getElementById('ven-deliveryday').value = v ? v.deliveryDay : '';
+  document.getElementById('ven-deliverytime').value = v ? v.deliveryTime : '';
+  document.getElementById('ven-minorderunit').value = v ? v.minOrderUnit : '';
+  document.getElementById('ven-terms').value = v ? v.terms : '';
+  document.getElementById('ven-notes').value = v ? v.notes : '';
+  var editable = canEdit();
+  document.getElementById('ven-deactivate').classList.toggle('hidden', !v || !editable);
+  document.getElementById('ven-save').classList.toggle('hidden', !editable);
+  document.querySelectorAll('#modal-vendor input, #modal-vendor select, #modal-vendor textarea').forEach(function (el) { el.disabled = !editable; });
+  openModal('modal-vendor');
+}
+
+guardClick(document.getElementById('ven-save'), function () {
+  var payload = {
+    vendorId: APP.currentVendor ? APP.currentVendor.vendorId : null,
+    vendorName: document.getElementById('ven-name').value.trim(), contactPerson: document.getElementById('ven-contact').value.trim(),
+    phone: document.getElementById('ven-phone').value.trim(), email: document.getElementById('ven-email').value.trim(),
+    line: document.getElementById('ven-line').value.trim(), orderDay: document.getElementById('ven-orderday').value.trim(),
+    deliveryDay: document.getElementById('ven-deliveryday').value.trim(), deliveryTime: document.getElementById('ven-deliverytime').value.trim(),
+    minOrderUnit: document.getElementById('ven-minorderunit').value.trim(), terms: document.getElementById('ven-terms').value.trim(),
+    notes: document.getElementById('ven-notes').value.trim()
+  };
+  return apiAuth('apiSaveVendor', payload).then(function () {
+    toast('บันทึก Vendor สำเร็จ', 'success');
+    closeModal('modal-vendor');
+    loadVendors();
+    apiAuth('apiGetVendorsBasic').then(function (d) { APP.vendors = d; });
+  });
+});
+
+guardClick(document.getElementById('ven-deactivate'), function () {
+  return confirmDialog('ต้องการปิดใช้งาน Vendor นี้ใช่หรือไม่?').then(function (ok) {
+    if (!ok) return;
+    return apiAuth('apiSetVendorActive', APP.currentVendor.vendorId, false).then(function () {
+      toast('ปิดใช้งานสำเร็จ', 'success');
+      closeModal('modal-vendor');
+      loadVendors();
+    });
+  });
+});
+
+/* ==================================================================
+ * ระบบสต๊อก (Stock)
+ * ================================================================== */
+function loadStock() {
+  var canWriteStock = APP.user && APP.user.role !== 'Viewer';
+  document.querySelectorAll('#view-stock .tab-btn[data-tab="stk-receive"], #view-stock .tab-btn[data-tab="stk-issue"], ' +
+    '#view-stock .tab-btn[data-tab="stk-transfer"], #view-stock .tab-btn[data-tab="stk-adjust"], #view-stock .tab-btn[data-tab="stk-dispose"]')
+    .forEach(function (btn) { btn.classList.toggle('hidden', !canWriteStock); });
+  ['recv-ingredient', 'issue-ingredient', 'xfer-ingredient', 'adjust-ingredient', 'dispose-ingredient'].forEach(function (id) {
+    document.getElementById(id).innerHTML = '<option value="">-- เลือกวัตถุดิบ --</option>' + ingredientOptions('');
+  });
+  document.getElementById('hist-ingredient').innerHTML = '<option value="">ทุกวัตถุดิบ</option>' + ingredientOptions('');
+  document.getElementById('recv-vendor').innerHTML = vendorOptions('');
+  document.getElementById('recv-location').innerHTML = locationOptions();
+  document.getElementById('issue-location').innerHTML = locationOptions();
+  document.getElementById('xfer-from').innerHTML = locationOptions();
+  document.getElementById('xfer-to').innerHTML = locationOptions();
+  document.getElementById('recv-receiveddate').value = todayLocalStr();
+  loadStockOverview();
+}
+
+function loadStockOverview() {
+  apiAuth('apiGetStockOverview').then(function (list) {
+    document.querySelector('#stock-overview-table tbody').innerHTML = list.map(function (s) {
+      var statusBadge = s.isLow ? '<span class="badge badge-warn">สต๊อกต่ำ</span>' : '<span class="badge badge-ok">ปกติ</span>';
+      return '<tr><td><a href="javascript:void(0)" data-lots="' + s.ingredientId + '">' + escapeHtml(s.ingredientName) + '</a></td>' +
+        '<td>' + escapeHtml(s.category || '-') + '</td><td>' + s.totalRemaining + '</td><td>' + s.safetyStock + '</td>' +
+        '<td>' + statusBadge + '</td><td>' + s.lotCount + '</td><td>' + escapeHtml(s.nearestExpiry || '-') + '</td>' +
+        '<td>' + escapeHtml(s.defaultVendorName || '-') + '</td></tr>';
+    }).join('');
+    document.querySelectorAll('[data-lots]').forEach(function (a) {
+      a.addEventListener('click', function () { openLotsModal(a.getAttribute('data-lots'), a.textContent); });
+    });
+  });
+}
+
+function openLotsModal(ingredientId, ingredientName) {
+  document.getElementById('lots-title').textContent = 'ล็อตวัตถุดิบ: ' + ingredientName;
+  apiAuth('apiGetLotsByIngredient', ingredientId).then(function (lots) {
+    document.querySelector('#lots-table tbody').innerHTML = lots.map(function (l) {
+      return '<tr><td>' + escapeHtml(l.lotNumber) + '</td><td>' + l.receivedDate + '</td><td>' + l.expiryDate + '</td>' +
+        '<td>' + l.qtyRemaining + ' ' + escapeHtml(l.unit) + '</td><td>' + l.pricePerUnit + '</td><td>' + escapeHtml(l.storageLocation || '-') + '</td></tr>';
+    }).join('');
+    openModal('modal-lots');
+  });
+}
+
+guardClick(document.getElementById('btn-receive-stock'), function () {
+  var payload = {
+    ingredientId: document.getElementById('recv-ingredient').value, lotNumber: document.getElementById('recv-lotnumber').value.trim(),
+    receivedDate: document.getElementById('recv-receiveddate').value, expiryDate: document.getElementById('recv-expirydate').value,
+    qtyReceived: toNum(document.getElementById('recv-qty').value), pricePerUnit: toNum(document.getElementById('recv-price').value),
+    vendorId: document.getElementById('recv-vendor').value, storageLocation: document.getElementById('recv-location').value
+  };
+  if (!payload.ingredientId || payload.qtyReceived <= 0) { toast('กรุณาเลือกวัตถุดิบและระบุจำนวนรับเข้า', 'error'); return Promise.resolve(); }
+  return apiAuth('apiReceiveStock', payload).then(function () {
+    toast('บันทึกรับเข้าสำเร็จ', 'success');
+    document.getElementById('recv-qty').value = ''; document.getElementById('recv-lotnumber').value = ''; document.getElementById('recv-expirydate').value = '';
+    loadStockOverview();
+  });
+});
+
+guardClick(document.getElementById('btn-issue-stock'), function () {
+  var payload = {
+    ingredientId: document.getElementById('issue-ingredient').value, qty: toNum(document.getElementById('issue-qty').value),
+    location: document.getElementById('issue-location').value, reason: document.getElementById('issue-reason').value.trim()
+  };
+  if (!payload.ingredientId || payload.qty <= 0) { toast('กรุณาเลือกวัตถุดิบและระบุจำนวนเบิก', 'error'); return Promise.resolve(); }
+  return apiAuth('apiIssueStock', payload).then(function () {
+    toast('บันทึกเบิกใช้สำเร็จ (ตัดสต๊อกตาม FEFO)', 'success');
+    document.getElementById('issue-qty').value = ''; document.getElementById('issue-reason').value = '';
+    loadStockOverview();
+  });
+});
+
+guardClick(document.getElementById('btn-transfer-stock'), function () {
+  var payload = {
+    ingredientId: document.getElementById('xfer-ingredient').value, qty: toNum(document.getElementById('xfer-qty').value),
+    expiryDate: document.getElementById('xfer-expirydate').value, fromLocation: document.getElementById('xfer-from').value,
+    toLocation: document.getElementById('xfer-to').value, reason: document.getElementById('xfer-reason').value.trim()
+  };
+  if (!payload.ingredientId || payload.qty <= 0) { toast('กรุณาเลือกวัตถุดิบและระบุจำนวนโอนย้าย', 'error'); return Promise.resolve(); }
+  if (payload.fromLocation === payload.toLocation) { toast('สถานที่ต้นทางและปลายทางต้องไม่ซ้ำกัน', 'error'); return Promise.resolve(); }
+  return apiAuth('apiTransferStock', payload).then(function () {
+    toast('บันทึกโอนย้ายสำเร็จ', 'success');
+    document.getElementById('xfer-qty').value = ''; document.getElementById('xfer-reason').value = '';
+    loadStockOverview();
+  });
+});
+
+document.getElementById('adjust-ingredient').addEventListener('change', function () {
+  renderAdjustLots(this.value);
+});
+function renderAdjustLots(ingredientId) {
+  APP.currentAdjustIngredient = ingredientId;
+  var tbody = document.querySelector('#adjust-lots-table tbody');
+  if (!ingredientId) { tbody.innerHTML = ''; return; }
+  apiAuth('apiGetLotsByIngredient', ingredientId).then(function (lots) {
+    tbody.innerHTML = lots.map(function (l) {
+      return '<tr data-lot="' + l.lotId + '"><td>' + escapeHtml(l.lotNumber) + '</td><td>' + l.expiryDate + '</td>' +
+        '<td>' + l.qtyRemaining + ' ' + escapeHtml(l.unit) + '</td>' +
+        '<td><input type="number" class="adj-newqty" min="0" step="0.01" value="' + l.qtyRemaining + '" style="width:80px;"></td>' +
+        '<td><select class="adj-type"><option value="ปรับยอด">ปรับยอด</option><option value="ตรวจนับ">ตรวจนับ</option></select></td>' +
+        '<td><input type="text" class="adj-reason" placeholder="เหตุผล" style="width:120px;"></td>' +
+        '<td><button class="btn btn-primary btn-sm adj-save">บันทึก</button></td></tr>';
+    }).join('');
+    tbody.querySelectorAll('.adj-save').forEach(function (btn) {
+      guardClick(btn, function () {
+        var tr = btn.closest('tr');
+        var reason = tr.querySelector('.adj-reason').value.trim();
+        if (!reason) { toast('กรุณาระบุเหตุผลในการปรับยอด', 'error'); return Promise.resolve(); }
+        return apiAuth('apiAdjustStock', {
+          lotId: tr.getAttribute('data-lot'), newQty: toNum(tr.querySelector('.adj-newqty').value),
+          transType: tr.querySelector('.adj-type').value, reason: reason
+        }).then(function () {
+          toast('บันทึกการปรับยอดสำเร็จ', 'success');
+          renderAdjustLots(ingredientId);
+          loadStockOverview();
+        });
+      });
+    });
+  });
+}
+
+document.getElementById('dispose-ingredient').addEventListener('change', function () {
+  renderDisposeLots(this.value);
+});
+function renderDisposeLots(ingredientId) {
+  APP.currentDisposeIngredient = ingredientId;
+  var tbody = document.querySelector('#dispose-lots-table tbody');
+  if (!ingredientId) { tbody.innerHTML = ''; return; }
+  apiAuth('apiGetLotsByIngredient', ingredientId).then(function (lots) {
+    tbody.innerHTML = lots.map(function (l) {
+      return '<tr data-lot="' + l.lotId + '"><td>' + escapeHtml(l.lotNumber) + '</td><td>' + l.expiryDate + '</td>' +
+        '<td>' + l.qtyRemaining + ' ' + escapeHtml(l.unit) + '</td>' +
+        '<td><input type="number" class="dis-qty" min="0" step="0.01" max="' + l.qtyRemaining + '" style="width:80px;"></td>' +
+        '<td><input type="text" class="dis-reason" placeholder="เหตุผล" style="width:120px;"></td>' +
+        '<td class="po-line-actions"><button class="dis-waste">ของเสีย</button><button class="dis-expired">หมดอายุ</button><button class="dis-return">คืน Vendor</button></td></tr>';
+    }).join('');
+    tbody.querySelectorAll('tr').forEach(function (tr) {
+      var lotId = tr.getAttribute('data-lot');
+      var handler = function (apiName) {
+        return function () {
+          var qty = toNum(tr.querySelector('.dis-qty').value);
+          var reason = tr.querySelector('.dis-reason').value.trim();
+          if (qty <= 0) { toast('กรุณาระบุจำนวน', 'error'); return Promise.resolve(); }
+          return apiAuth(apiName, { lotId: lotId, qty: qty, reason: reason }).then(function () {
+            toast('บันทึกสำเร็จ', 'success');
+            renderDisposeLots(ingredientId);
+            loadStockOverview();
+          });
+        };
+      };
+      guardClick(tr.querySelector('.dis-waste'), handler('apiRecordWaste'));
+      guardClick(tr.querySelector('.dis-expired'), handler('apiRecordExpired'));
+      guardClick(tr.querySelector('.dis-return'), handler('apiReturnToVendor'));
+    });
+  });
+}
+
+document.getElementById('btn-hist-filter').addEventListener('click', loadStockHistory);
+function loadStockHistory() {
+  var filters = {
+    ingredientId: document.getElementById('hist-ingredient').value, transType: document.getElementById('hist-type').value,
+    from: document.getElementById('hist-from').value, to: document.getElementById('hist-to').value
+  };
+  apiAuth('apiGetStockTransactions', filters).then(function (rows) {
+    document.querySelector('#stock-history-table tbody').innerHTML = rows.map(function (r) {
+      return '<tr><td>' + r.transDate + '</td><td>' + escapeHtml(r.transType) + '</td><td>' + escapeHtml(r.ingredientName) + '</td>' +
+        '<td>' + r.qty + '</td><td>' + escapeHtml(r.reason || '-') + '</td><td>' + escapeHtml(r.recordedBy) + '</td></tr>';
+    }).join('');
+  });
+}
+
+/* ==================================================================
+ * ใบสั่งซื้อ (Purchase Orders)
+ * ================================================================== */
+function loadPurchaseOrders() {
+  if (!document.getElementById('po-date').value) document.getElementById('po-date').value = todayLocalStr();
+  document.getElementById('btn-generate-po').classList.toggle('hidden', !canEdit());
+  document.getElementById('btn-pdf-all').classList.toggle('hidden', !canEdit());
+  loadPoList();
+}
+document.getElementById('po-date').addEventListener('change', loadPoList);
+
+function loadPoList() {
+  var date = document.getElementById('po-date').value;
+  apiAuth('apiListPurchaseOrders', date).then(function (list) {
+    document.getElementById('po-empty').classList.toggle('hidden', list.length > 0);
+    document.querySelector('#po-list-table tbody').innerHTML = list.map(function (po) {
+      return '<tr><td>' + escapeHtml(po.poNumber) + '</td><td>' + escapeHtml(po.vendorName) + '</td><td>' + po.useDate + '</td>' +
+        '<td>' + escapeHtml(po.status) + '</td><td>' + po.totalAmount.toLocaleString('th-TH') + '</td>' +
+        '<td><button class="btn btn-secondary btn-sm" data-open-po="' + po.poId + '">ดู/แก้ไข</button></td></tr>';
+    }).join('');
+    document.querySelectorAll('[data-open-po]').forEach(function (btn) {
+      btn.addEventListener('click', function () { openPoDetail(btn.getAttribute('data-open-po')); });
+    });
+  });
+}
+
+guardClick(document.getElementById('btn-generate-po'), function () {
+  var date = document.getElementById('po-date').value;
+  return apiAuth('apiGeneratePurchaseOrder', date).then(function (res) {
+    toast('สร้างใบสั่งซื้อสำเร็จ ' + res.poIds.length + ' ใบ (แยกตาม Vendor)', 'success');
+    loadPoList();
+  });
+});
+
+guardClick(document.getElementById('btn-pdf-all'), function () {
+  var date = document.getElementById('po-date').value;
+  return apiAuth('apiGeneratePurchaseOrderPdfAll', date).then(function (res) {
+    toast('สร้าง PDF รวมทั้งวันสำเร็จ', 'success');
+    window.open(res.url, '_blank');
+  });
+});
+
+function openPoDetail(poId) {
+  apiAuth('apiGetPurchaseOrder', poId).then(function (po) {
+    APP.currentPo = po;
+    document.getElementById('po-title').textContent = 'ใบสั่งซื้อ ' + po.poNumber;
+    document.getElementById('po-meta').textContent = 'Vendor: ' + po.vendorName + ' | วันที่ใช้สินค้า: ' + po.useDate +
+      ' | สถานะ: ' + po.status + ' | ผู้จัดทำ: ' + po.createdBy;
+    document.getElementById('po-download-pdf').classList.toggle('hidden', !canEdit());
+    document.getElementById('po-approve').classList.toggle('hidden', !canEdit() || po.status === 'อนุมัติแล้ว');
+    renderPoItemsTable(po);
+    openModal('modal-po-detail');
+  });
+}
+
+function renderPoItemsTable(po) {
+  var canEditPo = canEdit();
+  document.querySelector('#po-items-table tbody').innerHTML = po.items.map(function (it) {
+    return '<tr class="' + (it.skipped ? 'po-skipped' : '') + '" data-poitem="' + it.poItemId + '">' +
+      '<td>' + escapeHtml(it.ingredientName) + '</td><td>' + it.qtySuggested + '</td>' +
+      '<td><input type="number" class="po-qty" min="0" step="0.01" value="' + it.qtyOrdered + '" style="width:75px;" ' + (canEditPo ? '' : 'disabled') + '></td>' +
+      '<td>' + escapeHtml(it.unit) + '</td><td>' + it.pricePerUnit + '</td><td class="po-linetotal">' + it.totalPrice.toLocaleString('th-TH') + '</td>' +
+      '<td><select class="po-vendor" ' + (canEditPo ? '' : 'disabled') + '>' + vendorOptions(it.vendorId) + '</select></td>' +
+      '<td><input type="text" class="po-cycle" value="' + escapeHtml(it.deliveryCycle || '') + '" style="width:80px;" ' + (canEditPo ? '' : 'disabled') + '></td>' +
+      '<td><input type="text" class="po-notes" value="' + escapeHtml(it.notes || '') + '" style="width:100px;" ' + (canEditPo ? '' : 'disabled') + '></td>' +
+      '<td class="po-line-actions">' +
+      (canEditPo ? '<button class="po-reset">ใช้ค่าระบบ</button><button class="po-inc">+</button><button class="po-dec">-</button>' +
+        '<button class="po-skip">งดสั่ง</button><button class="po-usestock">ใช้สต๊อก</button>' : '') +
+      '<button class="po-hist">ประวัติ</button></td></tr>';
+  }).join('');
+  document.getElementById('po-total').textContent = po.totalAmount.toLocaleString('th-TH');
+
+  document.querySelectorAll('#po-items-table tbody tr').forEach(function (tr) {
+    var poItemId = tr.getAttribute('data-poitem');
+    var qtyInput = tr.querySelector('.po-qty');
+    var savePatch = function (patch, reason) {
+      patch.poItemId = poItemId; patch.reason = reason || '';
+      return apiAuth('apiUpdatePurchaseOrderItem', patch).then(function () { return openPoDetail(APP.currentPo.poId); });
+    };
+    if (qtyInput) qtyInput.addEventListener('change', function () { savePatch({ qtyOrdered: toNum(qtyInput.value) }, 'แก้ไขจำนวนสั่งซื้อ'); });
+    var vendorSel = tr.querySelector('.po-vendor');
+    if (vendorSel) vendorSel.addEventListener('change', function () { savePatch({ vendorId: vendorSel.value }, 'เปลี่ยน Vendor'); });
+    var cycleInput = tr.querySelector('.po-cycle');
+    if (cycleInput) cycleInput.addEventListener('change', function () { savePatch({ deliveryCycle: cycleInput.value.trim() }, 'เปลี่ยนรอบส่ง'); });
+    var notesInput = tr.querySelector('.po-notes');
+    if (notesInput) notesInput.addEventListener('change', function () { savePatch({ notes: notesInput.value.trim() }, 'เพิ่มหมายเหตุ'); });
+
+    var resetBtn = tr.querySelector('.po-reset');
+    if (resetBtn) guardClick(resetBtn, function () {
+      var suggested = toNum(tr.children[1].textContent);
+      return savePatch({ qtyOrdered: suggested, skipped: false }, 'ใช้ค่าระบบ');
+    });
+    var incBtn = tr.querySelector('.po-inc');
+    if (incBtn) guardClick(incBtn, function () { return savePatch({ qtyOrdered: toNum(qtyInput.value) + 1 }, 'เพิ่มจำนวน'); });
+    var decBtn = tr.querySelector('.po-dec');
+    if (decBtn) guardClick(decBtn, function () { return savePatch({ qtyOrdered: Math.max(0, toNum(qtyInput.value) - 1) }, 'ลดจำนวน'); });
+    var skipBtn = tr.querySelector('.po-skip');
+    if (skipBtn) guardClick(skipBtn, function () { return savePatch({ qtyOrdered: 0, skipped: true }, 'งดสั่ง'); });
+    var useStockBtn = tr.querySelector('.po-usestock');
+    if (useStockBtn) guardClick(useStockBtn, function () { return savePatch({ qtyOrdered: 0, skipped: true }, 'มีในสต๊อกเพียงพอ ใช้ของในสต๊อกแทนการสั่งซื้อ'); });
+
+    var histBtn = tr.querySelector('.po-hist');
+    guardClick(histBtn, function () {
+      return apiAuth('apiGetPurchaseOrderItemHistory', poItemId).then(function (rows) {
+        document.querySelector('#po-history-table tbody').innerHTML = rows.length ? rows.map(function (h) {
+          return '<tr><td>' + escapeHtml(h.field) + '</td><td>' + escapeHtml(h.oldValue) + '</td><td>' + escapeHtml(h.newValue) + '</td>' +
+            '<td>' + escapeHtml(h.editedBy) + '</td><td>' + h.editedAt + '</td><td>' + escapeHtml(h.reason || '-') + '</td></tr>';
+        }).join('') : '<tr><td colspan="6" style="text-align:center;color:var(--muted);">ยังไม่มีประวัติการแก้ไข</td></tr>';
+        openModal('modal-po-history');
+      });
+    });
+  });
+}
+
+guardClick(document.getElementById('po-download-pdf'), function () {
+  return apiAuth('apiGeneratePurchaseOrderPdf', APP.currentPo.poId).then(function (res) {
+    toast('สร้าง PDF สำเร็จ', 'success');
+    window.open(res.url, '_blank');
+  });
+});
+guardClick(document.getElementById('po-approve'), function () {
+  return confirmDialog('ยืนยันการอนุมัติใบสั่งซื้อนี้ใช่หรือไม่?').then(function (ok) {
+    if (!ok) return;
+    return apiAuth('apiApprovePurchaseOrder', APP.currentPo.poId).then(function () {
+      toast('อนุมัติสำเร็จ', 'success');
+      closeModal('modal-po-detail');
+      loadPoList();
+    });
+  });
+});
+
+/* ==================================================================
+ * คู่มือครัวประจำวัน (Kitchen Today) + QR Code
+ * ================================================================== */
+function loadKitchenToday() {
+  if (!document.getElementById('kt-date').value) document.getElementById('kt-date').value = todayLocalStr();
+  var sel = document.getElementById('kt-timeslot');
+  if (sel.options.length <= 1) {
+    sel.innerHTML = '<option value="">ทุกช่วงเวลา</option>' +
+      APP.timeSlots.map(function (t) { return '<option value="' + t.TimeSlotID + '">' + escapeHtml(t.TimeSlotName) + '</option>'; }).join('');
+  }
+  renderKitchenToday();
+}
+document.getElementById('kt-date').addEventListener('change', renderKitchenToday);
+document.getElementById('kt-timeslot').addEventListener('change', renderKitchenToday);
+
+function renderKitchenToday() {
+  var date = document.getElementById('kt-date').value;
+  var timeSlotId = document.getElementById('kt-timeslot').value;
+  apiAuth('apiGetKitchenToday', date, timeSlotId).then(function (items) {
+    document.getElementById('kitchen-empty').classList.toggle('hidden', items.length > 0);
+    document.getElementById('kitchen-list').innerHTML = items.map(function (it) {
+      var qrUrl = '';
+      var deepLink = '';
+      if (it.recipeId && APP.webAppUrl) {
+        deepLink = APP.webAppUrl + '?recipeId=' + encodeURIComponent(it.recipeId);
+        qrUrl = 'https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=' + encodeURIComponent(deepLink);
+      }
+      var ingRows = (it.scaledIngredients || []).map(function (si) {
+        return '<tr><td>' + escapeHtml(si.ingredientName) + '</td><td>' + si.roundedQty + ' ' + escapeHtml(si.unit) + '</td></tr>';
+      }).join('');
+      return '<div class="kitchen-card">' +
+        '<h3>' + escapeHtml(it.menuName) + ' <span style="font-weight:400;color:var(--muted);font-size:13px;">(' + escapeHtml(it.location || '') + ')</span></h3>' +
+        '<p>จำนวนที่ต้องผลิต: กะเช้า ' + it.qtyMorning + ' + กะดึก ' + it.qtyNight + ' = <b>' + it.qtyTotal + ' ที่</b></p>' +
+        (it.scaledIngredients ? '<div class="table-wrap"><table><thead><tr><th>วัตถุดิบ</th><th>ปริมาณตามจำนวนจริง</th></tr></thead><tbody>' + ingRows + '</tbody></table></div>' : '<p style="color:var(--muted);">เมนูนี้ยังไม่ได้ผูกกับสูตรอาหาร</p>') +
+        (it.steps ? '<p><b>ขั้นตอนการทำ:</b><br>' + escapeHtml(it.steps).replace(/\n/g, '<br>') + '</p>' : '') +
+        (it.servingMethod ? '<p><b>วิธีจัดเสิร์ฟ:</b> ' + escapeHtml(it.servingMethod) + '</p>' : '') +
+        (it.qcPoints ? '<p><b>จุดควบคุมคุณภาพ:</b> ' + escapeHtml(it.qcPoints) + (it.temperature ? ' | อุณหภูมิ: ' + escapeHtml(it.temperature) : '') + '</p>' : '') +
+        (it.notes ? '<p><b>หมายเหตุจากหัวหน้า:</b> ' + escapeHtml(it.notes) + '</p>' : '') +
+        (qrUrl ? '<div class="kitchen-qr"><img src="' + qrUrl + '" alt="QR Code"><span style="font-size:12px;color:var(--muted);word-break:break-all;">สแกนเพื่อเปิดสูตรอาหารนี้โดยตรง<br>' + escapeHtml(deepLink) + '</span></div>' : '') +
+        '</div>';
+    }).join('');
+  });
+}
+
+/* ==================================================================
+ * ใบประกาศเมนู (Menu Poster)
+ * ================================================================== */
+var DAY_NAME_EN = { 'จันทร์': 'Monday', 'อังคาร': 'Tuesday', 'พุธ': 'Wednesday', 'พฤหัสบดี': 'Thursday', 'ศุกร์': 'Friday', 'เสาร์': 'Saturday', 'อาทิตย์': 'Sunday' };
+
+function loadPoster() {
+  if (!document.getElementById('poster-date').value) document.getElementById('poster-date').value = todayLocalStr();
+  renderPoster();
+}
+document.getElementById('poster-date').addEventListener('change', renderPoster);
+document.getElementById('poster-lang').addEventListener('change', renderPoster);
+
+function renderPoster() {
+  var date = document.getElementById('poster-date').value;
+  var lang = document.getElementById('poster-lang').value;
+  apiAuth('apiGetMenuAnnouncement', date).then(function (data) {
+    var title = lang === 'en' ? 'Weekly Menu Announcement' : 'ใบประกาศเมนูประจำสัปดาห์';
+    var html = '<div class="poster-header"><h1>' + escapeHtml(data.companyName) + ' — ' + title + '</h1>' +
+      '<span>' + data.weekStart + ' – ' + data.weekEnd + '</span></div>' +
+      '<div class="poster-grid">' + data.days.map(function (day) {
+        var dayLabel = lang === 'en' ? (DAY_NAME_EN[day.dayName] || day.dayName) : ('วัน' + day.dayName);
+        var slots = day.cells.filter(function (c) { return c.items.length > 0; }).map(function (c) {
+          return '<div class="poster-slot"><b>' + escapeHtml(c.timeSlotName) + ':</b> <span contenteditable="true">' + escapeHtml(c.items.join(', ')) + '</span></div>';
+        }).join('');
+        return '<div class="poster-day"><h4>' + dayLabel + ' (' + shortDate(day.date) + ')</h4>' + (slots || '<p style="color:var(--muted);font-size:12.5px;">- ไม่มีเมนู -</p>') + '</div>';
+      }).join('') + '</div>';
+    document.getElementById('poster-content').innerHTML = html;
+  });
+}
+
+document.getElementById('btn-print-poster').addEventListener('click', function () { window.print(); });
+
+/* ==================================================================
+ * รายงาน (Reports)
+ * ================================================================== */
+var REPORT_TYPES = {
+  cost: { label: 'ต้นทุนรายวัน', api: 'apiReportCostByRange', needsRange: true, columns: ['วันที่', 'ต้นทุน (บาท)'], mapRow: function (r) { return [r.date, r.cost]; } },
+  costbymenu: { label: 'ต้นทุนต่อเมนู', api: 'apiReportCostByMenu', needsRange: true, columns: ['เมนู', 'จำนวนรวม', 'ต้นทุนรวม (บาท)', 'ต้นทุนต่อที่ (บาท)'], mapRow: function (r) { return [r.menuName, r.qtyTotal, r.cost, r.costPerPortion]; } },
+  vendor: { label: 'ยอดซื้อตาม Vendor', api: 'apiReportPurchaseByVendor', needsRange: true, columns: ['Vendor', 'ยอดซื้อรวม (บาท)'], mapRow: function (r) { return [r.vendorName, r.totalAmount]; } },
+  usage: { label: 'วัตถุดิบใช้จริงเทียบมาตรฐาน', api: 'apiReportUsageVsStandard', needsRange: true, columns: ['วัตถุดิบ', 'หน่วย', 'ตามสูตร', 'ใช้จริง', 'ส่วนต่าง'], mapRow: function (r) { return [r.ingredientName, r.unit, r.standardQty, r.actualQty, r.diff]; } },
+  adjustments: { label: 'รายการปรับเพิ่ม/ลดบ่อย', api: 'apiReportFrequentAdjustments', needsRange: true, columns: ['วัตถุดิบ', 'จำนวนครั้งที่แก้ไข'], mapRow: function (r) { return [r.ingredientName, r.editCount]; } },
+  waste: { label: 'ของเสีย', api: 'apiReportWaste', needsRange: true, columns: ['วันที่', 'วัตถุดิบ', 'หน่วย', 'จำนวน', 'เหตุผล', 'ผู้บันทึก'], mapRow: function (r) { return [r.date, r.ingredientName, r.unit, r.qty, r.reason, r.recordedBy]; } },
+  expired: { label: 'ของหมดอายุ', api: 'apiReportExpired', needsRange: true, columns: ['วันที่', 'วัตถุดิบ', 'หน่วย', 'จำนวน', 'เหตุผล', 'ผู้บันทึก'], mapRow: function (r) { return [r.date, r.ingredientName, r.unit, r.qty, r.reason, r.recordedBy]; } },
+  stockonhand: { label: 'สต๊อกคงเหลือ', api: 'apiReportStockOnHand', noRange: true, columns: ['วัตถุดิบ', 'หมวดหมู่', 'คงเหลือรวม', 'Safety Stock', 'จำนวนล็อต', 'วันหมดอายุใกล้สุด'], mapRow: function (r) { return [r.ingredientName, r.category, r.totalRemaining, r.safetyStock, r.lotCount, r.nearestExpiry]; } },
+  pricehistory: { label: 'ประวัติราคา', api: 'apiReportPriceHistory', needsIngredient: true, columns: ['วันที่', 'ราคาต่อหน่วย', 'Lot'], mapRow: function (r) { return [r.date, r.pricePerUnit, r.lotNumber]; } }
+};
+
+document.querySelectorAll('#view-reports .tab-btn').forEach(function (btn) {
+  btn.addEventListener('click', function () {
+    document.querySelectorAll('#view-reports .tab-btn').forEach(function (b) { b.classList.toggle('active', b === btn); });
+    REPORT_STATE.type = btn.getAttribute('data-report');
+    var cfg = REPORT_TYPES[REPORT_STATE.type];
+    document.getElementById('rpt-ingredient').classList.toggle('hidden', !cfg.needsIngredient);
+    document.getElementById('rpt-from').classList.toggle('hidden', !cfg.needsRange);
+    document.getElementById('rpt-to').classList.toggle('hidden', !cfg.needsRange);
+    loadReport();
+  });
+});
+document.getElementById('btn-rpt-load').addEventListener('click', loadReport);
+
+function loadReport() {
+  var cfg = REPORT_TYPES[REPORT_STATE.type];
+  if (!document.getElementById('rpt-from').value) {
+    document.getElementById('rpt-to').value = todayLocalStr();
+    document.getElementById('rpt-from').value = toDateStr(addDaysToDate(new Date(), -6));
+  }
+  if (cfg.needsIngredient && document.getElementById('rpt-ingredient').options.length === 0) {
+    document.getElementById('rpt-ingredient').innerHTML = ingredientOptions('');
+  }
+  var promise;
+  if (cfg.needsIngredient) {
+    var ingId = document.getElementById('rpt-ingredient').value;
+    if (!ingId) {
+      REPORT_STATE.title = cfg.label; REPORT_STATE.columns = cfg.columns; REPORT_STATE.rows = [];
+      renderReportTable(cfg.columns, []);
+      return;
+    }
+    promise = apiAuth(cfg.api, ingId);
+  } else if (cfg.noRange) {
+    promise = apiAuth(cfg.api);
+  } else {
+    promise = apiAuth(cfg.api, document.getElementById('rpt-from').value, document.getElementById('rpt-to').value);
+  }
+  promise.then(function (rows) {
+    var mapped = rows.map(cfg.mapRow);
+    REPORT_STATE.title = cfg.label; REPORT_STATE.columns = cfg.columns; REPORT_STATE.rows = mapped;
+    renderReportTable(cfg.columns, mapped);
+  });
+}
+
+function renderReportTable(columns, rows) {
+  document.querySelector('#report-table thead').innerHTML = '<tr>' + columns.map(function (c) { return '<th>' + escapeHtml(c) + '</th>'; }).join('') + '</tr>';
+  document.querySelector('#report-table tbody').innerHTML = rows.map(function (r) {
+    return '<tr>' + r.map(function (v) { return '<td>' + escapeHtml(v) + '</td>'; }).join('') + '</tr>';
+  }).join('');
+  document.getElementById('report-empty').classList.toggle('hidden', rows.length > 0);
+}
+
+document.getElementById('btn-export-csv').addEventListener('click', function () {
+  if (!REPORT_STATE.rows.length) { toast('ไม่มีข้อมูลให้ส่งออก', 'error'); return; }
+  downloadCsv(REPORT_STATE.title + '.csv', REPORT_STATE.columns, REPORT_STATE.rows);
+});
+guardClick(document.getElementById('btn-export-pdf'), function () {
+  if (!REPORT_STATE.rows.length) { toast('ไม่มีข้อมูลให้ส่งออก', 'error'); return Promise.resolve(); }
+  return apiAuth('apiExportReport', REPORT_STATE.title, REPORT_STATE.columns, REPORT_STATE.rows, 'pdf').then(function (res) { window.open(res.url, '_blank'); });
+});
+guardClick(document.getElementById('btn-export-xlsx'), function () {
+  if (!REPORT_STATE.rows.length) { toast('ไม่มีข้อมูลให้ส่งออก', 'error'); return Promise.resolve(); }
+  return apiAuth('apiExportReport', REPORT_STATE.title, REPORT_STATE.columns, REPORT_STATE.rows, 'xlsx').then(function (res) { window.open(res.url, '_blank'); });
+});
+
+function downloadCsv(filename, columns, rows) {
+  var csv = columns.map(csvEscape).join(',') + '\n' + rows.map(function (r) { return r.map(csvEscape).join(','); }).join('\n');
+  var blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a');
+  a.href = url; a.download = filename; document.body.appendChild(a); a.click(); a.remove();
+  URL.revokeObjectURL(url);
+}
+function csvEscape(v) {
+  var s = String(v == null ? '' : v);
+  if (/[",\n]/.test(s)) s = '"' + s.replace(/"/g, '""') + '"';
+  return s;
+}
 
 /* ==================================================================
  * Utility functions
