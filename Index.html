@@ -25,8 +25,8 @@
     background:linear-gradient(135deg,var(--blue-900),var(--blue-700));padding:20px;}
   .login-card{background:var(--white);border-radius:var(--radius);box-shadow:var(--shadow);
     padding:32px 28px;width:100%;max-width:380px;text-align:center;}
-  .login-card .logo{width:64px;height:64px;border-radius:16px;background:var(--blue-700);color:#fff;
-    display:flex;align-items:center;justify-content:center;font-size:28px;font-weight:700;margin:0 auto 14px;}
+  .login-logo-img{width:150px;max-width:70%;height:auto;display:block;margin:0 auto 14px;}
+  .poster-logo-img{height:44px;width:auto;margin-right:12px;}
   .login-card h1{font-size:19px;color:var(--blue-900);}
   .login-card p.sub{color:var(--muted);font-size:13px;margin-bottom:20px;}
   .field{text-align:left;margin-bottom:14px;}
@@ -62,7 +62,8 @@
   .nav-item:hover{background:var(--blue-50);}
   .nav-item.active{background:var(--blue-700);color:#fff;font-weight:600;}
   .main-content{flex:1;padding:18px;min-width:0;overflow-x:hidden;}
-  .breadcrumb{font-size:13px;color:var(--muted);margin-bottom:14px;}
+  .breadcrumb{font-size:13px;color:var(--muted);margin-bottom:14px;display:flex;align-items:center;}
+  .breadcrumb #btn-back{font-size:13px;padding:4px 8px;}
   @media(max-width:840px){
     .sidebar{position:fixed;left:-250px;top:58px;bottom:0;z-index:30;transition:left .2s;box-shadow:2px 0 12px rgba(0,0,0,.15);}
     .sidebar.open{left:0;}
@@ -169,6 +170,8 @@
   @keyframes spin{to{transform:rotate(360deg);}}
   .empty-state{text-align:center;padding:40px 16px;color:var(--muted);}
   .empty-state .icon{font-size:40px;margin-bottom:8px;}
+  .pager{display:flex;align-items:center;justify-content:center;gap:10px;margin-top:12px;flex-wrap:wrap;}
+  .pager span{font-size:12.5px;color:var(--muted);}
 
   /* ---------- Tabs (ใช้ในหน้าค่ามาตรฐาน/สต๊อก/รายงาน) ---------- */
   .tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px;border-bottom:1.5px solid var(--border);}
@@ -215,7 +218,7 @@
   <!-- ===================== หน้าเข้าสู่ระบบ ===================== -->
   <div id="login-screen" class="login-screen">
     <div class="login-card">
-      <div class="logo">M</div>
+      <img class="login-logo-img" src="<?= logoDataUri ?>" alt="MEKTEC">
       <h1>MEKTEC Canteen Menu &amp; Purchasing System</h1>
       <p class="sub">ระบบบริหารเมนูอาหาร สูตรอาหาร วัตถุดิบ และใบสั่งซื้อ</p>
       <form id="login-form">
@@ -260,7 +263,10 @@
         <button class="nav-item hidden" id="nav-users" data-view="users">👤 ผู้ใช้งาน</button>
       </nav>
       <main class="main-content">
-        <div class="breadcrumb" id="breadcrumb">แดชบอร์ด</div>
+        <div class="breadcrumb" id="breadcrumb-bar">
+          <button class="icon-btn hidden" id="btn-back" title="ย้อนกลับ" style="margin-right:6px;">&larr; ย้อนกลับ</button>
+          <span id="breadcrumb">แดชบอร์ด</span>
+        </div>
 
         <!-- ---------- Dashboard ---------- -->
         <section id="view-dashboard" class="view active">
@@ -323,6 +329,7 @@
           </div>
           <div class="recipe-grid" id="recipe-grid"></div>
           <p class="empty-state hidden" id="recipe-empty"><span class="icon">📖</span><br>ไม่พบสูตรอาหารที่ค้นหา</p>
+          <div class="pager" id="recipe-pager"></div>
         </section>
 
         <!-- ---------- ค่ามาตรฐาน & วัตถุดิบ ---------- -->
@@ -342,6 +349,7 @@
                 <th>ปัดหน่วย</th><th>ขั้นต่ำสั่งซื้อ</th><th>Safety Stock</th><th>สถานะ</th><th></th></tr></thead>
               <tbody></tbody>
             </table></div>
+            <div class="pager" id="ingredients-pager"></div>
           </div>
           <div class="tab-pane" id="tab-stdsettings">
             <div class="toolbar">
@@ -367,6 +375,7 @@
             <thead><tr><th>ชื่อ Vendor</th><th>ผู้ติดต่อ</th><th>เบอร์โทร</th><th>วันสั่งซื้อ</th><th>วันส่งสินค้า</th><th>สถานะ</th><th></th></tr></thead>
             <tbody></tbody>
           </table></div>
+          <div class="pager" id="vendors-pager"></div>
         </section>
 
         <!-- ---------- สต๊อก (Stock) ---------- -->
@@ -468,6 +477,7 @@
               <thead><tr><th>วันที่</th><th>ประเภท</th><th>วัตถุดิบ</th><th>จำนวน</th><th>หมายเหตุ</th><th>ผู้บันทึก</th></tr></thead>
               <tbody></tbody>
             </table></div>
+            <div class="pager" id="stock-history-pager"></div>
           </div>
         </section>
 
@@ -483,6 +493,7 @@
             <tbody></tbody>
           </table></div>
           <p class="empty-state hidden" id="po-empty"><span class="icon">🧾</span><br>ยังไม่มีใบสั่งซื้อสำหรับวันที่นี้</p>
+          <div class="pager" id="po-list-pager"></div>
         </section>
 
         <!-- ---------- คู่มือครัวประจำวัน (Kitchen Today) ---------- -->
@@ -510,6 +521,8 @@
         <section id="view-reports" class="view">
           <div class="tabs">
             <button class="tab-btn active" data-report="cost">ต้นทุนรายวัน</button>
+            <button class="tab-btn" data-report="costweekly">ต้นทุนรายสัปดาห์</button>
+            <button class="tab-btn" data-report="costmonthly">ต้นทุนรายเดือน</button>
             <button class="tab-btn" data-report="costbymenu">ต้นทุนต่อเมนู</button>
             <button class="tab-btn" data-report="vendor">ยอดซื้อตาม Vendor</button>
             <button class="tab-btn" data-report="usage">วัตถุดิบใช้จริงเทียบมาตรฐาน</button>
@@ -530,6 +543,7 @@
           </div>
           <div class="table-wrap"><table id="report-table"><thead></thead><tbody></tbody></table></div>
           <p class="empty-state hidden" id="report-empty"><span class="icon">📈</span><br>ไม่มีข้อมูลในช่วงที่เลือก</p>
+          <div class="pager" id="report-pager"></div>
         </section>
 
         <!-- ---------- Users ---------- -->
@@ -542,6 +556,7 @@
             <thead><tr><th>ชื่อผู้ใช้งาน</th><th>รหัสพนักงาน</th><th>ชื่อ-สกุล</th><th>สิทธิ์</th><th>สถานะ</th><th></th></tr></thead>
             <tbody></tbody>
           </table></div>
+          <div class="pager" id="users-pager"></div>
         </section>
 
       </main>
@@ -569,12 +584,13 @@
         </div>
         <p style="color:var(--blue-900);font-weight:600;">รวมทั้งหมด: <span id="mi-qty-total">0</span> ที่</p>
         <div class="field"><label>หมายเหตุ</label><textarea id="mi-notes" rows="2" maxlength="200"></textarea></div>
+        <p id="mi-autosave-status" style="font-size:12px;color:var(--muted);min-height:16px;"></p>
       </div>
       <div class="modal-footer">
         <button class="btn btn-danger btn-sm hidden" id="mi-delete">ลบเมนูนี้</button>
         <span class="spacer"></span>
-        <button class="btn btn-secondary" data-close="modal-menuitem">ยกเลิก</button>
-        <button class="btn btn-primary" id="mi-save">บันทึก</button>
+        <button class="btn btn-secondary" data-close="modal-menuitem">ปิด</button>
+        <button class="btn btn-primary" id="mi-save">บันทึกและปิด</button>
       </div>
     </div>
   </div>
@@ -769,6 +785,10 @@
         </div>
         <div class="field"><label>เงื่อนไขการสั่งซื้อ</label><input type="text" id="ven-terms"></div>
         <div class="field"><label>หมายเหตุ</label><textarea id="ven-notes" rows="2"></textarea></div>
+        <div class="field hidden" id="ven-ingredients-wrap">
+          <label>รายการวัตถุดิบที่จำหน่ายโดย Vendor นี้</label>
+          <div class="table-wrap"><table><tbody id="ven-ingredients-list"></tbody></table></div>
+        </div>
       </div>
       <div class="modal-footer">
         <button class="btn btn-danger btn-sm hidden" id="ven-deactivate">ปิดใช้งาน</button>
@@ -781,18 +801,26 @@
 
   <!-- ===================== Modal: รายละเอียดใบสั่งซื้อ ===================== -->
   <div class="modal-backdrop hidden" id="modal-po-detail">
-    <div class="modal" style="max-width:920px;">
+    <div class="modal" style="max-width:1180px;">
       <div class="modal-header"><h2 id="po-title">ใบสั่งซื้อ</h2><button class="icon-btn" data-close="modal-po-detail">&times;</button></div>
       <div class="modal-body">
         <p id="po-meta" style="color:var(--muted);font-size:13px;"></p>
+        <div class="field" style="max-width:320px;"><label>ผู้ตรวจสอบ</label>
+          <div class="row" style="display:flex;gap:6px;">
+            <input type="text" id="po-reviewer" placeholder="ชื่อผู้ตรวจสอบ">
+            <button class="btn btn-secondary btn-sm" id="po-save-reviewer">บันทึก</button>
+          </div>
+        </div>
         <div class="table-wrap"><table id="po-items-table">
-          <thead><tr><th>รายการ</th><th>แนะนำ</th><th>สั่งจริง</th><th>หน่วย</th><th>ราคา/หน่วย</th><th>รวม</th>
+          <thead><tr><th>รายการ</th><th>ตามสูตร</th><th>ค่าเผื่อ</th><th>สต๊อกคงเหลือ</th><th>Safety Stock</th>
+            <th>แนะนำ</th><th>สั่งจริง</th><th>ส่วนต่าง</th><th>หน่วย</th><th>ราคา/หน่วย</th><th>รวม</th>
             <th>Vendor</th><th>รอบส่ง</th><th>หมายเหตุ</th><th>การดำเนินการ</th></tr></thead>
           <tbody></tbody>
         </table></div>
         <p style="margin-top:10px;font-weight:700;color:var(--blue-900);">ยอดรวมทั้งใบ: <span id="po-total">0</span> บาท</p>
       </div>
       <div class="modal-footer">
+        <button class="btn btn-outline btn-sm" id="po-preview-pdf">👁️ ดูตัวอย่างก่อนสร้าง PDF</button>
         <button class="btn btn-outline btn-sm" id="po-download-pdf">📄 สร้าง / ดาวน์โหลด PDF</button>
         <button class="btn btn-secondary btn-sm" id="po-approve">✅ อนุมัติใบสั่งซื้อ</button>
         <span class="spacer"></span>
@@ -812,6 +840,20 @@
         </table></div>
       </div>
       <div class="modal-footer"><button class="btn btn-secondary" data-close="modal-po-history">ปิด</button></div>
+    </div>
+  </div>
+
+  <!-- ===================== Modal: ตัวอย่างใบสั่งซื้อก่อนสร้าง PDF ===================== -->
+  <div class="modal-backdrop hidden" id="modal-po-preview">
+    <div class="modal" style="max-width:800px;">
+      <div class="modal-header"><h2>ตัวอย่างใบสั่งซื้อ</h2><button class="icon-btn" data-close="modal-po-preview">&times;</button></div>
+      <div class="modal-body">
+        <div id="po-preview-content" style="background:#fff;border:1px solid var(--border);padding:20px;"></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" data-close="modal-po-preview">ปิด</button>
+        <button class="btn btn-primary" id="po-preview-confirm">ยืนยันสร้าง PDF</button>
+      </div>
     </div>
   </div>
 
@@ -873,6 +915,7 @@ var APP = {
 
 // ลิงก์ลึกจาก QR Code: ถ้ามาพร้อม ?recipeId=... จะเปิดหน้าสูตรอาหารนั้นทันทีหลังเข้าสู่ระบบ
 var DEEPLINK_RECIPE_ID = '<?= deepLinkRecipeId ?>';
+var LOGO_DATA_URI = '<?= logoDataUri ?>';
 
 var REPORT_STATE = { type: 'cost', title: '', columns: [], rows: [] };
 
@@ -900,6 +943,15 @@ function api(fnName) {
     showLoading(false);
     toast(err.message || 'เกิดข้อผิดพลาดในการเชื่อมต่อกับเซิร์ฟเวอร์', 'error');
     throw err;
+  });
+}
+
+/* เรียก server แบบเงียบ (ไม่แสดง loading overlay เต็มจอ/ไม่ toast error) ใช้กับการรีเฟรชข้อมูลเบื้องหลัง เช่น หลังบันทึกอัตโนมัติ */
+function apiSilent(fnName) {
+  var args = Array.prototype.slice.call(arguments, 1);
+  return callServer(fnName, args).then(function (res) {
+    if (!res || !res.success) throw new Error((res && res.message) || 'เกิดข้อผิดพลาด');
+    return res.data;
   });
 }
 function apiAuth(fnName) {
@@ -942,7 +994,12 @@ function confirmDialog(message) {
 function openModal(id) { document.getElementById(id).classList.remove('hidden'); }
 function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
 document.querySelectorAll('[data-close]').forEach(function (btn) {
-  btn.addEventListener('click', function () { closeModal(btn.getAttribute('data-close')); });
+  btn.addEventListener('click', function () {
+    var id = btn.getAttribute('data-close');
+    // ก่อนปิดหน้าต่างวางเมนู ให้บันทึกการแก้ไขล่าสุดที่ยังรอบันทึกอัตโนมัติอยู่ก่อนเสมอ (กันข้อมูลหาย)
+    if (id === 'modal-menuitem' && miAutosaveTimer) { clearTimeout(miAutosaveTimer); runMiAutosave(); }
+    closeModal(id);
+  });
 });
 
 /* ป้องกันการกดปุ่มซ้ำ: ปิดปุ่มระหว่างรอผลลัพธ์จากเซิร์ฟเวอร์ */
@@ -978,6 +1035,7 @@ document.getElementById('btn-logout').addEventListener('click', function () {
     try { localStorage.removeItem('mektec_token'); } catch (e) {}
     document.getElementById('app-shell').classList.add('hidden');
     document.getElementById('login-screen').classList.remove('hidden');
+    VIEW_HISTORY = []; CURRENT_VIEW = null;
   });
 });
 
@@ -1027,8 +1085,19 @@ document.getElementById('sidebar-scrim').addEventListener('click', function () {
   document.getElementById('sidebar').classList.remove('open');
   document.getElementById('sidebar-scrim').classList.add('hidden');
 });
+document.getElementById('btn-back').addEventListener('click', function () {
+  if (VIEW_HISTORY.length === 0) return;
+  showView(VIEW_HISTORY.pop(), true);
+});
 
-function showView(name) {
+var CURRENT_VIEW = null;
+var VIEW_HISTORY = [];
+
+function showView(name, isBackNavigation) {
+  if (!isBackNavigation && CURRENT_VIEW && CURRENT_VIEW !== name) VIEW_HISTORY.push(CURRENT_VIEW);
+  CURRENT_VIEW = name;
+  document.getElementById('btn-back').classList.toggle('hidden', VIEW_HISTORY.length === 0);
+
   document.querySelectorAll('.nav-item').forEach(function (b) { b.classList.toggle('active', b.getAttribute('data-view') === name); });
   document.querySelectorAll('.view').forEach(function (v) { v.classList.remove('active'); });
   document.getElementById('view-' + name).classList.add('active');
@@ -1268,8 +1337,8 @@ function updateMiTotal() {
 document.getElementById('mi-qty-morning').addEventListener('input', updateMiTotal);
 document.getElementById('mi-qty-night').addEventListener('input', updateMiTotal);
 
-guardClick(document.getElementById('mi-save'), function () {
-  var payload = Object.assign({}, APP.currentMenuItem, {
+function collectMenuItemPayload() {
+  return Object.assign({}, APP.currentMenuItem, {
     recipeId: document.getElementById('mi-recipe').value,
     menuName: document.getElementById('mi-menuname').value.trim(),
     location: document.getElementById('mi-location').value,
@@ -1278,6 +1347,55 @@ guardClick(document.getElementById('mi-save'), function () {
     qtyNight: toNum(document.getElementById('mi-qty-night').value),
     notes: document.getElementById('mi-notes').value.trim()
   });
+}
+
+/* ---------------- บันทึกอัตโนมัติในหน้าวางแผนเมนู (debounce + กันบันทึกซ้อนกัน) ---------------- */
+var miAutosaveTimer = null;
+var miAutosaveInFlight = false;
+var miAutosavePending = false;
+
+function scheduleMiAutosave() {
+  if (!canEdit()) return;
+  clearTimeout(miAutosaveTimer);
+  document.getElementById('mi-autosave-status').textContent = 'กำลังพิมพ์...';
+  miAutosaveTimer = setTimeout(runMiAutosave, 900);
+}
+
+function runMiAutosave() {
+  if (miAutosaveInFlight) { miAutosavePending = true; return; }
+  var payload = collectMenuItemPayload();
+  if (!payload.recipeId && !payload.menuName) {
+    document.getElementById('mi-autosave-status').textContent = '';
+    return;
+  }
+  miAutosaveInFlight = true;
+  callServer('apiSaveMenuItem', [APP.token, payload]).then(function (res) {
+    if (!res || !res.success) throw new Error((res && res.message) || 'บันทึกอัตโนมัติไม่สำเร็จ');
+    APP.currentMenuItem.menuItemId = res.data.menuItemId;
+    document.getElementById('mi-delete').classList.toggle('hidden', !canEdit());
+    document.getElementById('mi-autosave-status').textContent =
+      'บันทึกอัตโนมัติแล้ว เมื่อ ' + new Date().toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' });
+    // รีเฟรชตารางเบื้องหลังเงียบ ๆ เพื่อให้เห็นชิปเมนูล่าสุดโดยไม่ต้องปิดหน้าต่างนี้ก่อน
+    apiSilent('apiGetWeeklyMenu', APP.token, APP.weekStart).then(function (wm) { APP.weeklyMenu = wm; renderWeekGrid(wm); }).catch(function () {});
+  }).catch(function (err) {
+    document.getElementById('mi-autosave-status').textContent = 'บันทึกอัตโนมัติไม่สำเร็จ: ' + (err.message || '');
+  }).finally(function () {
+    miAutosaveInFlight = false;
+    if (miAutosavePending) { miAutosavePending = false; runMiAutosave(); }
+  });
+}
+
+['mi-recipe', 'mi-location', 'mi-menutype'].forEach(function (id) {
+  document.getElementById(id).addEventListener('change', scheduleMiAutosave);
+});
+['mi-menuname', 'mi-qty-morning', 'mi-qty-night', 'mi-notes'].forEach(function (id) {
+  document.getElementById(id).addEventListener('input', scheduleMiAutosave);
+});
+
+guardClick(document.getElementById('mi-save'), function () {
+  clearTimeout(miAutosaveTimer);
+  var payload = collectMenuItemPayload();
+  if (!payload.recipeId && !payload.menuName) { toast('กรุณาเลือกเมนูหรือระบุชื่อเมนู', 'error'); return Promise.resolve(); }
   return apiAuth('apiSaveMenuItem', payload).then(function () {
     toast('บันทึกเมนูสำเร็จ', 'success');
     closeModal('modal-menuitem');
@@ -1351,7 +1469,8 @@ function loadRecipes() {
   });
 }
 
-function renderRecipeGrid() {
+function renderRecipeGrid(resetPage) {
+  if (resetPage) APP_PAGES.recipes = 1;
   var q = document.getElementById('recipe-search').value.trim().toLowerCase();
   var cat = document.getElementById('recipe-filter-category').value;
   var status = document.getElementById('recipe-filter-status').value;
@@ -1364,7 +1483,8 @@ function renderRecipeGrid() {
     return true;
   });
   document.getElementById('recipe-empty').classList.toggle('hidden', list.length > 0);
-  document.getElementById('recipe-grid').innerHTML = list.map(function (r) {
+  var pageItems = paginateArray(list, APP_PAGES.recipes);
+  document.getElementById('recipe-grid').innerHTML = pageItems.map(function (r) {
     return '<div class="recipe-card ' + (r.isComplete ? '' : 'incomplete') + '" data-id="' + r.recipeId + '">' +
       '<h3>' + escapeHtml(r.menuName) + '</h3>' +
       '<div class="meta">' + escapeHtml(r.category || '-') + ' · มาตรฐาน ' + r.standardQty + ' ' + escapeHtml(r.standardUnit) + '</div>' +
@@ -1375,6 +1495,7 @@ function renderRecipeGrid() {
   document.querySelectorAll('.recipe-card').forEach(function (card) {
     card.addEventListener('click', function () { openRecipeViewModal(card.getAttribute('data-id')); });
   });
+  renderPager('recipe-pager', list.length, APP_PAGES.recipes, function (p) { APP_PAGES.recipes = p; renderRecipeGrid(); });
 }
 
 document.getElementById('btn-new-recipe').addEventListener('click', function () { openRecipeEditModal(null); });
@@ -1550,29 +1671,39 @@ guardClick(document.getElementById('rc-delete'), function () {
 /* ==================================================================
  * ผู้ใช้งาน (Users) - Admin เท่านั้น
  * ================================================================== */
+var usersRows = [];
 function loadUsers() {
   apiAuth('apiGetUsers').then(function (users) {
-    document.querySelector('#users-table tbody').innerHTML = users.map(function (u) {
-      return '<tr><td>' + escapeHtml(u.username) + '</td><td>' + escapeHtml(u.employeeCode || '-') + '</td>' +
-        '<td>' + escapeHtml(u.fullName) + '</td><td>' + escapeHtml(u.role) + '</td>' +
-        '<td>' + (u.active ? '<span class="badge badge-ok">ใช้งาน</span>' : '<span class="badge badge-warn">ระงับ</span>') + '</td>' +
-        '<td><button class="btn btn-secondary btn-sm" data-edit="' + u.userId + '">แก้ไข</button> ' +
-        '<button class="btn btn-outline btn-sm" data-toggle="' + u.userId + '" data-active="' + u.active + '">' + (u.active ? 'ระงับ' : 'เปิดใช้งาน') + '</button></td></tr>';
-    }).join('');
-    document.querySelectorAll('[data-edit]').forEach(function (btn) {
-      btn.addEventListener('click', function () { openUserModal(users.filter(function (u) { return u.userId === btn.getAttribute('data-edit'); })[0]); });
-    });
-    document.querySelectorAll('[data-toggle]').forEach(function (btn) {
-      btn.addEventListener('click', function () {
-        var userId = btn.getAttribute('data-toggle');
-        var nextActive = btn.getAttribute('data-active') !== 'true';
-        confirmDialog((nextActive ? 'เปิดใช้งาน' : 'ระงับการใช้งาน') + 'บัญชีนี้ใช่หรือไม่?').then(function (ok) {
-          if (!ok) return;
-          apiAuth('apiSetUserActive', userId, nextActive).then(function () { toast('บันทึกสำเร็จ', 'success'); loadUsers(); });
-        });
+    usersRows = users;
+    APP_PAGES.users = 1;
+    renderUsersTable();
+  });
+}
+
+function renderUsersTable() {
+  var users = usersRows;
+  var pageItems = paginateArray(users, APP_PAGES.users);
+  document.querySelector('#users-table tbody').innerHTML = pageItems.map(function (u) {
+    return '<tr><td>' + escapeHtml(u.username) + '</td><td>' + escapeHtml(u.employeeCode || '-') + '</td>' +
+      '<td>' + escapeHtml(u.fullName) + '</td><td>' + escapeHtml(u.role) + '</td>' +
+      '<td>' + (u.active ? '<span class="badge badge-ok">ใช้งาน</span>' : '<span class="badge badge-warn">ระงับ</span>') + '</td>' +
+      '<td><button class="btn btn-secondary btn-sm" data-edit="' + u.userId + '">แก้ไข</button> ' +
+      '<button class="btn btn-outline btn-sm" data-toggle="' + u.userId + '" data-active="' + u.active + '">' + (u.active ? 'ระงับ' : 'เปิดใช้งาน') + '</button></td></tr>';
+  }).join('');
+  document.querySelectorAll('[data-edit]').forEach(function (btn) {
+    btn.addEventListener('click', function () { openUserModal(users.filter(function (u) { return u.userId === btn.getAttribute('data-edit'); })[0]); });
+  });
+  document.querySelectorAll('[data-toggle]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var userId = btn.getAttribute('data-toggle');
+      var nextActive = btn.getAttribute('data-active') !== 'true';
+      confirmDialog((nextActive ? 'เปิดใช้งาน' : 'ระงับการใช้งาน') + 'บัญชีนี้ใช่หรือไม่?').then(function (ok) {
+        if (!ok) return;
+        apiAuth('apiSetUserActive', userId, nextActive).then(function () { toast('บันทึกสำเร็จ', 'success'); loadUsers(); });
       });
     });
   });
+  renderPager('users-pager', users.length, APP_PAGES.users, function (p) { APP_PAGES.users = p; renderUsersTable(); });
 }
 
 document.getElementById('btn-new-user').addEventListener('click', function () { openUserModal(null); });
@@ -1628,10 +1759,12 @@ function loadStandards() {
 }
 document.getElementById('ing-search').addEventListener('input', renderIngredientsTable);
 
-function renderIngredientsTable() {
+function renderIngredientsTable(resetPage) {
+  if (resetPage) APP_PAGES.ingredients = 1;
   var q = document.getElementById('ing-search').value.trim().toLowerCase();
   var list = APP.ingredientsFull.filter(function (i) { return !q || i.name.toLowerCase().indexOf(q) !== -1; });
-  document.querySelector('#ingredients-table tbody').innerHTML = list.map(function (i) {
+  var pageItems = paginateArray(list, APP_PAGES.ingredients);
+  document.querySelector('#ingredients-table tbody').innerHTML = pageItems.map(function (i) {
     return '<tr><td>' + escapeHtml(i.name) + '</td><td>' + escapeHtml(i.category || '-') + '</td><td>' + escapeHtml(i.unit) + '</td>' +
       '<td>' + i.latestPrice.toLocaleString('th-TH') + '</td><td>' + i.wastePercent + '%</td><td>' + i.roundingUnit + '</td>' +
       '<td>' + i.minOrderQty + '</td><td>' + i.safetyStock + '</td>' +
@@ -1641,6 +1774,7 @@ function renderIngredientsTable() {
   document.querySelectorAll('[data-edit-ing]').forEach(function (btn) {
     btn.addEventListener('click', function () { openIngredientModal(APP.ingredientsFull.filter(function (i) { return i.ingredientId === btn.getAttribute('data-edit-ing'); })[0]); });
   });
+  renderPager('ingredients-pager', list.length, APP_PAGES.ingredients, function (p) { APP_PAGES.ingredients = p; renderIngredientsTable(); });
 }
 
 document.getElementById('btn-new-ingredient').addEventListener('click', function () { openIngredientModal(null); });
@@ -1773,10 +1907,12 @@ function loadVendors() {
   });
 }
 
-function renderVendorsTable() {
+function renderVendorsTable(resetPage) {
+  if (resetPage) APP_PAGES.vendors = 1;
   var q = document.getElementById('vendor-search').value.trim().toLowerCase();
   var list = APP.vendorsFull.filter(function (v) { return !q || v.vendorName.toLowerCase().indexOf(q) !== -1; });
-  document.querySelector('#vendors-table tbody').innerHTML = list.map(function (v) {
+  var pageItems = paginateArray(list, APP_PAGES.vendors);
+  document.querySelector('#vendors-table tbody').innerHTML = pageItems.map(function (v) {
     return '<tr><td>' + escapeHtml(v.vendorName) + '</td><td>' + escapeHtml(v.contactPerson || '-') + '</td>' +
       '<td>' + escapeHtml(v.phone || '-') + '</td><td>' + escapeHtml(v.orderDay || '-') + '</td><td>' + escapeHtml(v.deliveryDay || '-') + '</td>' +
       '<td>' + (v.active ? '<span class="badge badge-ok">ใช้งาน</span>' : '<span class="badge badge-warn">ปิดใช้งาน</span>') + '</td>' +
@@ -1785,6 +1921,7 @@ function renderVendorsTable() {
   document.querySelectorAll('[data-edit-ven]').forEach(function (btn) {
     btn.addEventListener('click', function () { openVendorModal(APP.vendorsFull.filter(function (v) { return v.vendorId === btn.getAttribute('data-edit-ven'); })[0]); });
   });
+  renderPager('vendors-pager', list.length, APP_PAGES.vendors, function (p) { APP_PAGES.vendors = p; renderVendorsTable(); });
 }
 
 document.getElementById('btn-new-vendor').addEventListener('click', function () { openVendorModal(null); });
@@ -1807,6 +1944,16 @@ function openVendorModal(v) {
   document.getElementById('ven-deactivate').classList.toggle('hidden', !v || !editable);
   document.getElementById('ven-save').classList.toggle('hidden', !editable);
   document.querySelectorAll('#modal-vendor input, #modal-vendor select, #modal-vendor textarea').forEach(function (el) { el.disabled = !editable; });
+
+  var wrap = document.getElementById('ven-ingredients-wrap');
+  wrap.classList.toggle('hidden', !v);
+  if (v) {
+    apiAuth('apiGetIngredientsByVendor', v.vendorId).then(function (list) {
+      document.getElementById('ven-ingredients-list').innerHTML = list.length
+        ? list.map(function (i) { return '<tr><td>' + escapeHtml(i.name) + '</td><td>' + escapeHtml(i.unit) + '</td><td>' + i.latestPrice.toLocaleString('th-TH') + ' บาท</td></tr>'; }).join('')
+        : '<tr><td style="color:var(--muted);">ยังไม่มีวัตถุดิบที่ตั้ง Vendor ประจำเป็นรายนี้</td></tr>';
+    });
+  }
   openModal('modal-vendor');
 }
 
@@ -2000,17 +2147,26 @@ function renderDisposeLots(ingredientId) {
 }
 
 document.getElementById('btn-hist-filter').addEventListener('click', loadStockHistory);
+var stockHistoryRows = [];
 function loadStockHistory() {
   var filters = {
     ingredientId: document.getElementById('hist-ingredient').value, transType: document.getElementById('hist-type').value,
     from: document.getElementById('hist-from').value, to: document.getElementById('hist-to').value
   };
   apiAuth('apiGetStockTransactions', filters).then(function (rows) {
-    document.querySelector('#stock-history-table tbody').innerHTML = rows.map(function (r) {
-      return '<tr><td>' + r.transDate + '</td><td>' + escapeHtml(r.transType) + '</td><td>' + escapeHtml(r.ingredientName) + '</td>' +
-        '<td>' + r.qty + '</td><td>' + escapeHtml(r.reason || '-') + '</td><td>' + escapeHtml(r.recordedBy) + '</td></tr>';
-    }).join('');
+    stockHistoryRows = rows;
+    APP_PAGES.stockHistory = 1;
+    renderStockHistoryTable();
   });
+}
+
+function renderStockHistoryTable() {
+  var pageItems = paginateArray(stockHistoryRows, APP_PAGES.stockHistory);
+  document.querySelector('#stock-history-table tbody').innerHTML = pageItems.map(function (r) {
+    return '<tr><td>' + r.transDate + '</td><td>' + escapeHtml(r.transType) + '</td><td>' + escapeHtml(r.ingredientName) + '</td>' +
+      '<td>' + r.qty + '</td><td>' + escapeHtml(r.reason || '-') + '</td><td>' + escapeHtml(r.recordedBy) + '</td></tr>';
+  }).join('');
+  renderPager('stock-history-pager', stockHistoryRows.length, APP_PAGES.stockHistory, function (p) { APP_PAGES.stockHistory = p; renderStockHistoryTable(); });
 }
 
 /* ==================================================================
@@ -2024,19 +2180,28 @@ function loadPurchaseOrders() {
 }
 document.getElementById('po-date').addEventListener('change', loadPoList);
 
+var poListRows = [];
 function loadPoList() {
   var date = document.getElementById('po-date').value;
   apiAuth('apiListPurchaseOrders', date).then(function (list) {
-    document.getElementById('po-empty').classList.toggle('hidden', list.length > 0);
-    document.querySelector('#po-list-table tbody').innerHTML = list.map(function (po) {
-      return '<tr><td>' + escapeHtml(po.poNumber) + '</td><td>' + escapeHtml(po.vendorName) + '</td><td>' + po.useDate + '</td>' +
-        '<td>' + escapeHtml(po.status) + '</td><td>' + po.totalAmount.toLocaleString('th-TH') + '</td>' +
-        '<td><button class="btn btn-secondary btn-sm" data-open-po="' + po.poId + '">ดู/แก้ไข</button></td></tr>';
-    }).join('');
-    document.querySelectorAll('[data-open-po]').forEach(function (btn) {
-      btn.addEventListener('click', function () { openPoDetail(btn.getAttribute('data-open-po')); });
-    });
+    poListRows = list;
+    APP_PAGES.poList = 1;
+    renderPoListTable();
   });
+}
+
+function renderPoListTable() {
+  document.getElementById('po-empty').classList.toggle('hidden', poListRows.length > 0);
+  var pageItems = paginateArray(poListRows, APP_PAGES.poList);
+  document.querySelector('#po-list-table tbody').innerHTML = pageItems.map(function (po) {
+    return '<tr><td>' + escapeHtml(po.poNumber) + '</td><td>' + escapeHtml(po.vendorName) + '</td><td>' + po.useDate + '</td>' +
+      '<td>' + escapeHtml(po.status) + '</td><td>' + po.totalAmount.toLocaleString('th-TH') + '</td>' +
+      '<td><button class="btn btn-secondary btn-sm" data-open-po="' + po.poId + '">ดู/แก้ไข</button></td></tr>';
+  }).join('');
+  document.querySelectorAll('[data-open-po]').forEach(function (btn) {
+    btn.addEventListener('click', function () { openPoDetail(btn.getAttribute('data-open-po')); });
+  });
+  renderPager('po-list-pager', poListRows.length, APP_PAGES.poList, function (p) { APP_PAGES.poList = p; renderPoListTable(); });
 }
 
 guardClick(document.getElementById('btn-generate-po'), function () {
@@ -2060,7 +2225,12 @@ function openPoDetail(poId) {
     APP.currentPo = po;
     document.getElementById('po-title').textContent = 'ใบสั่งซื้อ ' + po.poNumber;
     document.getElementById('po-meta').textContent = 'Vendor: ' + po.vendorName + ' | วันที่ใช้สินค้า: ' + po.useDate +
-      ' | สถานะ: ' + po.status + ' | ผู้จัดทำ: ' + po.createdBy;
+      ' | ช่วงเวลาใช้งาน: ' + (po.timeSlotsSummary || '-') + ' | สถานะ: ' + po.status + ' | ผู้จัดทำ: ' + po.createdBy +
+      (po.approvedBy ? ' | ผู้อนุมัติ: ' + po.approvedBy : '');
+    document.getElementById('po-reviewer').value = po.reviewedBy || '';
+    document.getElementById('po-reviewer').disabled = !canEdit();
+    document.getElementById('po-save-reviewer').classList.toggle('hidden', !canEdit());
+    document.getElementById('po-preview-pdf').classList.toggle('hidden', !canEdit());
     document.getElementById('po-download-pdf').classList.toggle('hidden', !canEdit());
     document.getElementById('po-approve').classList.toggle('hidden', !canEdit() || po.status === 'อนุมัติแล้ว');
     renderPoItemsTable(po);
@@ -2068,12 +2238,21 @@ function openPoDetail(poId) {
   });
 }
 
+guardClick(document.getElementById('po-save-reviewer'), function () {
+  return apiAuth('apiSetPurchaseOrderReviewer', APP.currentPo.poId, document.getElementById('po-reviewer').value.trim()).then(function () {
+    toast('บันทึกผู้ตรวจสอบสำเร็จ', 'success');
+  });
+});
+
 function renderPoItemsTable(po) {
   var canEditPo = canEdit();
   document.querySelector('#po-items-table tbody').innerHTML = po.items.map(function (it) {
-    return '<tr class="' + (it.skipped ? 'po-skipped' : '') + '" data-poitem="' + it.poItemId + '">' +
-      '<td>' + escapeHtml(it.ingredientName) + '</td><td>' + it.qtySuggested + '</td>' +
+    return '<tr class="' + (it.skipped ? 'po-skipped' : '') + '" data-poitem="' + it.poItemId + '" data-suggested="' + it.qtySuggested + '">' +
+      '<td>' + escapeHtml(it.ingredientName) + '</td>' +
+      '<td>' + it.baseQty + '</td><td>' + it.allowanceQty + '</td><td>' + it.stockAvailable + '</td><td>' + it.safetyStockQty + '</td>' +
+      '<td>' + it.qtySuggested + '</td>' +
       '<td><input type="number" class="po-qty" min="0" step="0.01" value="' + it.qtyOrdered + '" style="width:75px;" ' + (canEditPo ? '' : 'disabled') + '></td>' +
+      '<td class="' + (it.diff > 0 ? 'alert-red' : it.diff < 0 ? 'alert-yellow' : '') + '" style="border-radius:0;">' + (it.diff > 0 ? '+' : '') + it.diff + '</td>' +
       '<td>' + escapeHtml(it.unit) + '</td><td>' + it.pricePerUnit + '</td><td class="po-linetotal">' + it.totalPrice.toLocaleString('th-TH') + '</td>' +
       '<td><select class="po-vendor" ' + (canEditPo ? '' : 'disabled') + '>' + vendorOptions(it.vendorId) + '</select></td>' +
       '<td><input type="text" class="po-cycle" value="' + escapeHtml(it.deliveryCycle || '') + '" style="width:80px;" ' + (canEditPo ? '' : 'disabled') + '></td>' +
@@ -2102,7 +2281,7 @@ function renderPoItemsTable(po) {
 
     var resetBtn = tr.querySelector('.po-reset');
     if (resetBtn) guardClick(resetBtn, function () {
-      var suggested = toNum(tr.children[1].textContent);
+      var suggested = toNum(tr.getAttribute('data-suggested'));
       return savePatch({ qtyOrdered: suggested, skipped: false }, 'ใช้ค่าระบบ');
     });
     var incBtn = tr.querySelector('.po-inc');
@@ -2130,6 +2309,41 @@ function renderPoItemsTable(po) {
 guardClick(document.getElementById('po-download-pdf'), function () {
   return apiAuth('apiGeneratePurchaseOrderPdf', APP.currentPo.poId).then(function (res) {
     toast('สร้าง PDF สำเร็จ', 'success');
+    window.open(res.url, '_blank');
+  });
+});
+
+document.getElementById('po-preview-pdf').addEventListener('click', function () {
+  renderPoPreview(APP.currentPo);
+  openModal('modal-po-preview');
+});
+
+function renderPoPreview(po) {
+  var activeItems = po.items.filter(function (it) { return !it.skipped; });
+  var rows = activeItems.map(function (it, idx) {
+    return '<tr><td>' + (idx + 1) + '</td><td>' + escapeHtml(it.ingredientName) + '</td><td>' + it.qtyOrdered + '</td>' +
+      '<td>' + escapeHtml(it.unit) + '</td><td>' + it.pricePerUnit.toLocaleString('th-TH') + '</td>' +
+      '<td>' + it.totalPrice.toLocaleString('th-TH') + '</td><td>' + escapeHtml(it.notes || '') + '</td></tr>';
+  }).join('');
+  var total = activeItems.reduce(function (s, it) { return s + it.totalPrice; }, 0);
+  document.getElementById('po-preview-content').innerHTML =
+    '<div style="display:flex;align-items:center;gap:12px;border-bottom:2px solid var(--blue-700);padding-bottom:10px;margin-bottom:10px;">' +
+    (LOGO_DATA_URI ? '<img src="' + LOGO_DATA_URI + '" style="height:40px;">' : '') +
+    '<div><div style="font-weight:700;font-size:16px;">MEKTEC</div><div style="font-size:14px;">ใบสั่งซื้อ (Purchase Order)</div></div></div>' +
+    '<p style="font-size:13px;">เลขที่เอกสาร: ' + escapeHtml(po.poNumber) + ' | วันที่สั่งซื้อ: ' + po.orderDate + '<br>' +
+    'วันที่ใช้สินค้า: ' + po.useDate + ' | ช่วงเวลาใช้งาน: ' + escapeHtml(po.timeSlotsSummary || '-') + '<br>' +
+    'Vendor: ' + escapeHtml(po.vendorName) + '</p>' +
+    '<div class="table-wrap"><table><thead><tr><th>ลำดับ</th><th>รายการ</th><th>จำนวน</th><th>หน่วย</th><th>ราคาต่อหน่วย</th><th>ราคารวม</th><th>หมายเหตุ</th></tr></thead>' +
+    '<tbody>' + rows + '</tbody></table></div>' +
+    '<p style="text-align:right;font-weight:700;margin-top:8px;">รวมจำนวนเงิน: ' + total.toLocaleString('th-TH') + ' บาท</p>' +
+    '<p style="font-size:12.5px;color:var(--muted);margin-top:14px;">ผู้จัดทำ: ' + escapeHtml(po.createdBy || '-') +
+    ' &nbsp;|&nbsp; ผู้ตรวจสอบ: ' + escapeHtml(po.reviewedBy || '-') + ' &nbsp;|&nbsp; ผู้อนุมัติ: ' + escapeHtml(po.approvedBy || '-') + '</p>';
+}
+
+guardClick(document.getElementById('po-preview-confirm'), function () {
+  return apiAuth('apiGeneratePurchaseOrderPdf', APP.currentPo.poId).then(function (res) {
+    toast('สร้าง PDF สำเร็จ', 'success');
+    closeModal('modal-po-preview');
     window.open(res.url, '_blank');
   });
 });
@@ -2205,7 +2419,9 @@ function renderPoster() {
   var lang = document.getElementById('poster-lang').value;
   apiAuth('apiGetMenuAnnouncement', date).then(function (data) {
     var title = lang === 'en' ? 'Weekly Menu Announcement' : 'ใบประกาศเมนูประจำสัปดาห์';
-    var html = '<div class="poster-header"><h1>' + escapeHtml(data.companyName) + ' — ' + title + '</h1>' +
+    var html = '<div class="poster-header"><div style="display:flex;align-items:center;">' +
+      (LOGO_DATA_URI ? '<img class="poster-logo-img" src="' + LOGO_DATA_URI + '" alt="MEKTEC">' : '') +
+      '<h1>' + escapeHtml(data.companyName) + ' — ' + title + '</h1></div>' +
       '<span>' + data.weekStart + ' – ' + data.weekEnd + '</span></div>' +
       '<div class="poster-grid">' + data.days.map(function (day) {
         var dayLabel = lang === 'en' ? (DAY_NAME_EN[day.dayName] || day.dayName) : ('วัน' + day.dayName);
@@ -2225,6 +2441,8 @@ document.getElementById('btn-print-poster').addEventListener('click', function (
  * ================================================================== */
 var REPORT_TYPES = {
   cost: { label: 'ต้นทุนรายวัน', api: 'apiReportCostByRange', needsRange: true, columns: ['วันที่', 'ต้นทุน (บาท)'], mapRow: function (r) { return [r.date, r.cost]; } },
+  costweekly: { label: 'ต้นทุนรายสัปดาห์', api: 'apiReportCostByWeek', needsRange: true, columns: ['สัปดาห์เริ่ม', 'สัปดาห์สิ้นสุด', 'ต้นทุนรวม (บาท)'], mapRow: function (r) { return [r.weekStart, r.weekEnd, r.cost]; } },
+  costmonthly: { label: 'ต้นทุนรายเดือน', api: 'apiReportCostByMonth', needsRange: true, columns: ['เดือน', 'ต้นทุนรวม (บาท)'], mapRow: function (r) { return [r.month, r.cost]; } },
   costbymenu: { label: 'ต้นทุนต่อเมนู', api: 'apiReportCostByMenu', needsRange: true, columns: ['เมนู', 'จำนวนรวม', 'ต้นทุนรวม (บาท)', 'ต้นทุนต่อที่ (บาท)'], mapRow: function (r) { return [r.menuName, r.qtyTotal, r.cost, r.costPerPortion]; } },
   vendor: { label: 'ยอดซื้อตาม Vendor', api: 'apiReportPurchaseByVendor', needsRange: true, columns: ['Vendor', 'ยอดซื้อรวม (บาท)'], mapRow: function (r) { return [r.vendorName, r.totalAmount]; } },
   usage: { label: 'วัตถุดิบใช้จริงเทียบมาตรฐาน', api: 'apiReportUsageVsStandard', needsRange: true, columns: ['วัตถุดิบ', 'หน่วย', 'ตามสูตร', 'ใช้จริง', 'ส่วนต่าง'], mapRow: function (r) { return [r.ingredientName, r.unit, r.standardQty, r.actualQty, r.diff]; } },
@@ -2232,7 +2450,7 @@ var REPORT_TYPES = {
   waste: { label: 'ของเสีย', api: 'apiReportWaste', needsRange: true, columns: ['วันที่', 'วัตถุดิบ', 'หน่วย', 'จำนวน', 'เหตุผล', 'ผู้บันทึก'], mapRow: function (r) { return [r.date, r.ingredientName, r.unit, r.qty, r.reason, r.recordedBy]; } },
   expired: { label: 'ของหมดอายุ', api: 'apiReportExpired', needsRange: true, columns: ['วันที่', 'วัตถุดิบ', 'หน่วย', 'จำนวน', 'เหตุผล', 'ผู้บันทึก'], mapRow: function (r) { return [r.date, r.ingredientName, r.unit, r.qty, r.reason, r.recordedBy]; } },
   stockonhand: { label: 'สต๊อกคงเหลือ', api: 'apiReportStockOnHand', noRange: true, columns: ['วัตถุดิบ', 'หมวดหมู่', 'คงเหลือรวม', 'Safety Stock', 'จำนวนล็อต', 'วันหมดอายุใกล้สุด'], mapRow: function (r) { return [r.ingredientName, r.category, r.totalRemaining, r.safetyStock, r.lotCount, r.nearestExpiry]; } },
-  pricehistory: { label: 'ประวัติราคา', api: 'apiReportPriceHistory', needsIngredient: true, columns: ['วันที่', 'ราคาต่อหน่วย', 'Lot'], mapRow: function (r) { return [r.date, r.pricePerUnit, r.lotNumber]; } }
+  pricehistory: { label: 'ประวัติราคา', api: 'apiReportPriceHistory', needsIngredient: true, columns: ['วันที่', 'ราคา (บาท)', 'ที่มา', 'ผู้แก้ไข'], mapRow: function (r) { return [r.date, r.price, r.source, r.changedBy]; } }
 };
 
 document.querySelectorAll('#view-reports .tab-btn').forEach(function (btn) {
@@ -2274,16 +2492,20 @@ function loadReport() {
   promise.then(function (rows) {
     var mapped = rows.map(cfg.mapRow);
     REPORT_STATE.title = cfg.label; REPORT_STATE.columns = cfg.columns; REPORT_STATE.rows = mapped;
+    APP_PAGES.report = 1;
     renderReportTable(cfg.columns, mapped);
   });
 }
 
 function renderReportTable(columns, rows) {
+  // หมายเหตุ: rows คือข้อมูลทั้งหมด (ใช้ตอน Export CSV/PDF/Excel) — ตารางบนหน้าจอแบ่งหน้าแสดงผลเท่านั้น
   document.querySelector('#report-table thead').innerHTML = '<tr>' + columns.map(function (c) { return '<th>' + escapeHtml(c) + '</th>'; }).join('') + '</tr>';
-  document.querySelector('#report-table tbody').innerHTML = rows.map(function (r) {
+  var pageItems = paginateArray(rows, APP_PAGES.report);
+  document.querySelector('#report-table tbody').innerHTML = pageItems.map(function (r) {
     return '<tr>' + r.map(function (v) { return '<td>' + escapeHtml(v) + '</td>'; }).join('') + '</tr>';
   }).join('');
   document.getElementById('report-empty').classList.toggle('hidden', rows.length > 0);
+  renderPager('report-pager', rows.length, APP_PAGES.report, function (p) { APP_PAGES.report = p; renderReportTable(columns, rows); });
 }
 
 document.getElementById('btn-export-csv').addEventListener('click', function () {
@@ -2311,6 +2533,29 @@ function csvEscape(v) {
   var s = String(v == null ? '' : v);
   if (/[",\n]/.test(s)) s = '"' + s.replace(/"/g, '""') + '"';
   return s;
+}
+
+/* ==================================================================
+ * Pagination (ใช้ร่วมกันในทุกตาราง/รายการที่มีข้อมูลจำนวนมาก)
+ * ================================================================== */
+var PAGE_SIZE = 10;
+var APP_PAGES = { recipes: 1, ingredients: 1, vendors: 1, stockHistory: 1, poList: 1, users: 1, report: 1 };
+
+function paginateArray(list, page) {
+  var start = (page - 1) * PAGE_SIZE;
+  return list.slice(start, start + PAGE_SIZE);
+}
+
+function renderPager(containerId, totalItems, page, onChange) {
+  var totalPages = Math.max(1, Math.ceil(totalItems / PAGE_SIZE));
+  var el = document.getElementById(containerId);
+  if (totalItems <= PAGE_SIZE) { el.innerHTML = ''; return; }
+  el.innerHTML =
+    '<button class="btn btn-secondary btn-sm pg-prev" ' + (page <= 1 ? 'disabled' : '') + '>&larr; ก่อนหน้า</button>' +
+    '<span>หน้า ' + page + ' / ' + totalPages + ' (ทั้งหมด ' + totalItems + ' รายการ)</span>' +
+    '<button class="btn btn-secondary btn-sm pg-next" ' + (page >= totalPages ? 'disabled' : '') + '>ถัดไป &rarr;</button>';
+  el.querySelector('.pg-prev').addEventListener('click', function () { onChange(Math.max(1, page - 1)); });
+  el.querySelector('.pg-next').addEventListener('click', function () { onChange(Math.min(totalPages, page + 1)); });
 }
 
 /* ==================================================================
