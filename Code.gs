@@ -16,7 +16,7 @@
 // ==================================================================
 
 var TIMEZONE = 'Asia/Bangkok';
-var SYSTEM_VERSION = '3.0.0'; // ปรับโครงสร้างใบสั่งซื้อใหม่ทั้งหมด: 1 ใบ/วัน จัดกลุ่มตามช่วงเวลา->เมนู ตรงกับเอกสารจริงของ MEKTEC พร้อมสรุปยอดตาม Vendor อัตโนมัติ
+var SYSTEM_VERSION = '3.1.0'; // แก้บันทึกเมนูชนกัน, เพิ่มเมนูเดียวกันได้หลายช่วงเวลา, แก้เพิ่มวัตถุดิบด่วนไม่ได้, คีย์รับ-เบิกสต๊อกได้ทีละหลายรายการ
 var SESSION_TTL_SECONDS = 6 * 60 * 60; // อายุ session 6 ชั่วโมง
 var SS_ID_PROPERTY_KEY = 'MEKTEC_SPREADSHEET_ID';
 
@@ -1530,33 +1530,64 @@ function recordStockTransaction_(session, data) {
  */
 function apiReceiveStock(token, data) {
   return apiCall_(token, [ROLES.ADMIN, ROLES.SUPERVISOR, ROLES.STAFF], function (session) {
-    if (!data || !data.ingredientId || !(toNumber_(data.qtyReceived) > 0)) throw new Error('กรุณาระบุวัตถุดิบและจำนวนรับเข้าให้ถูกต้อง');
-    var ingredient = findRowById_('Ingredients', 'IngredientID', data.ingredientId);
-    if (!ingredient) throw new Error('ไม่พบวัตถุดิบนี้');
     var lock = LockService.getScriptLock();
     lock.waitLock(30000);
     try {
-      var lotId = generateId_('LOT');
-      var qty = toNumber_(data.qtyReceived);
-      var price = toNumber_(data.pricePerUnit) || toNumber_(ingredient.LatestPrice);
-      writeNewRow_('InventoryLots', {
-        LotID: lotId, IngredientID: data.ingredientId, LotNumber: data.lotNumber || lotId,
-        ReceivedDate: data.receivedDate || todayStr_(), ExpiryDate: data.expiryDate || '',
-        QtyReceived: qty, QtyRemaining: qty, PricePerUnit: price, VendorID: data.vendorId || ingredient.DefaultVendorID,
-        StorageLocation: data.storageLocation || '', RecordedBy: session.username, CreatedAt: nowIso_()
-      });
-      recordStockTransaction_(session, { transType: 'รับเข้า', ingredientId: data.ingredientId, lotId: lotId, qty: qty, toLocation: data.storageLocation, reason: data.reason });
-
-      var avgPrice = (toNumber_(ingredient.AvgPrice) + price) / 2;
-      updateRowByIndex_('Ingredients', ingredient._row, { LatestPrice: price, AvgPrice: round2_(avgPrice) });
-      logPriceHistory_(data.ingredientId, price, 'รับเข้าสต๊อก (Lot ' + (data.lotNumber || lotId) + ')', session.username);
-
-      logAudit_(session, 'CREATE', 'InventoryLots', lotId, null, data, 'รับเข้าวัตถุดิบ');
-      return { lotId: lotId };
+      return receiveStockLine_(session, data);
     } finally {
       lock.releaseLock();
     }
   });
+}
+
+/**
+ * รับเข้าวัตถุดิบหลายรายการพร้อมกันในครั้งเดียว (คีย์ทีละหลายรายการ) — ล้อคเพียงครั้งเดียวสำหรับทั้งชุด
+ * รายการที่ผิดพลาดจะไม่ทำให้รายการอื่นในชุดเดียวกันล้มเหลวไปด้วย
+ */
+function apiReceiveStockBatch(token, rows) {
+  return apiCall_(token, [ROLES.ADMIN, ROLES.SUPERVISOR, ROLES.STAFF], function (session) {
+    if (!rows || !rows.length) throw new Error('กรุณาระบุรายการที่ต้องการรับเข้าอย่างน้อย 1 รายการ');
+    var lock = LockService.getScriptLock();
+    lock.waitLock(30000);
+    try {
+      var results = rows.map(function (data) {
+        try {
+          var r = receiveStockLine_(session, data);
+          r.success = true;
+          return r;
+        } catch (err) {
+          return { success: false, message: err.message, ingredientId: data.ingredientId };
+        }
+      });
+      var successCount = results.filter(function (r) { return r.success; }).length;
+      return { results: results, successCount: successCount, failCount: results.length - successCount };
+    } finally {
+      lock.releaseLock();
+    }
+  });
+}
+
+function receiveStockLine_(session, data) {
+  if (!data || !data.ingredientId || !(toNumber_(data.qtyReceived) > 0)) throw new Error('กรุณาระบุวัตถุดิบและจำนวนรับเข้าให้ถูกต้อง');
+  var ingredient = findRowById_('Ingredients', 'IngredientID', data.ingredientId);
+  if (!ingredient) throw new Error('ไม่พบวัตถุดิบนี้');
+  var lotId = generateId_('LOT');
+  var qty = toNumber_(data.qtyReceived);
+  var price = toNumber_(data.pricePerUnit) || toNumber_(ingredient.LatestPrice);
+  writeNewRow_('InventoryLots', {
+    LotID: lotId, IngredientID: data.ingredientId, LotNumber: data.lotNumber || lotId,
+    ReceivedDate: data.receivedDate || todayStr_(), ExpiryDate: data.expiryDate || '',
+    QtyReceived: qty, QtyRemaining: qty, PricePerUnit: price, VendorID: data.vendorId || ingredient.DefaultVendorID,
+    StorageLocation: data.storageLocation || '', RecordedBy: session.username, CreatedAt: nowIso_()
+  });
+  recordStockTransaction_(session, { transType: 'รับเข้า', ingredientId: data.ingredientId, lotId: lotId, qty: qty, toLocation: data.storageLocation, reason: data.reason });
+
+  var avgPrice = (toNumber_(ingredient.AvgPrice) + price) / 2;
+  updateRowByIndex_('Ingredients', ingredient._row, { LatestPrice: price, AvgPrice: round2_(avgPrice) });
+  logPriceHistory_(data.ingredientId, price, 'รับเข้าสต๊อก (Lot ' + (data.lotNumber || lotId) + ')', session.username);
+
+  logAudit_(session, 'CREATE', 'InventoryLots', lotId, null, data, 'รับเข้าวัตถุดิบ');
+  return { lotId: lotId, ingredientId: data.ingredientId };
 }
 
 /**
@@ -1565,6 +1596,28 @@ function apiReceiveStock(token, data) {
 function apiIssueStock(token, data) {
   return apiCall_(token, [ROLES.ADMIN, ROLES.SUPERVISOR, ROLES.STAFF], function (session) {
     return issueStockFefo_(session, data.ingredientId, toNumber_(data.qty), 'เบิกใช้', data.location, data.reason);
+  });
+}
+
+/**
+ * เบิกใช้วัตถุดิบหลายรายการพร้อมกันในครั้งเดียว (คีย์ทีละหลายรายการ)
+ * รายการที่ผิดพลาด (เช่น สต๊อกไม่พอ) จะไม่ทำให้รายการอื่นในชุดเดียวกันล้มเหลวไปด้วย
+ */
+function apiIssueStockBatch(token, rows) {
+  return apiCall_(token, [ROLES.ADMIN, ROLES.SUPERVISOR, ROLES.STAFF], function (session) {
+    if (!rows || !rows.length) throw new Error('กรุณาระบุรายการที่ต้องการเบิกใช้อย่างน้อย 1 รายการ');
+    var results = rows.map(function (data) {
+      try {
+        var r = issueStockFefo_(session, data.ingredientId, toNumber_(data.qty), 'เบิกใช้', data.location, data.reason);
+        r.success = true;
+        r.ingredientId = data.ingredientId;
+        return r;
+      } catch (err) {
+        return { success: false, message: err.message, ingredientId: data.ingredientId };
+      }
+    });
+    var successCount = results.filter(function (r) { return r.success; }).length;
+    return { results: results, successCount: successCount, failCount: results.length - successCount };
   });
 }
 
