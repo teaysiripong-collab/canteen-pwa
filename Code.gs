@@ -16,7 +16,7 @@
 // ==================================================================
 
 var TIMEZONE = 'Asia/Bangkok';
-var SYSTEM_VERSION = '2.1.0'; // เพิ่มโลโก้ MEKTEC, breakdown สูตรคำนวณ PO, Preview PDF, auto-save, pagination, ปุ่มย้อนกลับ, รายงานสัปดาห์/เดือน, ประวัติราคาจริง, รายการวัตถุดิบต่อ Vendor
+var SYSTEM_VERSION = '3.0.0'; // ปรับโครงสร้างใบสั่งซื้อใหม่ทั้งหมด: 1 ใบ/วัน จัดกลุ่มตามช่วงเวลา->เมนู ตรงกับเอกสารจริงของ MEKTEC พร้อมสรุปยอดตาม Vendor อัตโนมัติ
 var SESSION_TTL_SECONDS = 6 * 60 * 60; // อายุ session 6 ชั่วโมง
 var SS_ID_PROPERTY_KEY = 'MEKTEC_SPREADSHEET_ID';
 
@@ -74,9 +74,9 @@ var SHEET_SCHEMA = {
   PurchaseOrders: ['POID', 'PONumber', 'OrderDate', 'UseDate', 'TimeSlotID', 'VendorID', 'Status',
     'TotalAmount', 'CreatedBy', 'ApprovedBy', 'ReviewedBy', 'PDFUrl', 'CreatedAt', 'UpdatedAt'],
 
-  PurchaseOrderItems: ['POItemID', 'POID', 'IngredientID', 'BaseQty', 'AllowanceQty', 'StockAvailable',
-    'SafetyStockQty', 'QtySuggested', 'QtyOrdered', 'Unit', 'PricePerUnit', 'TotalPrice', 'VendorID',
-    'DeliveryCycle', 'Skipped', 'Notes', 'EditedBy', 'EditedAt', 'Reason'],
+  PurchaseOrderItems: ['POItemID', 'POID', 'TimeSlotID', 'RecipeID', 'MenuName', 'IsAdhoc', 'IngredientID',
+    'BaseQty', 'AllowanceQty', 'StockAvailable', 'SafetyStockQty', 'QtySuggested', 'QtyOrdered', 'Unit',
+    'PricePerUnit', 'TotalPrice', 'VendorID', 'DeliveryCycle', 'Skipped', 'Notes', 'EditedBy', 'EditedAt', 'Reason'],
 
   PurchaseOrderItemHistory: ['HistoryID', 'POItemID', 'FieldChanged', 'OldValue', 'NewValue',
     'EditedBy', 'EditedAt', 'Reason'],
@@ -1701,6 +1701,12 @@ function deductFromLot_(session, data, transType) {
  * สร้าง/รีเฟรชใบสั่งซื้อจากเมนูของวันที่ระบุ: รวมวัตถุดิบตามสูตร หักสต๊อกคงเหลือ เผื่อ Safety Stock
  * ปัดตามหน่วยสั่งซื้อ และแยกเป็นใบสั่งซื้อย่อยตาม Vendor
  */
+/**
+ * สร้างใบสั่งซื้อของทั้งวัน (1 ใบต่อ 1 วันที่ ครอบคลุมทุกช่วงเวลา) ตรงตามรูปแบบใบสั่งซื้อจริงของ MEKTEC:
+ * แต่ละรายการวัตถุดิบผูกกับ "เมนู" และ "ช่วงเวลา" ที่ต้องใช้ ไม่รวมวัตถุดิบเดียวกันข้ามเมนูเข้าด้วยกัน
+ * (เพราะหน้างานจริงต้องแยกดูเป็นรายเมนูในแต่ละช่วงเวลา) ส่วนสต๊อกคงเหลือ/Safety Stock จะแสดงเป็นข้อมูล
+ * อ้างอิงให้พนักงานตัดสินใจปรับจำนวนเองเหมือนที่ทำในกระดาษจริง ไม่ได้หักลบให้อัตโนมัติ
+ */
 function apiGeneratePurchaseOrder(token, dateStr) {
   return apiCall_(token, [ROLES.ADMIN, ROLES.SUPERVISOR], function (session) {
     if (!dateStr) throw new Error('กรุณาระบุวันที่');
@@ -1717,97 +1723,85 @@ function apiGeneratePurchaseOrder(token, dateStr) {
       readSheetObjects_('InventoryLots').forEach(function (l) {
         stockByIngredient[l.IngredientID] = (stockByIngredient[l.IngredientID] || 0) + toNumber_(l.QtyRemaining);
       });
+      var timeSlots = readSheetObjects_('TimeSlots').sort(function (a, b) { return toNumber_(a.SortOrder) - toNumber_(b.SortOrder); });
+      var timeSlotOrder = {}; timeSlots.forEach(function (t, idx) { timeSlotOrder[t.TimeSlotID] = idx; });
 
-      // สรุปช่วงเวลาที่ใช้เมนูของวันนี้ (สำหรับแสดงในหัวใบสั่งซื้อ/PDF)
-      var timeSlotMap = {}; readSheetObjects_('TimeSlots').forEach(function (t) { timeSlotMap[t.TimeSlotID] = t.TimeSlotName; });
-      var usedTimeSlotNames = Array.from(new Set(menuItems.map(function (m) { return timeSlotMap[m.TimeSlotID]; }).filter(Boolean)));
-      var timeSlotsSummary = usedTimeSlotNames.join(', ');
+      // เรียงเมนูตามช่วงเวลาก่อน เพื่อให้รายการในใบสั่งซื้อเรียงตามลำดับช่วงเวลาเหมือนเอกสารจริง
+      var sortedMenuItems = menuItems.filter(function (m) { return m.RecipeID; }).sort(function (a, b) {
+        return (timeSlotOrder[a.TimeSlotID] || 0) - (timeSlotOrder[b.TimeSlotID] || 0);
+      });
+      if (sortedMenuItems.length === 0) throw new Error('เมนูของวันนี้ยังไม่ได้ผูกกับสูตรอาหาร จึงยังคำนวณวัตถุดิบไม่ได้');
 
-      // รวมความต้องการวัตถุดิบจากทุกเมนูของวันนี้ (รวมรายการที่ซ้ำกัน)
-      var need = {}; // ingredientId -> {qty, allowance}
-      menuItems.forEach(function (m) {
-        if (!m.RecipeID) return;
+      // คำนวณรายการทั้งหมดไว้ล่วงหน้าก่อน (ยังไม่เขียนลงชีต) เพื่อไม่ให้เหลือใบสั่งซื้อว่างเปล่าค้างไว้
+      // ถ้าสุดท้ายแล้วไม่มีรายการที่คำนวณได้เลย
+      var linesToWrite = [];
+      var totalAmount = 0;
+      sortedMenuItems.forEach(function (m) {
         var recipe = recipeMap[m.RecipeID];
         if (!recipe || toNumber_(recipe.StandardQty) <= 0) return;
         var scale = toNumber_(m.QtyTotal) / toNumber_(recipe.StandardQty);
         recipeItems.filter(function (ri) { return ri.RecipeID === m.RecipeID; }).forEach(function (ri) {
-          var qty = toNumber_(ri.Qty) * scale;
-          var allowance = toNumber_(ri.Allowance) * scale;
-          if (!need[ri.IngredientID]) need[ri.IngredientID] = { qty: 0, allowance: 0, vendorId: ri.VendorID, roundingUnit: toNumber_(ri.RoundingUnit), minOrderQty: toNumber_(ri.MinOrderQty) };
-          need[ri.IngredientID].qty += qty;
-          need[ri.IngredientID].allowance += allowance;
-        });
-      });
-
-      // จัดกลุ่มตาม Vendor แล้วสร้าง PurchaseOrders + PurchaseOrderItems (สถานะ "ร่าง")
-      // เก็บรายละเอียดทุกขั้นตอนของสูตรคำนวณไว้ (จำนวนตามสูตร, ค่าเผื่อ, สต๊อกคงเหลือ, Safety Stock) เพื่อแสดงในหน้าใบสั่งซื้อ
-      var byVendor = {};
-      Object.keys(need).forEach(function (ingId) {
-        var ingredient = ingredientMap[ingId];
-        if (!ingredient) return;
-        var n = need[ingId];
-        var vendorId = n.vendorId || ingredient.DefaultVendorID || 'NOVENDOR';
-        if (!byVendor[vendorId]) byVendor[vendorId] = [];
-        var available = stockByIngredient[ingId] || 0;
-        var safetyStock = toNumber_(ingredient.SafetyStock);
-        var beforeStock = n.qty + n.allowance;
-        var suggested = beforeStock - available + safetyStock;
-        if (suggested < 0) suggested = 0;
-        var roundingUnit = n.roundingUnit || toNumber_(ingredient.RoundingUnit);
-        var rounded = roundToUnit_(suggested, roundingUnit);
-        var minOrderQty = n.minOrderQty || toNumber_(ingredient.MinOrderQty);
-        if (rounded > 0 && rounded < minOrderQty) rounded = minOrderQty;
-        byVendor[vendorId].push({
-          ingredientId: ingId, baseQty: round2_(n.qty), allowanceQty: round2_(n.allowance),
-          stockAvailable: round2_(available), safetyStockQty: round2_(safetyStock),
-          qtySuggested: round2_(rounded), pricePerUnit: toNumber_(ingredient.LatestPrice)
-        });
-      });
-
-      var createdPoIds = [];
-      Object.keys(byVendor).forEach(function (vendorId) {
-        var lines = byVendor[vendorId].filter(function (l) { return l.qtySuggested > 0; });
-        if (lines.length === 0) return;
-        // ถ้ามีใบสั่งซื้อของ Vendor นี้ในวันที่นี้อยู่แล้วและยังเป็นร่าง ให้ลบรายการเดิมแล้วสร้างใหม่ (รีเฟรช)
-        var existingPo = findRowsBy_('PurchaseOrders', function (po) {
-          return po.VendorID === vendorId && formatValueAsDateStr_(po.UseDate) === dateStr && po.Status === 'ร่าง';
-        })[0];
-        var poId;
-        if (existingPo) {
-          poId = existingPo.POID;
-          findRowsBy_('PurchaseOrderItems', function (it) { return it.POID === poId; })
-            .sort(function (a, b) { return b._row - a._row; }).forEach(function (it) { deleteRowByIndex_('PurchaseOrderItems', it._row); });
-        } else {
-          poId = generateId_('PO');
-          var poNumber = 'PO' + Utilities.formatDate(new Date(), TIMEZONE, 'yyyyMMdd') + '-' + poId.split('-')[1];
-          writeNewRow_('PurchaseOrders', {
-            POID: poId, PONumber: poNumber, OrderDate: todayStr_(), UseDate: dateStr, TimeSlotID: timeSlotsSummary, VendorID: vendorId,
-            Status: 'ร่าง', TotalAmount: 0, CreatedBy: session.username, ApprovedBy: '', ReviewedBy: '', PDFUrl: '',
-            CreatedAt: nowIso_(), UpdatedAt: nowIso_()
-          });
-        }
-        var totalAmount = 0;
-        lines.forEach(function (line) {
-          var ingredient = ingredientMap[line.ingredientId];
-          var totalPrice = round2_(line.qtySuggested * line.pricePerUnit);
+          var ingredient = ingredientMap[ri.IngredientID];
+          if (!ingredient) return;
+          var baseQty = toNumber_(ri.Qty) * scale;
+          var allowanceQty = toNumber_(ri.Allowance) * scale;
+          var roundingUnit = toNumber_(ri.RoundingUnit) || toNumber_(ingredient.RoundingUnit);
+          var minOrderQty = toNumber_(ri.MinOrderQty) || toNumber_(ingredient.MinOrderQty);
+          var qtySuggested = roundToUnit_(baseQty + allowanceQty, roundingUnit);
+          if (qtySuggested > 0 && qtySuggested < minOrderQty) qtySuggested = minOrderQty;
+          if (qtySuggested <= 0) return;
+          var pricePerUnit = toNumber_(ingredient.LatestPrice);
+          var totalPrice = round2_(qtySuggested * pricePerUnit);
           totalAmount += totalPrice;
-          writeNewRow_('PurchaseOrderItems', {
-            POItemID: generateId_('POI'), POID: poId, IngredientID: line.ingredientId,
-            BaseQty: line.baseQty, AllowanceQty: line.allowanceQty, StockAvailable: line.stockAvailable,
-            SafetyStockQty: line.safetyStockQty, QtySuggested: line.qtySuggested,
-            QtyOrdered: line.qtySuggested, Unit: ingredient.Unit, PricePerUnit: line.pricePerUnit, TotalPrice: totalPrice,
-            VendorID: vendorId, DeliveryCycle: '', Skipped: false, Notes: '', EditedBy: '', EditedAt: '', Reason: ''
+          linesToWrite.push({
+            timeSlotId: m.TimeSlotID, recipeId: m.RecipeID, menuName: recipe.MenuName, ingredientId: ri.IngredientID,
+            baseQty: round2_(baseQty), allowanceQty: round2_(allowanceQty),
+            stockAvailable: round2_(stockByIngredient[ri.IngredientID] || 0), safetyStockQty: toNumber_(ingredient.SafetyStock),
+            qtySuggested: round2_(qtySuggested), unit: ri.Unit || ingredient.Unit, pricePerUnit: pricePerUnit,
+            totalPrice: totalPrice, vendorId: ri.VendorID || ingredient.DefaultVendorID
           });
         });
-        updateRowByIndex_('PurchaseOrders', findRowById_('PurchaseOrders', 'POID', poId)._row, {
-          TotalAmount: round2_(totalAmount), TimeSlotID: timeSlotsSummary, UpdatedAt: nowIso_()
+      });
+      if (linesToWrite.length === 0) throw new Error('ไม่มีรายการวัตถุดิบที่ต้องสั่งซื้อสำหรับวันนี้');
+
+      // หา/สร้างใบสั่งซื้อสำหรับวันนี้ (1 ใบต่อวัน) — ถ้ามีใบร่างเดิมอยู่แล้วให้ลบรายการเดิมแล้วสร้างใหม่ (รีเฟรช)
+      var existingPo = findRowsBy_('PurchaseOrders', function (po) {
+        return formatValueAsDateStr_(po.UseDate) === dateStr && po.Status === 'ร่าง';
+      })[0];
+      var poId;
+      if (existingPo) {
+        poId = existingPo.POID;
+        findRowsBy_('PurchaseOrderItems', function (it) { return it.POID === poId; })
+          .sort(function (a, b) { return b._row - a._row; }).forEach(function (it) { deleteRowByIndex_('PurchaseOrderItems', it._row); });
+      } else {
+        poId = generateId_('PO');
+        var poNumber = 'PO' + Utilities.formatDate(new Date(), TIMEZONE, 'yyyyMMdd') + '-' + poId.split('-')[1];
+        writeNewRow_('PurchaseOrders', {
+          POID: poId, PONumber: poNumber, OrderDate: todayStr_(), UseDate: dateStr, TimeSlotID: '', VendorID: '',
+          Status: 'ร่าง', TotalAmount: 0, CreatedBy: session.username, ApprovedBy: '', ReviewedBy: '', PDFUrl: '',
+          CreatedAt: nowIso_(), UpdatedAt: nowIso_()
         });
-        createdPoIds.push(poId);
+      }
+
+      var lineCount = 0;
+      linesToWrite.forEach(function (line) {
+        lineCount++;
+        writeNewRow_('PurchaseOrderItems', {
+          POItemID: generateId_('POI'), POID: poId, TimeSlotID: line.timeSlotId, RecipeID: line.recipeId,
+          MenuName: line.menuName, IsAdhoc: false, IngredientID: line.ingredientId,
+          BaseQty: line.baseQty, AllowanceQty: line.allowanceQty,
+          StockAvailable: line.stockAvailable, SafetyStockQty: line.safetyStockQty,
+          QtySuggested: line.qtySuggested, QtyOrdered: line.qtySuggested, Unit: line.unit,
+          PricePerUnit: line.pricePerUnit, TotalPrice: line.totalPrice, VendorID: line.vendorId,
+          DeliveryCycle: '', Skipped: false, Notes: '', EditedBy: '', EditedAt: '', Reason: ''
+        });
       });
 
-      if (createdPoIds.length === 0) throw new Error('ไม่มีรายการที่ต้องสั่งซื้อ (สต๊อกเพียงพอสำหรับเมนูวันนี้แล้ว)');
-      logAudit_(session, 'GENERATE', 'PurchaseOrders', dateStr, null, null, 'สร้างใบสั่งซื้อจากเมนูวันที่ ' + dateStr);
-      return { poIds: createdPoIds };
+      updateRowByIndex_('PurchaseOrders', findRowById_('PurchaseOrders', 'POID', poId)._row, {
+        TotalAmount: round2_(totalAmount), UpdatedAt: nowIso_()
+      });
+      logAudit_(session, 'GENERATE', 'PurchaseOrders', poId, null, null, 'สร้างใบสั่งซื้อจากเมนูวันที่ ' + dateStr + ' (' + lineCount + ' รายการ)');
+      return { poId: poId, lineCount: lineCount };
     } finally {
       lock.releaseLock();
     }
@@ -1816,44 +1810,104 @@ function apiGeneratePurchaseOrder(token, dateStr) {
 
 function apiListPurchaseOrders(token, dateStr) {
   return apiCall_(token, null, function () {
-    var vendorMap = {}; readSheetObjects_('Vendors').forEach(function (v) { vendorMap[v.VendorID] = v.VendorName; });
     var pos = readSheetObjects_('PurchaseOrders');
     if (dateStr) pos = pos.filter(function (po) { return formatValueAsDateStr_(po.UseDate) === dateStr; });
+    var itemCounts = {};
+    readSheetObjects_('PurchaseOrderItems').forEach(function (it) { itemCounts[it.POID] = (itemCounts[it.POID] || 0) + 1; });
     return pos.sort(function (a, b) { return a.CreatedAt < b.CreatedAt ? 1 : -1; }).map(function (po) {
       return {
         poId: po.POID, poNumber: po.PONumber, orderDate: formatValueAsDateStr_(po.OrderDate), useDate: formatValueAsDateStr_(po.UseDate),
-        vendorId: po.VendorID, vendorName: vendorMap[po.VendorID] || '(ไม่ระบุ Vendor)', status: po.Status,
-        totalAmount: toNumber_(po.TotalAmount), createdBy: po.CreatedBy, approvedBy: po.ApprovedBy, pdfUrl: po.PDFUrl
+        status: po.Status, totalAmount: toNumber_(po.TotalAmount), itemCount: itemCounts[po.POID] || 0,
+        createdBy: po.CreatedBy, approvedBy: po.ApprovedBy, pdfUrl: po.PDFUrl
       };
     });
   });
 }
 
+function mapPoItemOut_(it, ingredientMap, vendorMap) {
+  var ing = ingredientMap[it.IngredientID];
+  var vendor = vendorMap[it.VendorID];
+  return {
+    poItemId: it.POItemID, timeSlotId: it.TimeSlotID, recipeId: it.RecipeID, menuName: it.MenuName,
+    isAdhoc: it.IsAdhoc === true || it.IsAdhoc === 'TRUE',
+    ingredientId: it.IngredientID, ingredientName: ing ? ing.IngredientName : '(ไม่พบวัตถุดิบ)',
+    baseQty: toNumber_(it.BaseQty), allowanceQty: toNumber_(it.AllowanceQty), stockAvailable: toNumber_(it.StockAvailable),
+    safetyStockQty: toNumber_(it.SafetyStockQty), qtySuggested: toNumber_(it.QtySuggested), qtyOrdered: toNumber_(it.QtyOrdered),
+    diff: round2_(toNumber_(it.QtyOrdered) - toNumber_(it.QtySuggested)), unit: it.Unit,
+    pricePerUnit: toNumber_(it.PricePerUnit), totalPrice: toNumber_(it.TotalPrice), vendorId: it.VendorID,
+    vendorName: vendor ? vendor.VendorName : '(ไม่ระบุ Vendor)', deliveryCycle: it.DeliveryCycle,
+    skipped: it.Skipped === true || it.Skipped === 'TRUE', notes: it.Notes
+  };
+}
+
+/**
+ * ดึงรายละเอียดใบสั่งซื้อ จัดกลุ่มตามช่วงเวลา -> เมนู (ตรงตามรูปแบบใบสั่งซื้อจริง) พร้อมสรุปยอดตาม Vendor
+ * อัตโนมัติ (แทนขั้นตอนที่ต้องไปคำนวณต่อใน Excel)
+ */
 function apiGetPurchaseOrder(token, poId) {
-  return apiCall_(token, null, function () {
-    var po = findRowById_('PurchaseOrders', 'POID', poId);
-    if (!po) throw new Error('ไม่พบใบสั่งซื้อนี้');
-    var vendorMap = {}; readSheetObjects_('Vendors').forEach(function (v) { vendorMap[v.VendorID] = v; });
-    var ingredientMap = {}; readSheetObjects_('Ingredients').forEach(function (i) { ingredientMap[i.IngredientID] = i; });
-    var items = findRowsBy_('PurchaseOrderItems', function (it) { return it.POID === poId; }).map(function (it) {
-      var ing = ingredientMap[it.IngredientID];
+  return apiCall_(token, null, function () { return getPurchaseOrderDetail_(poId); });
+}
+
+/**
+ * รวบรวมและจัดกลุ่มข้อมูลใบสั่งซื้อ (ช่วงเวลา -> เมนู, รายการอื่นๆ, สรุปยอดตาม Vendor) — ใช้ร่วมกันทั้ง
+ * API สำหรับหน้าเว็บ (apiGetPurchaseOrder) และตัวสร้าง PDF (buildDayPoPrintSheet_) เพื่อไม่ให้ตรรกะเพี้ยนกัน
+ */
+function getPurchaseOrderDetail_(poId) {
+  var po = findRowById_('PurchaseOrders', 'POID', poId);
+  if (!po) throw new Error('ไม่พบใบสั่งซื้อนี้');
+  var vendorMap = {}; readSheetObjects_('Vendors').forEach(function (v) { vendorMap[v.VendorID] = v; });
+  var ingredientMap = {}; readSheetObjects_('Ingredients').forEach(function (i) { ingredientMap[i.IngredientID] = i; });
+  var timeSlotMap = {}; readSheetObjects_('TimeSlots').forEach(function (t) { timeSlotMap[t.TimeSlotID] = t; });
+
+  var rawItems = findRowsBy_('PurchaseOrderItems', function (it) { return it.POID === poId; });
+  var items = rawItems.map(function (it) { return mapPoItemOut_(it, ingredientMap, vendorMap); });
+
+  var adhocItems = items.filter(function (it) { return it.isAdhoc || !it.recipeId; });
+  var dishItems = items.filter(function (it) { return !it.isAdhoc && it.recipeId; });
+
+  // จัดกลุ่มตามช่วงเวลา -> เมนู เรียงตามลำดับช่วงเวลาจริง
+  var timeSlotIds = Array.from(new Set(dishItems.map(function (it) { return it.timeSlotId; })))
+    .sort(function (a, b) { return toNumber_((timeSlotMap[a] || {}).SortOrder) - toNumber_((timeSlotMap[b] || {}).SortOrder); });
+
+  var timeSlotGroups = timeSlotIds.map(function (tsId) {
+    var tsItems = dishItems.filter(function (it) { return it.timeSlotId === tsId; });
+    var recipeIds = Array.from(new Set(tsItems.map(function (it) { return it.recipeId; })));
+    var dishes = recipeIds.map(function (rid) {
+      var dishLines = tsItems.filter(function (it) { return it.recipeId === rid; });
       return {
-        poItemId: it.POItemID, ingredientId: it.IngredientID, ingredientName: ing ? ing.IngredientName : '(ไม่พบวัตถุดิบ)',
-        baseQty: toNumber_(it.BaseQty), allowanceQty: toNumber_(it.AllowanceQty), stockAvailable: toNumber_(it.StockAvailable),
-        safetyStockQty: toNumber_(it.SafetyStockQty), qtySuggested: toNumber_(it.QtySuggested), qtyOrdered: toNumber_(it.QtyOrdered),
-        diff: round2_(toNumber_(it.QtyOrdered) - toNumber_(it.QtySuggested)), unit: it.Unit,
-        pricePerUnit: toNumber_(it.PricePerUnit), totalPrice: toNumber_(it.TotalPrice), vendorId: it.VendorID,
-        deliveryCycle: it.DeliveryCycle, skipped: it.Skipped === true || it.Skipped === 'TRUE', notes: it.Notes
+        recipeId: rid, menuName: dishLines[0].menuName,
+        items: dishLines,
+        subtotal: round2_(dishLines.filter(function (it) { return !it.skipped; }).reduce(function (s, it) { return s + it.totalPrice; }, 0))
       };
     });
-    var vendor = vendorMap[po.VendorID];
     return {
-      poId: po.POID, poNumber: po.PONumber, orderDate: formatValueAsDateStr_(po.OrderDate), useDate: formatValueAsDateStr_(po.UseDate),
-      timeSlotsSummary: po.TimeSlotID || '', vendorId: po.VendorID, vendorName: vendor ? vendor.VendorName : '(ไม่ระบุ Vendor)',
-      status: po.Status, totalAmount: toNumber_(po.TotalAmount), createdBy: po.CreatedBy, approvedBy: po.ApprovedBy,
-      reviewedBy: po.ReviewedBy || '', pdfUrl: po.PDFUrl, items: items
+      timeSlotId: tsId, timeSlotName: timeSlotMap[tsId] ? timeSlotMap[tsId].TimeSlotName : tsId,
+      dishes: dishes,
+      subtotal: round2_(tsItems.filter(function (it) { return !it.skipped; }).reduce(function (s, it) { return s + it.totalPrice; }, 0))
     };
   });
+
+  var adhocSubtotal = round2_(adhocItems.filter(function (it) { return !it.skipped; }).reduce(function (s, it) { return s + it.totalPrice; }, 0));
+
+  // สรุปยอดตาม Vendor (แทนขั้นตอน Excel เดิม)
+  var vendorTotals = {};
+  items.filter(function (it) { return !it.skipped; }).forEach(function (it) {
+    var key = it.vendorId || 'NOVENDOR';
+    if (!vendorTotals[key]) vendorTotals[key] = { vendorId: it.vendorId, vendorName: it.vendorName || '(ไม่ระบุ Vendor)', totalAmount: 0 };
+    vendorTotals[key].totalAmount += it.totalPrice;
+  });
+  var vendorSummary = Object.keys(vendorTotals).map(function (k) {
+    return { vendorId: vendorTotals[k].vendorId, vendorName: vendorTotals[k].vendorName, totalAmount: round2_(vendorTotals[k].totalAmount) };
+  }).sort(function (a, b) { return b.totalAmount - a.totalAmount; });
+
+  var grandTotal = round2_(items.filter(function (it) { return !it.skipped; }).reduce(function (s, it) { return s + it.totalPrice; }, 0));
+
+  return {
+    poId: po.POID, poNumber: po.PONumber, orderDate: formatValueAsDateStr_(po.OrderDate), useDate: formatValueAsDateStr_(po.UseDate),
+    status: po.Status, createdBy: po.CreatedBy, approvedBy: po.ApprovedBy, reviewedBy: po.ReviewedBy || '', pdfUrl: po.PDFUrl,
+    timeSlots: timeSlotGroups, adhocItems: adhocItems, adhocSubtotal: adhocSubtotal,
+    vendorSummary: vendorSummary, grandTotal: grandTotal, totalAmount: grandTotal
+  };
 }
 
 /**
@@ -1925,6 +1979,57 @@ function recalcPurchaseOrderTotal_(poId) {
   if (po) updateRowByIndex_('PurchaseOrders', po._row, { TotalAmount: round2_(total), UpdatedAt: nowIso_() });
 }
 
+/**
+ * เพิ่มรายการวัตถุดิบ "อื่นๆ" ที่ไม่ได้ผูกกับเมนู/สูตรอาหารใด (เช่น น้ำตาล มะนาว ของใช้ประจำ)
+ * ตรงกับส่วน "อื่นๆ" ท้ายใบสั่งซื้อจริง ผูกกับช่วงเวลาที่ระบุ
+ */
+function apiAddAdhocPurchaseOrderItem(token, data) {
+  return apiCall_(token, [ROLES.ADMIN, ROLES.SUPERVISOR], function (session) {
+    if (!data || !data.poId || !data.ingredientId || !(toNumber_(data.qty) > 0)) {
+      throw new Error('กรุณาระบุวัตถุดิบและจำนวนให้ถูกต้อง');
+    }
+    var po = findRowById_('PurchaseOrders', 'POID', data.poId);
+    if (!po) throw new Error('ไม่พบใบสั่งซื้อนี้');
+    var ingredient = findRowById_('Ingredients', 'IngredientID', data.ingredientId);
+    if (!ingredient) throw new Error('ไม่พบวัตถุดิบนี้');
+    var lock = LockService.getScriptLock();
+    lock.waitLock(30000);
+    try {
+      var qty = toNumber_(data.qty);
+      var pricePerUnit = toNumber_(data.pricePerUnit) || toNumber_(ingredient.LatestPrice);
+      var totalPrice = round2_(qty * pricePerUnit);
+      var poItemId = generateId_('POI');
+      writeNewRow_('PurchaseOrderItems', {
+        POItemID: poItemId, POID: data.poId, TimeSlotID: data.timeSlotId || '', RecipeID: '', MenuName: 'อื่นๆ',
+        IsAdhoc: true, IngredientID: data.ingredientId, BaseQty: qty, AllowanceQty: 0, StockAvailable: 0,
+        SafetyStockQty: 0, QtySuggested: qty, QtyOrdered: qty, Unit: ingredient.Unit, PricePerUnit: pricePerUnit,
+        TotalPrice: totalPrice, VendorID: data.vendorId || ingredient.DefaultVendorID, DeliveryCycle: '',
+        Skipped: false, Notes: data.notes || '', EditedBy: session.username, EditedAt: nowIso_(), Reason: 'เพิ่มรายการอื่นๆ'
+      });
+      recalcPurchaseOrderTotal_(data.poId);
+      logAudit_(session, 'CREATE', 'PurchaseOrderItems', poItemId, null, data, 'เพิ่มรายการอื่นๆ ในใบสั่งซื้อ');
+      return { poItemId: poItemId };
+    } finally {
+      lock.releaseLock();
+    }
+  });
+}
+
+function apiDeletePurchaseOrderItem(token, poItemId) {
+  return apiCall_(token, [ROLES.ADMIN, ROLES.SUPERVISOR], function (session) {
+    var existing = findRowById_('PurchaseOrderItems', 'POItemID', poItemId);
+    if (!existing) throw new Error('ไม่พบรายการนี้');
+    if (existing.IsAdhoc !== true && existing.IsAdhoc !== 'TRUE') {
+      throw new Error('ลบได้เฉพาะรายการที่เพิ่มเองในหมวด "อื่นๆ" — รายการจากสูตรอาหารให้ใช้ปุ่ม "งดสั่ง" แทน');
+    }
+    var poId = existing.POID;
+    deleteRowByIndex_('PurchaseOrderItems', existing._row);
+    recalcPurchaseOrderTotal_(poId);
+    logAudit_(session, 'DELETE', 'PurchaseOrderItems', poItemId, existing, null, 'ลบรายการอื่นๆ');
+    return true;
+  });
+}
+
 function apiGetPurchaseOrderItemHistory(token, poItemId) {
   return apiCall_(token, null, function () {
     return findRowsBy_('PurchaseOrderItemHistory', function (h) { return h.POItemID === poItemId; })
@@ -1951,12 +2056,14 @@ function getOrCreatePdfFolder_() {
   return DriveApp.createFolder('MEKTEC Canteen PDFs');
 }
 
-function buildPoPrintSheet_(poId) {
-  var po = findRowById_('PurchaseOrders', 'POID', poId);
-  if (!po) throw new Error('ไม่พบใบสั่งซื้อนี้');
-  var vendor = findRowById_('Vendors', 'VendorID', po.VendorID);
-  var ingredientMap = {}; readSheetObjects_('Ingredients').forEach(function (i) { ingredientMap[i.IngredientID] = i; });
-  var items = findRowsBy_('PurchaseOrderItems', function (it) { return it.POID === poId && it.Skipped !== true && it.Skipped !== 'TRUE'; });
+/**
+ * สร้างชีตชั่วคราวสำหรับ Export เป็น PDF ใบสั่งซื้อของทั้งวัน (1 ใบ ครอบคลุมทุกช่วงเวลา)
+ * รูปแบบตรงตามเอกสารใบสั่งซื้อจริงของ MEKTEC: หัวกระดาษ (โลโก้+ชื่อบริษัท) ซ้ำทุกหน้า, จัดกลุ่มตาม
+ * ช่วงเวลา -> เมนู, มีส่วน "อื่นๆ" สำหรับรายการที่ไม่ผูกกับเมนู, ปิดท้ายด้วย "สรุปยอดตาม Vendor"
+ * (แทนขั้นตอนที่ต้องคำนวณต่อใน Excel) และยอดรวมทั้งใบ
+ */
+function buildDayPoPrintSheet_(poId) {
+  var detail = getPurchaseOrderDetail_(poId);
 
   var ss = getOrCreateSpreadsheet_();
   var sheetName = 'PRINT_' + poId;
@@ -1966,54 +2073,92 @@ function buildPoPrintSheet_(poId) {
 
   // คอลัมน์ที่ 1 สงวนไว้สำหรับโลโก้เท่านั้น (ไม่มีข้อความ) เพื่อไม่ให้ทับซ้อนกับเนื้อหา
   // เนื้อหาเอกสารทั้งหมดเริ่มจากคอลัมน์ที่ 2 เป็นต้นไป (รวม 7 คอลัมน์: 2-8)
-  var LOGO_COL = 1, C = 2; // C = คอลัมน์เริ่มต้นของเนื้อหา
-  try {
-    sheet.insertImage(getLogoBlob_(), LOGO_COL, 1).setWidth(90).setHeight(31);
-  } catch (imgErr) {
-    // หากแทรกโลโก้ไม่สำเร็จ (เช่นสิทธิ์ยังไม่ครบ) ให้สร้างเอกสารต่อไปโดยไม่มีโลโก้
+  var LOGO_COL = 1, C = 2;
+  var companyName = getSetting_('CompanyName') || 'MEKTEC';
+  var COLS = ['ลำดับ', 'รายการ', 'จำนวน', 'หน่วย', 'ราคาต่อหน่วย', 'ราคารวม', 'หมายเหตุ'];
+
+  function drawLetterhead(row) {
+    try { sheet.insertImage(getLogoBlob_(), LOGO_COL, row).setWidth(90).setHeight(31); } catch (imgErr) { /* ไม่มีโลโก้ก็สร้างเอกสารต่อได้ */ }
+    sheet.getRange(row, C, 1, 7).merge().setValue(companyName).setFontSize(16).setFontWeight('bold'); row++;
+    sheet.getRange(row, C, 1, 7).merge().setValue('ใบสั่งซื้อ (Purchase Order)').setFontSize(14).setFontWeight('bold'); row++;
+    sheet.getRange(row, C).setValue('เลขที่เอกสาร: ' + detail.poNumber);
+    sheet.getRange(row, C + 3).setValue('วันที่สั่งซื้อ: ' + detail.orderDate);
+    sheet.getRange(row, C + 5).setValue('วันที่ใช้สินค้า: ' + detail.useDate);
+    return row + 2;
   }
 
-  var companyName = getSetting_('CompanyName') || 'MEKTEC';
-  var row = 1;
-  sheet.getRange(row, C, 1, 7).merge().setValue(companyName).setFontSize(16).setFontWeight('bold'); row++;
-  sheet.getRange(row, C, 1, 7).merge().setValue('ใบสั่งซื้อ (Purchase Order)').setFontSize(14).setFontWeight('bold'); row++;
-  sheet.getRange(row, C).setValue('เลขที่เอกสาร: ' + po.PONumber);
-  sheet.getRange(row, C + 4).setValue('วันที่สั่งซื้อ: ' + formatValueAsDateStr_(po.OrderDate)); row++;
-  sheet.getRange(row, C).setValue('วันที่ใช้สินค้า: ' + formatValueAsDateStr_(po.UseDate));
-  sheet.getRange(row, C + 4).setValue('ช่วงเวลาใช้งาน: ' + (po.TimeSlotID || '-')); row++;
-  sheet.getRange(row, C).setValue('Vendor: ' + (vendor ? vendor.VendorName : '-'));
-  sheet.getRange(row, C + 4).setValue('ผู้ติดต่อ: ' + (vendor ? vendor.ContactPerson + ' ' + vendor.Phone : '-')); row += 2;
+  function drawColumnHeader(row) {
+    sheet.getRange(row, C, 1, COLS.length).setValues([COLS]).setFontWeight('bold').setBackground('#1a73e8').setFontColor('#fff');
+    return row + 1;
+  }
 
-  var headerRow = row;
-  var headers = ['ลำดับ', 'รายการ', 'จำนวน', 'หน่วย', 'ราคาต่อหน่วย', 'ราคารวม', 'หมายเหตุ'];
-  sheet.getRange(row, C, 1, headers.length).setValues([headers]).setFontWeight('bold').setBackground('#1a73e8').setFontColor('#fff');
-  row++;
+  function drawItemRows(row, items) {
+    items.forEach(function (it, idx) {
+      var qty = it.skipped ? 0 : it.qtyOrdered;
+      var lineTotal = it.skipped ? 0 : round2_(qty * it.pricePerUnit);
+      var note = (it.skipped ? 'งดสั่ง' + (it.notes ? ' - ' : '') : '') + (it.notes || '');
+      sheet.getRange(row, C, 1, 7).setValues([[idx + 1, it.ingredientName, qty, it.unit, it.pricePerUnit, lineTotal, note]]);
+      row++;
+    });
+    return row;
+  }
 
-  var total = 0;
-  items.forEach(function (it, idx) {
-    var ing = ingredientMap[it.IngredientID];
-    var qty = toNumber_(it.QtyOrdered);
-    var lineTotal = round2_(qty * toNumber_(it.PricePerUnit));
-    total += lineTotal;
-    sheet.getRange(row, C, 1, 7).setValues([[idx + 1, ing ? ing.IngredientName : it.IngredientID, qty, it.Unit,
-      toNumber_(it.PricePerUnit), lineTotal, it.Notes || '']]);
-    row++;
+  function drawSectionTotal(row, label, amount) {
+    sheet.getRange(row, C + 4).setValue(label).setFontWeight('bold');
+    sheet.getRange(row, C + 5).setValue(round2_(amount)).setFontWeight('bold');
+    return row + 1;
+  }
+
+  var row = drawLetterhead(1);
+  var frozenThrough = row - 1; // แช่แข็งเฉพาะหัวกระดาษ ให้ปรากฏซ้ำทุกหน้าเมื่อพิมพ์
+
+  detail.timeSlots.forEach(function (ts) {
+    sheet.getRange(row, C).setValue('ช่วงเวลาใช้สินค้า: ' + detail.useDate + ' (' + ts.timeSlotName + ')').setFontWeight('bold').setFontSize(12);
+    row += 1;
+    row = drawColumnHeader(row);
+    ts.dishes.forEach(function (dish) {
+      sheet.getRange(row, C, 1, 7).merge().setValue(dish.menuName).setFontWeight('bold').setBackground('#e8f0fe');
+      row++;
+      row = drawItemRows(row, dish.items);
+    });
+    row = drawSectionTotal(row, 'รวมทั้งสิ้น (ช่วงเวลานี้)', ts.subtotal);
+    row += 12; // เว้นบรรทัดว่างเพื่อให้ช่วงเวลาถัดไปมักเริ่มหน้าใหม่เมื่อพิมพ์ (Google Sheets ไม่รองรับการบังคับขึ้นหน้าใหม่โดยตรง)
   });
 
-  sheet.getRange(row, C + 4).setValue('รวมจำนวนเงิน').setFontWeight('bold');
-  sheet.getRange(row, C + 5).setValue(round2_(total)).setFontWeight('bold');
+  if (detail.adhocItems.length > 0) {
+    sheet.getRange(row, C, 1, 7).merge().setValue('อื่นๆ').setFontWeight('bold').setBackground('#e8f0fe');
+    row++;
+    row = drawColumnHeader(row);
+    row = drawItemRows(row, detail.adhocItems);
+    row = drawSectionTotal(row, 'รวมทั้งสิ้น (อื่นๆ)', detail.adhocSubtotal);
+    row += 4;
+  }
+
+  // สรุปยอดตาม Vendor — จุดสำคัญที่แทนขั้นตอนคำนวณต่อใน Excel
+  row += 2;
+  sheet.getRange(row, C, 1, 7).merge().setValue('สรุปยอดสั่งซื้อตาม Vendor').setFontWeight('bold').setFontSize(13).setBackground('#1a73e8').setFontColor('#fff');
+  row++;
+  sheet.getRange(row, C).setValue('Vendor').setFontWeight('bold');
+  sheet.getRange(row, C + 5).setValue('ยอดรวม (บาท)').setFontWeight('bold');
+  row++;
+  detail.vendorSummary.forEach(function (v) {
+    sheet.getRange(row, C).setValue(v.vendorName);
+    sheet.getRange(row, C + 5).setValue(v.totalAmount);
+    row++;
+  });
+  row = drawSectionTotal(row, 'ยอดรวมทั้งใบสั่งซื้อ', detail.grandTotal);
   row += 3;
 
-  sheet.getRange(row, C).setValue('ผู้จัดทำ: ' + (po.CreatedBy || '________________'));
-  sheet.getRange(row, C + 3).setValue('ผู้ตรวจสอบ: ' + (po.ReviewedBy || '________________'));
-  sheet.getRange(row, C + 5).setValue('ผู้อนุมัติ: ' + (po.ApprovedBy || '________________')); row++;
+  sheet.getRange(row, C).setValue('ผู้จัดทำ: ' + (detail.createdBy || '________________'));
+  sheet.getRange(row, C + 3).setValue('ผู้ตรวจสอบ: ' + (detail.reviewedBy || '________________'));
+  sheet.getRange(row, C + 5).setValue('ผู้อนุมัติ: ' + (detail.approvedBy || '________________')); row++;
   sheet.getRange(row, C).setValue('วันที่พิมพ์: ' + Utilities.formatDate(new Date(), TIMEZONE, 'dd/MM/yyyy HH:mm'));
 
   sheet.getRange(1, 1, row, C + 6).setFontFamily('Sarabun');
   sheet.setColumnWidth(LOGO_COL, 100);
   sheet.setColumnWidths(C, 7, 90);
   sheet.setColumnWidth(C + 1, 200);
-  sheet.setFrozenRows(headerRow);
+  sheet.setFrozenRows(frozenThrough);
 
   return { sheet: sheet, lastRow: row };
 }
@@ -2031,13 +2176,14 @@ function exportSheetAsPdf_(sheet) {
 }
 
 /**
- * สร้างไฟล์ PDF ใบสั่งซื้อแยกตาม Vendor บันทึกลง Google Drive แล้วคืน URL สำหรับดาวน์โหลด/พิมพ์
+ * สร้างไฟล์ PDF ใบสั่งซื้อของวันนั้น (ครบทุกช่วงเวลา+สรุปยอดตาม Vendor) บันทึกลง Google Drive
+ * แล้วคืน URL สำหรับดาวน์โหลด/พิมพ์
  */
 function apiGeneratePurchaseOrderPdf(token, poId) {
   return apiCall_(token, [ROLES.ADMIN, ROLES.SUPERVISOR], function (session) {
     var po = findRowById_('PurchaseOrders', 'POID', poId);
     if (!po) throw new Error('ไม่พบใบสั่งซื้อนี้');
-    var built = buildPoPrintSheet_(poId);
+    var built = buildDayPoPrintSheet_(poId);
     try {
       var blob = exportSheetAsPdf_(built.sheet).setName(po.PONumber + '.pdf');
       var folder = getOrCreatePdfFolder_();
@@ -2048,78 +2194,6 @@ function apiGeneratePurchaseOrderPdf(token, poId) {
       return { url: file.getUrl(), fileId: file.getId() };
     } finally {
       getOrCreateSpreadsheet_().deleteSheet(built.sheet);
-    }
-  });
-}
-
-/**
- * สร้าง PDF สรุปใบสั่งซื้อรวมทุก Vendor ของวันที่ระบุไว้ในไฟล์เดียว (สำหรับตรวจสอบภาพรวมทั้งวัน)
- */
-function apiGeneratePurchaseOrderPdfAll(token, dateStr) {
-  return apiCall_(token, [ROLES.ADMIN, ROLES.SUPERVISOR], function (session) {
-    var pos = findRowsBy_('PurchaseOrders', function (po) { return formatValueAsDateStr_(po.UseDate) === dateStr; });
-    if (pos.length === 0) throw new Error('ไม่มีใบสั่งซื้อของวันที่นี้');
-
-    var ss = getOrCreateSpreadsheet_();
-    var sheetName = 'PRINT_ALL_' + dateStr.replace(/-/g, '');
-    var old = ss.getSheetByName(sheetName);
-    if (old) ss.deleteSheet(old);
-    var sheet = ss.insertSheet(sheetName);
-    var vendorMap = {}; readSheetObjects_('Vendors').forEach(function (v) { vendorMap[v.VendorID] = v.VendorName; });
-    var ingredientMap = {}; readSheetObjects_('Ingredients').forEach(function (i) { ingredientMap[i.IngredientID] = i; });
-    var companyName = getSetting_('CompanyName') || 'MEKTEC';
-
-    var LOGO_COL = 1, C = 2;
-    try {
-      sheet.insertImage(getLogoBlob_(), LOGO_COL, 1).setWidth(90).setHeight(31);
-    } catch (imgErr) {
-      // หากแทรกโลโก้ไม่สำเร็จ ให้สร้างเอกสารต่อไปโดยไม่มีโลโก้
-    }
-
-    var row = 1;
-    sheet.getRange(row, C, 1, 7).merge().setValue(companyName + ' — สรุปใบสั่งซื้อรวมวันที่ ' + dateStr)
-      .setFontSize(15).setFontWeight('bold'); row += 2;
-
-    var grandTotal = 0;
-    pos.forEach(function (po) {
-      var items = findRowsBy_('PurchaseOrderItems', function (it) { return it.POID === po.POID && it.Skipped !== true && it.Skipped !== 'TRUE'; });
-      if (items.length === 0) return;
-      sheet.getRange(row, C, 1, 7).merge().setValue('Vendor: ' + (vendorMap[po.VendorID] || '-') + ' | เลขที่: ' + po.PONumber)
-        .setFontWeight('bold').setBackground('#e8f0fe'); row++;
-      var headers = ['ลำดับ', 'รายการ', 'จำนวน', 'หน่วย', 'ราคาต่อหน่วย', 'ราคารวม', 'หมายเหตุ'];
-      sheet.getRange(row, C, 1, headers.length).setValues([headers]).setFontWeight('bold').setBackground('#1a73e8').setFontColor('#fff'); row++;
-      var vendorTotal = 0;
-      items.forEach(function (it, idx) {
-        var ing = ingredientMap[it.IngredientID];
-        var qty = toNumber_(it.QtyOrdered);
-        var lineTotal = round2_(qty * toNumber_(it.PricePerUnit));
-        vendorTotal += lineTotal;
-        sheet.getRange(row, C, 1, 7).setValues([[idx + 1, ing ? ing.IngredientName : it.IngredientID, qty, it.Unit,
-          toNumber_(it.PricePerUnit), lineTotal, it.Notes || '']]);
-        row++;
-      });
-      sheet.getRange(row, C + 4).setValue('รวม Vendor นี้').setFontWeight('bold');
-      sheet.getRange(row, C + 5).setValue(round2_(vendorTotal)).setFontWeight('bold');
-      grandTotal += vendorTotal;
-      row += 2;
-    });
-
-    sheet.getRange(row, C + 4).setValue('รวมทั้งหมดทุก Vendor').setFontWeight('bold');
-    sheet.getRange(row, C + 5).setValue(round2_(grandTotal)).setFontWeight('bold');
-    sheet.getRange(1, 1, row, C + 6).setFontFamily('Sarabun');
-    sheet.setColumnWidth(LOGO_COL, 100);
-    sheet.setColumnWidths(C, 7, 90);
-    sheet.setColumnWidth(C + 1, 200);
-
-    try {
-      var blob = exportSheetAsPdf_(sheet).setName('PO-ALL-' + dateStr + '.pdf');
-      var folder = getOrCreatePdfFolder_();
-      var file = folder.createFile(blob);
-      file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
-      logAudit_(session, 'EXPORT_PDF', 'PurchaseOrders', dateStr, null, null, 'สร้าง PDF รวมทั้งวัน');
-      return { url: file.getUrl(), fileId: file.getId() };
-    } finally {
-      ss.deleteSheet(sheet);
     }
   });
 }
