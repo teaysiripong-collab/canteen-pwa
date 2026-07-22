@@ -98,4 +98,7 @@ async function init() {
   maybeAutoSync();
 }
 
-init();
+init().catch((err) => {
+  console.error('เริ่มต้นระบบไม่สำเร็จ', err);
+  toast('เปิดระบบไม่สำเร็จ กรุณารีเฟรชแล้วลองอีกครั้ง');
+});

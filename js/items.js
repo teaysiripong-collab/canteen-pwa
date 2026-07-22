@@ -10,9 +10,11 @@ const form = document.getElementById('item-form');
 const btnDelete = document.getElementById('btn-delete');
 const btnCancel = document.getElementById('btn-cancel');
 const categoryList = document.getElementById('category-list');
+const btnSave = form.querySelector('button[type="submit"]');
 
 let cache = [];
 let editingId = null;
+let saving = false;
 
 function status(item) {
   if (item.quantity <= 0) return 'out';
@@ -131,36 +133,53 @@ export async function lookupAndOpenByBarcode(code) {
 
 form.addEventListener('submit', async (e) => {
   e.preventDefault();
+  if (saving) return;
   const data = Object.fromEntries(new FormData(form).entries());
   if (!data.name || !data.name.trim()) {
-    toast('Name is required');
+    toast('กรุณากรอกชื่อสินค้า');
     return;
   }
-  const saved = await db.putItem({
-    id: data.id || undefined,
-    name: data.name,
-    barcode: data.barcode,
-    category: data.category,
-    quantity: data.quantity,
-    unit: data.unit,
-    price: data.price,
-    threshold: data.threshold,
-    notes: data.notes,
-  });
-  toast(editingId ? 'Updated' : 'Added');
-  editingId = saved.id;
-  await loadItems();
-  navigate('items');
+  saving = true;
+  btnSave.disabled = true;
+  try {
+    const saved = await db.putItem({
+      id: data.id || undefined,
+      name: data.name,
+      barcode: data.barcode,
+      category: data.category,
+      quantity: data.quantity,
+      unit: data.unit,
+      price: data.price,
+      threshold: data.threshold,
+      notes: data.notes,
+    });
+    toast(editingId ? 'บันทึกการแก้ไขแล้ว' : 'เพิ่มรายการแล้ว');
+    editingId = saved.id;
+    await loadItems();
+    navigate('items');
+  } catch (err) {
+    toast(err.message || 'บันทึกรายการไม่สำเร็จ');
+  } finally {
+    saving = false;
+    btnSave.disabled = false;
+  }
 });
 
 btnDelete.addEventListener('click', async () => {
   if (!editingId) return;
-  if (!confirm('Delete this item?')) return;
-  await db.deleteItem(editingId);
-  toast('Deleted');
-  editingId = null;
-  await loadItems();
-  navigate('items');
+  if (!confirm('ต้องการลบรายการนี้หรือไม่?')) return;
+  btnDelete.disabled = true;
+  try {
+    await db.deleteItem(editingId);
+    toast('ลบรายการแล้ว');
+    editingId = null;
+    await loadItems();
+    navigate('items');
+  } catch (err) {
+    toast(err.message || 'ลบรายการไม่สำเร็จ');
+  } finally {
+    btnDelete.disabled = false;
+  }
 });
 
 btnCancel.addEventListener('click', () => navigate('items'));
