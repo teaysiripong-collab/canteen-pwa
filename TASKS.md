@@ -14,9 +14,9 @@
 - [x] สร้าง Branch `setup/ai-project-context`
 - [x] สร้าง `AGENTS.md`
 - [x] สร้าง `PROJECT_CONTEXT.md`
-- [-] สร้าง `TASKS.md`, `CHANGELOG.md`, `README.md` และคู่มือ Workflow
-- [ ] ตรวจสอบ Diff ของเอกสารทั้งหมด
-- [ ] เปิด Pull Request เพื่อรวมเข้ากิ่งหลัก
+- [x] สร้าง `TASKS.md`, `CHANGELOG.md`, `README.md` และคู่มือ Workflow
+- [x] ตรวจสอบ Diff ของเอกสารทั้งหมด
+- [x] เปิด Pull Request เพื่อรวมเข้ากิ่งหลัก
 - [ ] เชื่อม Repository เดียวกันใน Codex
 - [ ] ทดสอบให้ Codex อ่าน `AGENTS.md` และสรุปโปรเจกต์ก่อนทำงาน
 
