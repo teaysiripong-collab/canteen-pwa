@@ -49,13 +49,17 @@ importFile.addEventListener('change', async () => {
     const text = await file.text();
     const payload = JSON.parse(text);
     const replace = confirm(
-      'Replace existing data with the imported backup?\n\nOK = replace, Cancel = merge'
+      'ต้องการแทนที่ข้อมูลเดิมด้วยไฟล์สำรองหรือไม่?\n\nตกลง = แทนที่, ยกเลิก = รวมข้อมูล'
     );
     await db.importAll(payload, { replace });
     await loadItems();
-    toast('Import complete');
+    await loadSettings();
+    toast('นำเข้าข้อมูลสำเร็จ');
   } catch (err) {
-    toast(`Import failed: ${err.message}`);
+    const message = err instanceof SyntaxError
+      ? 'ไฟล์ JSON ผิดรูปแบบ กรุณาตรวจสอบไฟล์อีกครั้ง'
+      : err.message || 'นำเข้าข้อมูลไม่สำเร็จ';
+    toast(message);
   } finally {
     importFile.value = '';
   }

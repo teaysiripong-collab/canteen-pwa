@@ -59,7 +59,7 @@ export async function startScanner(onCode) {
   onCodeCallback = onCode;
   if (!supports()) {
     statusEl.textContent =
-      'Barcode scanning is not supported in this browser. Enter the code manually.';
+      'อุปกรณ์หรือเบราว์เซอร์นี้ไม่รองรับการสแกน Barcode กรุณาปิดหน้าสแกนแล้วกรอกรหัสด้วยตนเอง';
     return false;
   }
   try {
@@ -75,8 +75,8 @@ export async function startScanner(onCode) {
     tick();
     return true;
   } catch (err) {
-    statusEl.textContent = `Camera unavailable: ${err.message || err}`;
-    toast('Camera unavailable');
+    statusEl.textContent = 'ไม่สามารถเปิดกล้องได้ กรุณาตรวจสอบสิทธิ์การใช้กล้องหรือกรอกรหัสด้วยตนเอง';
+    toast('ไม่สามารถเปิดกล้องได้');
     return false;
   }
 }
