@@ -1,6 +1,6 @@
 # TASKS.md
 
-อัปเดตล่าสุด: 22 กรกฎาคม 2026
+อัปเดตล่าสุด: 3 สิงหาคม 2026
 
 สถานะที่ใช้:
 
@@ -17,8 +17,11 @@
 - [x] สร้าง `TASKS.md`, `CHANGELOG.md`, `README.md` และคู่มือ Workflow
 - [x] ตรวจสอบ Diff ของเอกสารทั้งหมด
 - [x] เปิด Pull Request เพื่อรวมเข้ากิ่งหลัก
+- [x] เพิ่ม Project-local Skills สำหรับ Stock, Menu/Recipe, Purchasing, UI/UX และ Bug Fix
+- [x] เพิ่ม Skill routing ใน `AGENTS.md`
 - [ ] เชื่อม Repository เดียวกันใน Codex
 - [ ] ทดสอบให้ Codex อ่าน `AGENTS.md` และสรุปโปรเจกต์ก่อนทำงาน
+- [ ] ทดสอบให้ Codex discover และเลือก `.agents/skills/` ที่ตรงกับงานอัตโนมัติ
 
 ## Priority 0 — ตรวจระบบเดิมก่อนพัฒนาต่อ
 
