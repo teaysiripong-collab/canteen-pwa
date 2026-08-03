@@ -1,0 +1,74 @@
+name: Quality Check
+
+on:
+  pull_request:
+    branches: [main, develop]
+  push:
+    branches: [main, develop]
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: Validate PWA
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Verify required project files
+        shell: bash
+        run: |
+          set -euo pipefail
+          required=(
+            "index.html"
+            "styles.css"
+            "sw.js"
+            "manifest.webmanifest"
+            "AGENTS.md"
+            "PROJECT_CONTEXT.md"
+            "TASKS.md"
+            "CHANGELOG.md"
+          )
+
+          for file in "${required[@]}"; do
+            if [[ ! -f "$file" ]]; then
+              echo "Missing required file: $file"
+              exit 1
+            fi
+          done
+
+      - name: Check JavaScript syntax
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -d js ]]; then
+            while IFS= read -r -d '' file; do
+              echo "Checking $file"
+              node --check "$file"
+            done < <(find js -type f -name '*.js' -print0)
+          fi
+
+          node --check sw.js
+
+      - name: Check repository for common secret files
+        shell: bash
+        run: |
+          set -euo pipefail
+          forbidden=(".env" ".env.local" "credentials.json" "service-account.json")
+          for file in "${forbidden[@]}"; do
+            if [[ -f "$file" ]]; then
+              echo "Forbidden secret-like file detected: $file"
+              exit 1
+            fi
+          done
+
+      - name: Quality check summary
+        run: echo "Version-control quality checks passed."
