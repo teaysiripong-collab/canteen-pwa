@@ -20,10 +20,15 @@
 - เพิ่ม `README.md` สำหรับการเริ่มต้นใช้งาน Repository
 - เพิ่ม `docs/AI_WORKFLOW.md` สำหรับกระบวนการทำงานร่วมกันผ่าน GitHub
 - เพิ่ม `docs/DATA_MODEL.md` สำหรับแบบจำลองข้อมูลเป้าหมาย
+- เพิ่ม Project-local Skill `canteen-stock` สำหรับงาน Stock, Transaction, Lot, Expiry และ FEFO
+- เพิ่ม Project-local Skill `menu-recipe` สำหรับ Recipe, Menu Plan, การ Scale สูตร และ AI-assisted draft recipe
+- เพิ่ม Project-local Skill `purchasing` สำหรับ Vendor, Purchase Plan, จำนวนแนะนำให้ซื้อ และ Export
+- เพิ่ม Project-local Skill `canteen-ui-ux` สำหรับ Mobile-first UI, ภาษาไทย, Accessibility และ Offline/Sync UX
+- เพิ่ม Project-local Skill `bug-fix` สำหรับ Root-cause debugging, regression protection และ data-safety checks
 
 ### Changed
 
-- ยังไม่มีการเปลี่ยนแปลง Production code ในชุดงานนี้
+- ปรับ `AGENTS.md` ให้ตรวจและโหลด Skill ใน `.agents/skills/` ตามประเภทงานก่อนแก้ไขโค้ด
 
 ## [Initial PWA Scaffold]
 
