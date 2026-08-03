@@ -10,9 +10,22 @@
 2. อ่าน `PROJECT_CONTEXT.md`
 3. อ่าน `TASKS.md`
 4. อ่าน `CHANGELOG.md`
-5. ตรวจสอบไฟล์ที่เกี่ยวข้องกับงานจริงก่อนแก้ไข
+5. ตรวจสอบ Skill ที่ตรงกับงานใน `.agents/skills/` และโหลด Skill นั้นเมื่อเกี่ยวข้อง
+6. ตรวจสอบไฟล์ที่เกี่ยวข้องกับงานจริงก่อนแก้ไข
 
 ห้ามเริ่มเขียนโค้ดจากการเดาโครงสร้างระบบ
+
+### Skill routing
+
+Project-local Skills อยู่ใน `.agents/skills/<skill-name>/SKILL.md` และใช้เป็น SOP เฉพาะงานเพิ่มเติมจากกฎกลางไฟล์นี้
+
+- `canteen-stock` — งาน Item Master, รับเข้า, เบิก, โอน, ปรับยอด, Lot, Expiry, FEFO และความถูกต้องของ Stock
+- `menu-recipe` — งาน Recipe Master, เมนู, การ Scale สูตร, ความต้องการวัตถุดิบ และ AI ช่วยเสนอสูตร
+- `purchasing` — งาน Vendor, Purchase Plan, จำนวนแนะนำให้ซื้อ, ราคา/หน่วยซื้อ และ Export จัดซื้อ
+- `canteen-ui-ux` — งานหน้าจอ, Mobile-first, ภาษาไทย, Form, Table, Dashboard, Accessibility และสถานะ Offline/Sync
+- `bug-fix` — งานตรวจสอบและแก้ Bug/Regression โดยหา Root Cause และป้องกันข้อมูลเสียหาย
+
+ถ้างานตรงมากกว่าหนึ่ง Skill ให้โหลดทุก Skill ที่จำเป็น เช่น Bug ที่ทำให้ยอด Stock ผิดควรใช้ทั้ง `bug-fix` และ `canteen-stock` โดยกฎใน `AGENTS.md` ยังมีผลเหนือ Workflow เฉพาะงานเสมอ
 
 ## 2. เป้าหมายของระบบ
 
