@@ -8,7 +8,7 @@
  * ไฟล์นี้: Config / Database Provision / Core Helpers / Seed Data
  ***************************************************************/
 
-const SPREADSHEET_ID = 'PUT_SPREADSHEET_ID_HERE';
+const SPREADSHEET_ID = '1dXwSiffYXVxzcGTgb5nJ8kBchPPNMJdbVdqOEijlyV8';
 const FOLDER_ID = 'PUT_FOLDER_ID_HERE';
 const APP_VERSION = '1.0.0';
 const TZ = 'Asia/Bangkok';
