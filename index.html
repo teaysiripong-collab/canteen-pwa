@@ -1,0 +1,2993 @@
+<!-- MEKTEC Canteen Smart Ingredient & Requisition System — Frontend SPA -->
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>MEKTEC Canteen System</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&family=Sarabun:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<style>
+:root{
+  --navy-900:#0F172A; --navy-800:#1E293B; --navy-700:#334155;
+  --primary:#1E3A8A; --primary-600:#2563EB; --primary-100:#DBEAFE; --primary-50:#EFF6FF;
+  --bg:#F8FAFC; --card:#FFFFFF; --line:#E2E8F0; --line-2:#CBD5E1;
+  --text:#0F172A; --text-2:#475569; --text-3:#94A3B8;
+  --success:#16A34A; --success-bg:#DCFCE7;
+  --warning:#F59E0B; --warning-bg:#FEF3C7;
+  --orange:#EA580C; --orange-bg:#FFEDD5;
+  --danger:#DC2626; --danger-bg:#FEE2E2;
+  --purple:#7C3AED; --purple-bg:#EDE9FE;
+  --radius:14px; --radius-sm:10px;
+  --shadow:0 1px 3px rgba(15,23,42,.06),0 4px 14px rgba(15,23,42,.05);
+  --shadow-lg:0 10px 40px rgba(15,23,42,.18);
+  --sidebar-w:256px;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%}
+body{
+  font-family:'Prompt','Sarabun',system-ui,sans-serif;
+  background:var(--bg); color:var(--text); font-size:14px; line-height:1.55;
+  -webkit-font-smoothing:antialiased;
+  padding-top:env(safe-area-inset-top); padding-bottom:env(safe-area-inset-bottom);
+}
+button{font-family:inherit} input,select,textarea{font-family:inherit;font-size:14px}
+::-webkit-scrollbar{width:9px;height:9px}
+::-webkit-scrollbar-thumb{background:var(--line-2);border-radius:8px}
+::-webkit-scrollbar-track{background:transparent}
+
+/* ═══ LOGIN ═══ */
+.login-wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;
+  background:linear-gradient(135deg,#0F172A 0%,#1E3A8A 55%,#2563EB 100%);padding:20px}
+.login-card{background:var(--card);border-radius:20px;box-shadow:var(--shadow-lg);
+  width:100%;max-width:420px;padding:38px 34px;animation:fadeUp .4s ease}
+@keyframes fadeUp{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+.login-logo{width:64px;height:64px;border-radius:18px;background:linear-gradient(135deg,var(--primary),var(--primary-600));
+  display:flex;align-items:center;justify-content:center;font-size:30px;margin:0 auto 14px;color:#fff}
+.login-card h1{font-size:20px;font-weight:600;text-align:center;color:var(--navy-900)}
+.login-card .sub{text-align:center;color:var(--text-2);font-size:13px;margin:4px 0 24px}
+.field{margin-bottom:14px}
+.field label{display:block;font-size:12.5px;font-weight:500;color:var(--text-2);margin-bottom:5px}
+.inp{width:100%;padding:10px 13px;border:1.5px solid var(--line);border-radius:var(--radius-sm);
+  background:#fff;transition:border .15s, box-shadow .15s;color:var(--text)}
+.inp:focus{outline:none;border-color:var(--primary-600);box-shadow:0 0 0 3px var(--primary-100)}
+textarea.inp{resize:vertical;min-height:64px}
+.login-tabs{display:flex;gap:6px;background:var(--bg);padding:5px;border-radius:12px;margin-bottom:20px}
+.login-tabs button{flex:1;padding:8px;border:none;background:transparent;border-radius:9px;
+  font-size:13.5px;font-weight:500;color:var(--text-2);cursor:pointer;transition:.15s}
+.login-tabs button.active{background:#fff;color:var(--primary);box-shadow:var(--shadow)}
+.hint-box{background:var(--primary-50);border:1px solid var(--primary-100);color:var(--primary);
+  font-size:12.5px;border-radius:10px;padding:9px 12px;margin-top:16px;text-align:center}
+
+/* ═══ BUTTONS ═══ */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;border:none;cursor:pointer;
+  padding:9px 16px;border-radius:var(--radius-sm);font-size:13.5px;font-weight:500;
+  transition:all .15s;white-space:nowrap;text-decoration:none}
+.btn:disabled{opacity:.55;cursor:not-allowed}
+.btn-primary{background:var(--primary-600);color:#fff}
+.btn-primary:hover:not(:disabled){background:var(--primary)}
+.btn-outline{background:#fff;border:1.5px solid var(--line-2);color:var(--text-2)}
+.btn-outline:hover:not(:disabled){border-color:var(--primary-600);color:var(--primary-600)}
+.btn-success{background:var(--success);color:#fff}
+.btn-success:hover:not(:disabled){filter:brightness(.93)}
+.btn-danger{background:var(--danger);color:#fff}
+.btn-danger:hover:not(:disabled){filter:brightness(.93)}
+.btn-warning{background:var(--warning);color:#fff}
+.btn-ghost{background:transparent;color:var(--text-2)}
+.btn-ghost:hover:not(:disabled){background:var(--bg);color:var(--text)}
+.btn-sm{padding:6px 11px;font-size:12.5px;border-radius:8px}
+.btn-lg{padding:12px 22px;font-size:15px}
+.btn-block{width:100%}
+.spinner{width:15px;height:15px;border:2px solid rgba(255,255,255,.35);border-top-color:#fff;
+  border-radius:50%;animation:spin .7s linear infinite;display:inline-block}
+.spinner.dark{border-color:rgba(30,58,138,.25);border-top-color:var(--primary)}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* ═══ APP SHELL ═══ */
+.shell{display:none;min-height:100vh}
+.shell.on{display:block}
+.sidebar{position:fixed;top:0;left:0;bottom:0;width:var(--sidebar-w);background:var(--navy-900);
+  color:#CBD5E1;display:flex;flex-direction:column;z-index:60;
+  padding-top:env(safe-area-inset-top);transition:transform .25s ease}
+.sb-brand{display:flex;align-items:center;gap:11px;padding:18px 18px 14px}
+.sb-logo{width:40px;height:40px;border-radius:12px;background:linear-gradient(135deg,var(--primary-600),#60A5FA);
+  display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0}
+.sb-brand b{color:#fff;font-size:14.5px;font-weight:600;display:block;line-height:1.25}
+.sb-brand span{font-size:11px;color:#64748B}
+.sb-nav{flex:1;overflow-y:auto;padding:6px 10px 20px}
+.sb-item{display:flex;align-items:center;gap:11px;padding:9.5px 12px;border-radius:10px;cursor:pointer;
+  font-size:13.5px;color:#94A3B8;margin-bottom:2px;transition:.13s;border:none;background:none;width:100%;text-align:left}
+.sb-item:hover{background:var(--navy-800);color:#E2E8F0}
+.sb-item.active{background:var(--primary-600);color:#fff;font-weight:500}
+.sb-item .ico{width:20px;text-align:center;font-size:16px;flex-shrink:0}
+.sb-item .bdg{margin-left:auto;background:var(--danger);color:#fff;font-size:10.5px;font-weight:600;
+  min-width:19px;height:19px;border-radius:10px;display:flex;align-items:center;justify-content:center;padding:0 5px}
+.sb-item.active .bdg{background:rgba(255,255,255,.25)}
+.sb-user{padding:13px 16px;border-top:1px solid var(--navy-800);display:flex;align-items:center;gap:10px}
+.sb-avatar{width:36px;height:36px;border-radius:50%;background:var(--primary-600);color:#fff;
+  display:flex;align-items:center;justify-content:center;font-weight:600;font-size:14px;flex-shrink:0}
+.sb-user .nm{font-size:13px;color:#fff;font-weight:500;line-height:1.3}
+.sb-user .rl{font-size:11px;color:#64748B}
+.sb-user button{margin-left:auto;background:none;border:none;color:#64748B;cursor:pointer;font-size:16px;padding:6px}
+.sb-user button:hover{color:#F87171}
+.sb-backdrop{display:none;position:fixed;inset:0;background:rgba(15,23,42,.5);z-index:55}
+
+.main{margin-left:var(--sidebar-w);min-height:100vh;display:flex;flex-direction:column}
+.topbar{position:sticky;top:0;z-index:40;background:rgba(255,255,255,.92);backdrop-filter:blur(8px);
+  border-bottom:1px solid var(--line);padding:0 26px;height:60px;display:flex;align-items:center;gap:14px}
+.hamburger{display:none;background:none;border:none;font-size:21px;cursor:pointer;color:var(--text);padding:6px}
+.topbar h2{font-size:16.5px;font-weight:600}
+.topbar .date-chip{margin-left:auto;font-size:12.5px;color:var(--text-2);background:var(--bg);
+  border:1px solid var(--line);padding:5px 12px;border-radius:20px}
+.content{flex:1;padding:24px 26px 60px;max-width:1500px;width:100%}
+
+/* ═══ CARDS / KPI ═══ */
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);
+  box-shadow:var(--shadow);padding:20px;margin-bottom:18px}
+.card-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px}
+.card-head h3{font-size:15px;font-weight:600}
+.card-head .grow{flex:1}
+.kpi-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(172px,1fr));gap:13px;margin-bottom:18px}
+.kpi{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);
+  box-shadow:var(--shadow);padding:15px 17px;cursor:default}
+.kpi.click{cursor:pointer;transition:.15s}
+.kpi.click:hover{border-color:var(--primary-600);transform:translateY(-2px)}
+.kpi .k-ico{font-size:19px;margin-bottom:6px}
+.kpi .k-val{font-size:22px;font-weight:700;color:var(--navy-900);line-height:1.2}
+.kpi .k-lbl{font-size:12px;color:var(--text-2);margin-top:2px}
+.kpi.warn .k-val{color:var(--warning)} .kpi.danger .k-val{color:var(--danger)}
+.kpi.ok .k-val{color:var(--success)} .kpi.info .k-val{color:var(--primary-600)}
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+.grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
+.chart-box{position:relative;height:250px}
+
+/* ═══ TABLES ═══ */
+.tbl-wrap{overflow-x:auto;border:1px solid var(--line);border-radius:var(--radius-sm)}
+table.tbl{width:100%;border-collapse:collapse;font-size:13px;background:#fff}
+.tbl th{background:var(--bg);color:var(--text-2);font-weight:600;font-size:12px;text-align:left;
+  padding:10px 12px;border-bottom:1.5px solid var(--line);white-space:nowrap;position:sticky;top:0}
+.tbl td{padding:9.5px 12px;border-bottom:1px solid var(--line);vertical-align:middle}
+.tbl tr:last-child td{border-bottom:none}
+.tbl tbody tr:hover{background:var(--primary-50)}
+.tbl .r{text-align:right} .tbl th.r{text-align:right}
+.tbl .c{text-align:center} .tbl th.c{text-align:center}
+.tbl .num-inp{width:92px;text-align:right;padding:6px 9px;border:1.5px solid var(--line-2);border-radius:8px}
+.tbl .num-inp:focus{outline:none;border-color:var(--primary-600);box-shadow:0 0 0 3px var(--primary-100)}
+.empty-state{text-align:center;padding:44px 20px;color:var(--text-3)}
+.empty-state .e-ico{font-size:38px;margin-bottom:8px}
+
+/* ═══ BADGES ═══ */
+.badge{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:20px;
+  font-size:11.5px;font-weight:500;white-space:nowrap}
+.bg-green{background:var(--success-bg);color:var(--success)}
+.bg-yellow{background:var(--warning-bg);color:#B45309}
+.bg-orange{background:var(--orange-bg);color:var(--orange)}
+.bg-red{background:var(--danger-bg);color:var(--danger)}
+.bg-blue{background:var(--primary-100);color:var(--primary)}
+.bg-gray{background:#F1F5F9;color:var(--text-2)}
+.bg-purple{background:var(--purple-bg);color:var(--purple)}
+.dot{width:7px;height:7px;border-radius:50%;display:inline-block}
+
+/* ═══ TOOLBAR / FILTER ═══ */
+.toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:14px}
+.toolbar .grow{flex:1}
+.search-box{position:relative;min-width:210px}
+.search-box .inp{padding-left:34px}
+.search-box::before{content:'🔍';position:absolute;left:11px;top:50%;transform:translateY(-50%);font-size:13px;opacity:.55}
+.sel{padding:9px 32px 9px 12px;border:1.5px solid var(--line);border-radius:var(--radius-sm);background:#fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%2364748B' stroke-width='1.6' fill='none' stroke-linecap='round'/%3E%3C/svg%3E") no-repeat right 11px center;appearance:none;cursor:pointer;color:var(--text)}
+.sel:focus{outline:none;border-color:var(--primary-600);box-shadow:0 0 0 3px var(--primary-100)}
+
+/* ═══ PAGINATION ═══ */
+.pager{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:13px;font-size:12.5px;color:var(--text-2)}
+.pager .grow{flex:1}
+.pager button{border:1px solid var(--line-2);background:#fff;border-radius:8px;padding:5px 11px;
+  cursor:pointer;font-size:12.5px;color:var(--text-2)}
+.pager button:disabled{opacity:.4;cursor:not-allowed}
+.pager button.cur{background:var(--primary-600);border-color:var(--primary-600);color:#fff;font-weight:600}
+
+/* ═══ MODAL ═══ */
+.modal-backdrop{position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:100;display:none;
+  align-items:flex-start;justify-content:center;padding:34px 16px;overflow-y:auto}
+.modal-backdrop.on{display:flex}
+.modal{background:#fff;border-radius:16px;box-shadow:var(--shadow-lg);width:100%;max-width:560px;
+  animation:fadeUp .22s ease;margin-bottom:40px}
+.modal.wide{max-width:860px}
+.modal-h{display:flex;align-items:center;padding:17px 22px;border-bottom:1px solid var(--line)}
+.modal-h h3{font-size:15.5px;font-weight:600;flex:1}
+.modal-h button{background:none;border:none;font-size:19px;color:var(--text-3);cursor:pointer;padding:4px}
+.modal-b{padding:20px 22px;max-height:66vh;overflow-y:auto}
+.modal-f{display:flex;justify-content:flex-end;gap:10px;padding:15px 22px;border-top:1px solid var(--line);flex-wrap:wrap}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:13px}
+.form-grid .full{grid-column:1/-1}
+
+/* ═══ TOAST ═══ */
+.toast-wrap{position:fixed;top:calc(16px + env(safe-area-inset-top));right:16px;z-index:200;
+  display:flex;flex-direction:column;gap:9px;max-width:min(90vw,380px)}
+.toast{background:var(--navy-900);color:#fff;padding:12px 17px;border-radius:12px;
+  box-shadow:var(--shadow-lg);font-size:13.5px;display:flex;gap:9px;align-items:flex-start;
+  animation:toastIn .3s ease;white-space:pre-line}
+.toast.success{background:var(--success)} .toast.error{background:var(--danger)}
+.toast.warning{background:var(--warning);color:#3f2b00}
+@keyframes toastIn{from{opacity:0;transform:translateX(30px)}to{opacity:1;transform:none}}
+
+/* ═══ WEEK PLAN GRID ═══ */
+.week-grid{display:grid;grid-template-columns:repeat(6,minmax(168px,1fr));gap:11px;overflow-x:auto}
+.day-col{background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:10px;min-height:150px}
+.day-col.today{border-color:var(--primary-600);background:var(--primary-50)}
+.day-col.dragover{border-color:var(--success);background:var(--success-bg)}
+.day-head{font-size:12.5px;font-weight:600;color:var(--text-2);display:flex;align-items:center;margin-bottom:9px}
+.day-head .dnum{margin-left:auto;font-size:11px;color:var(--text-3)}
+.plan-chip{background:#fff;border:1px solid var(--line);border-left:3.5px solid var(--primary-600);
+  border-radius:9px;padding:7px 9px;margin-bottom:7px;font-size:12.5px;cursor:grab;position:relative}
+.plan-chip:active{cursor:grabbing}
+.plan-chip .pc-meta{font-size:10.5px;color:var(--text-3);margin-top:2px;display:flex;gap:6px;flex-wrap:wrap}
+.plan-chip .pc-x{position:absolute;top:4px;right:6px;background:none;border:none;color:var(--text-3);
+  cursor:pointer;font-size:12px;display:none}
+.plan-chip:hover .pc-x{display:block}
+.plan-chip.no-recipe{border-left-color:var(--warning)}
+.day-add{width:100%;border:1.5px dashed var(--line-2);background:none;border-radius:9px;padding:6px;
+  color:var(--text-3);cursor:pointer;font-size:12px}
+.day-add:hover{border-color:var(--primary-600);color:var(--primary-600)}
+
+/* ═══ MISC ═══ */
+.section-title{font-size:13px;font-weight:600;color:var(--text-2);text-transform:uppercase;
+  letter-spacing:.4px;margin:20px 0 10px}
+.quick-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:11px}
+.quick-btn{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);
+  padding:15px 12px;cursor:pointer;text-align:center;transition:.15s;box-shadow:var(--shadow)}
+.quick-btn:hover{border-color:var(--primary-600);transform:translateY(-2px)}
+.quick-btn .q-ico{font-size:23px;margin-bottom:6px}
+.quick-btn .q-lbl{font-size:12.5px;font-weight:500;color:var(--text-2)}
+.tabs{display:flex;gap:4px;border-bottom:1.5px solid var(--line);margin-bottom:16px;overflow-x:auto}
+.tabs button{border:none;background:none;padding:9px 15px;font-size:13.5px;color:var(--text-2);
+  cursor:pointer;border-bottom:2.5px solid transparent;margin-bottom:-1.5px;white-space:nowrap;font-weight:500}
+.tabs button.active{color:var(--primary-600);border-bottom-color:var(--primary-600)}
+.info-strip{display:flex;gap:16px;flex-wrap:wrap;background:var(--primary-50);border:1px solid var(--primary-100);
+  border-radius:var(--radius-sm);padding:11px 16px;font-size:13px;margin-bottom:14px}
+.info-strip b{color:var(--primary)}
+.warn-strip{background:var(--warning-bg);border:1px solid #FDE68A;border-radius:var(--radius-sm);
+  padding:11px 16px;font-size:13px;color:#92400E;margin-bottom:14px}
+.ai-box{background:var(--purple-bg);border:1.5px dashed var(--purple);border-radius:var(--radius-sm);
+  padding:13px 16px;margin-bottom:14px;font-size:13px}
+.chk-row{display:flex;align-items:center;gap:8px;font-size:13.5px;cursor:pointer;user-select:none}
+
+/* ═══ PRINT ═══ */
+#printArea{display:none}
+@media print{
+  body{background:#fff}
+  .shell,.toast-wrap,.modal-backdrop{display:none !important}
+  #printArea{display:block;font-family:'Sarabun','Prompt',sans-serif;color:#000}
+  #printArea .p-head{text-align:center;border-bottom:2px solid #000;padding-bottom:10px;margin-bottom:14px}
+  #printArea .p-head h1{font-size:19px} #printArea .p-head .p-sub{font-size:13px}
+  #printArea table{width:100%;border-collapse:collapse;font-size:12.5px;margin:10px 0}
+  #printArea th,#printArea td{border:1px solid #444;padding:6px 8px;text-align:left}
+  #printArea th{background:#EEE}
+  #printArea .p-sign{display:flex;justify-content:space-around;margin-top:52px;text-align:center;font-size:13px}
+  #printArea .p-sign div{width:28%;border-top:1px dotted #000;padding-top:6px}
+  @page{size:A4;margin:14mm}
+}
+
+/* ═══ RESPONSIVE ═══ */
+@media (max-width:1023px){
+  .sidebar{transform:translateX(-100%)}
+  .sidebar.open{transform:none;box-shadow:var(--shadow-lg)}
+  .sb-backdrop.on{display:block}
+  .main{margin-left:0}
+  .hamburger{display:block}
+  .grid-2,.grid-3{grid-template-columns:1fr}
+  .content{padding:16px 14px 70px}
+  .topbar{padding:0 14px}
+  .form-grid{grid-template-columns:1fr}
+  .week-grid{grid-template-columns:repeat(6,220px)}
+}
+@media (max-width:600px){
+  .kpi-grid{grid-template-columns:repeat(2,1fr)}
+  .topbar .date-chip{display:none}
+}
+</style>
+</head>
+<body>
+
+<!-- ═══════════ LOGIN VIEW ═══════════ -->
+<div id="loginView" class="login-wrap" style="display:none">
+  <div class="login-card">
+    <div class="login-logo">🍲</div>
+    <h1 id="loginTitle">MEKTEC Canteen System</h1>
+    <div class="sub">ระบบบริหารวัตถุดิบ เบิก-จ่าย และวางแผนอาหารแคนทีน</div>
+    <div class="login-tabs">
+      <button id="tabLogin" class="active" onclick="AuthUI.switchTab('login')">เข้าสู่ระบบ</button>
+      <button id="tabRegister" onclick="AuthUI.switchTab('register')">สมัครสมาชิก</button>
+    </div>
+    <div id="loginForm">
+      <div class="field"><label>ชื่อผู้ใช้</label><input class="inp" id="loginUser" autocomplete="username" placeholder="username"></div>
+      <div class="field"><label>รหัสผ่าน</label><input class="inp" id="loginPass" type="password" autocomplete="current-password" placeholder="••••••••" onkeydown="if(event.key==='Enter')AuthUI.doLogin()"></div>
+      <button class="btn btn-primary btn-lg btn-block" id="btnLogin" onclick="AuthUI.doLogin()">เข้าสู่ระบบ</button>
+      <div class="hint-box">ทดสอบระบบ: admin / admin123</div>
+    </div>
+    <div id="registerForm" style="display:none">
+      <div class="field"><label>ชื่อผู้ใช้ *</label><input class="inp" id="regUser" placeholder="a-z 0-9 . _ - อย่างน้อย 3 ตัว"></div>
+      <div class="field"><label>รหัสผ่าน *</label><input class="inp" id="regPass" type="password" placeholder="อย่างน้อย 6 ตัวอักษร"></div>
+      <div class="field"><label>ชื่อ-นามสกุล *</label><input class="inp" id="regName"></div>
+      <div class="form-grid">
+        <div class="field"><label>รหัสพนักงาน</label><input class="inp" id="regEmp"></div>
+        <div class="field"><label>เบอร์โทร</label><input class="inp" id="regPhone"></div>
+      </div>
+      <div class="field"><label>แผนก</label><input class="inp" id="regDept"></div>
+      <button class="btn btn-primary btn-lg btn-block" id="btnRegister" onclick="AuthUI.doRegister()">สมัครสมาชิก</button>
+      <div class="hint-box">บัญชีใหม่ต้องรอ Admin อนุมัติก่อนใช้งาน</div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ APP SHELL ═══════════ -->
+<div id="shell" class="shell">
+  <div class="sb-backdrop" id="sbBackdrop" onclick="UI.closeSidebar()"></div>
+  <aside class="sidebar" id="sidebar">
+    <div class="sb-brand">
+      <div class="sb-logo">🍲</div>
+      <div><b id="brandName">MEKTEC Canteen</b><span id="brandSub">Smart Ingredient System</span></div>
+    </div>
+    <nav class="sb-nav" id="sbNav"></nav>
+    <div class="sb-user">
+      <div class="sb-avatar" id="userAvatar">A</div>
+      <div style="flex:1;min-width:0"><div class="nm" id="userName">—</div><div class="rl" id="userRole">—</div></div>
+      <button title="ออกจากระบบ" onclick="AuthUI.doLogout()">⏻</button>
+    </div>
+  </aside>
+  <div class="main">
+    <header class="topbar">
+      <button class="hamburger" onclick="UI.openSidebar()">☰</button>
+      <h2 id="pageTitle">Dashboard</h2>
+      <span class="date-chip" id="todayChip"></span>
+    </header>
+    <main class="content" id="content"></main>
+  </div>
+</div>
+
+<!-- ═══════════ MODAL / TOAST / PRINT ═══════════ -->
+<div class="modal-backdrop" id="modalBackdrop" onclick="if(event.target===this)UI.closeModal()">
+  <div class="modal" id="modalBox">
+    <div class="modal-h"><h3 id="modalTitle"></h3><button onclick="UI.closeModal()">✕</button></div>
+    <div class="modal-b" id="modalBody"></div>
+    <div class="modal-f" id="modalFoot"></div>
+  </div>
+</div>
+<div class="toast-wrap" id="toastWrap"></div>
+<div id="printArea"></div>
+
+<script>
+/* ═══════════════════ GLOBAL STATE ═══════════════════ */
+var APP = {
+  token: localStorage.getItem('mektec_token') || '',
+  user: null, settings: {},
+  locations: [], categories: [], vendors: [], ingredients: [], menus: [], stock: [],
+  notifications: {}, cache: {}, charts: {},
+  prefs: {}, seq: 0, page: 'dashboard'
+};
+try { APP.prefs = JSON.parse(localStorage.getItem('mektec_prefs') || '{}'); } catch (e) { APP.prefs = {}; }
+
+/* Sequence Guard ป้องกัน Response เก่าทับใหม่ */
+function nextSeq() { return ++APP.seq; }
+function isLatest(s) { return s === APP.seq; }
+
+/* Smart Default: จำค่าล่าสุดของผู้ใช้ */
+function remember(key, val) {
+  APP.prefs[key] = val;
+  try { localStorage.setItem('mektec_prefs', JSON.stringify(APP.prefs)); } catch (e) {}
+}
+function recall(key, fallback) { return APP.prefs[key] !== undefined ? APP.prefs[key] : fallback; }
+
+/* ═══════════════════ SERVER API ═══════════════════ */
+function api(fn, args) {
+  return new Promise(function(resolve, reject) {
+    google.script.run
+      .withSuccessHandler(function(res) {
+        if (res && res.code === 'SESSION_EXPIRED') { AuthUI.sessionExpired(); reject(res); return; }
+        resolve(res || { success: false, message: 'ไม่มีข้อมูลตอบกลับ' });
+      })
+      .withFailureHandler(function(e) {
+        toast('❌ ' + (e && e.message ? e.message : 'ไม่สามารถติดต่อเซิร์ฟเวอร์ได้'), 'error');
+        reject(e);
+      })[fn](APP.token, args);
+  });
+}
+function apiPublic(fn, payload) {
+  return new Promise(function(resolve, reject) {
+    google.script.run
+      .withSuccessHandler(resolve)
+      .withFailureHandler(function(e) {
+        toast('❌ ' + (e && e.message ? e.message : 'ไม่สามารถติดต่อเซิร์ฟเวอร์ได้'), 'error');
+        reject(e);
+      })[fn](payload);
+  });
+}
+
+/* ═══════════════════ HELPERS ═══════════════════ */
+function el(id) { return document.getElementById(id); }
+function esc(s) {
+  return String(s === undefined || s === null ? '' : s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+function num(v) { var n = parseFloat(v); return isNaN(n) ? 0 : n; }
+function fmt(v, dec) {
+  var n = num(v);
+  if (dec === undefined) dec = (n % 1 === 0) ? 0 : 2;
+  return n.toLocaleString('th-TH', { minimumFractionDigits: dec, maximumFractionDigits: Math.max(dec, 3) });
+}
+function money(v) { return '฿' + num(v).toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+function todayStr() {
+  var d = new Date();
+  return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2);
+}
+function addDays(dateStr, days) {
+  var d = new Date(dateStr + 'T12:00:00'); d.setDate(d.getDate() + days);
+  return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2);
+}
+function thaiDate(dateStr) {
+  if (!dateStr) return '';
+  var d = new Date(String(dateStr).slice(0, 10) + 'T12:00:00');
+  if (isNaN(d.getTime())) return String(dateStr);
+  return d.toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' });
+}
+function mondayOf(dateStr) {
+  var d = new Date(dateStr + 'T12:00:00');
+  var diff = (d.getDay() + 6) % 7;
+  return addDays(dateStr, -diff);
+}
+var DAY_TH = ['อาทิตย์','จันทร์','อังคาร','พุธ','พฤหัสบดี','ศุกร์','เสาร์'];
+var MEALS = ['เช้า','กลางวัน','เย็น','กะดึก','ทั้งวัน'];
+
+function statusBadge(st) {
+  var map = {
+    normal: ['bg-green', '🟢 ปกติ'], low: ['bg-yellow', '🟡 ใกล้หมด'],
+    critical: ['bg-orange', '🟠 วิกฤต'], out: ['bg-red', '🔴 หมด'],
+    draft: ['bg-gray', 'Draft'], pending: ['bg-yellow', 'รออนุมัติ'],
+    approved: ['bg-blue', 'อนุมัติแล้ว'], issued: ['bg-green', 'จ่ายแล้ว'],
+    rejected: ['bg-red', 'ปฏิเสธ'], cancelled: ['bg-gray', 'ยกเลิก'],
+    active: ['bg-green', 'ใช้งาน'], inactive: ['bg-gray', 'ปิดใช้งาน'],
+    completed: ['bg-blue', 'โอนแล้ว'], received: ['bg-green', 'รับแล้ว'],
+    confirmed: ['bg-blue', 'ยืนยันแล้ว'], ordered: ['bg-purple', 'สั่งซื้อแล้ว'],
+    shortage: ['bg-red', '🔴 ขาด'], ok: ['bg-green', '✅ พอ']
+  };
+  var m = map[st] || ['bg-gray', st || '-'];
+  return '<span class="badge ' + m[0] + '">' + m[1] + '</span>';
+}
+
+/* ปุ่ม Loading State + กัน Double Click */
+function btnBusy(btn, busy, busyText) {
+  if (typeof btn === 'string') btn = el(btn);
+  if (!btn) return;
+  if (busy) {
+    btn.dataset.orig = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span> ' + (busyText || 'กำลังบันทึก…');
+  } else {
+    btn.disabled = false;
+    if (btn.dataset.orig) btn.innerHTML = btn.dataset.orig;
+  }
+}
+
+function toast(msg, type) {
+  var t = document.createElement('div');
+  t.className = 'toast ' + (type || '');
+  t.textContent = msg;
+  el('toastWrap').appendChild(t);
+  setTimeout(function() { t.style.opacity = '0'; t.style.transition = 'opacity .4s'; }, 3800);
+  setTimeout(function() { t.remove(); }, 4300);
+}
+
+/* ═══ Pagination: pageSlice + clamp ═══ */
+function pageSlice(arr, page, per) {
+  per = per || 10;
+  var totalPages = Math.max(1, Math.ceil(arr.length / per));
+  page = Math.min(Math.max(1, page || 1), totalPages);
+  return { rows: arr.slice((page - 1) * per, page * per), page: page, totalPages: totalPages, total: arr.length, per: per };
+}
+function pagerHTML(ps, nsObj) {
+  var h = '<div class="pager"><span>ทั้งหมด ' + fmt(ps.total) + ' รายการ</span><span class="grow"></span>';
+  h += '<select class="sel" style="padding:5px 28px 5px 9px" onchange="' + nsObj + '.setPer(this.value)">';
+  [10, 25, 50, 100].forEach(function(n) {
+    h += '<option value="' + n + '"' + (ps.per === n ? ' selected' : '') + '>' + n + ' แถว</option>';
+  });
+  h += '</select>';
+  h += '<button ' + (ps.page <= 1 ? 'disabled' : '') + ' onclick="' + nsObj + '.setPage(' + (ps.page - 1) + ')">‹</button>';
+  var start = Math.max(1, ps.page - 2), end = Math.min(ps.totalPages, start + 4);
+  for (var p = start; p <= end; p++) {
+    h += '<button class="' + (p === ps.page ? 'cur' : '') + '" onclick="' + nsObj + '.setPage(' + p + ')">' + p + '</button>';
+  }
+  h += '<button ' + (ps.page >= ps.totalPages ? 'disabled' : '') + ' onclick="' + nsObj + '.setPage(' + (ps.page + 1) + ')">›</button></div>';
+  return h;
+}
+
+/* ═══ Modal ═══ */
+var UI = {
+  openSidebar: function() { el('sidebar').classList.add('open'); el('sbBackdrop').classList.add('on'); },
+  closeSidebar: function() { el('sidebar').classList.remove('open'); el('sbBackdrop').classList.remove('on'); },
+  modal: function(title, bodyHTML, footHTML, wide) {
+    el('modalTitle').textContent = title;
+    el('modalBody').innerHTML = bodyHTML;
+    el('modalFoot').innerHTML = footHTML || '';
+    el('modalFoot').style.display = footHTML ? 'flex' : 'none';
+    el('modalBox').classList.toggle('wide', !!wide);
+    el('modalBackdrop').classList.add('on');
+  },
+  closeModal: function() { el('modalBackdrop').classList.remove('on'); },
+  confirm: function(title, msg, okLabel, okClass) {
+    return new Promise(function(resolve) {
+      UI._confirmResolve = resolve;
+      UI.modal(title, '<div style="font-size:14px;white-space:pre-line">' + esc(msg) + '</div>',
+        '<button class="btn btn-outline" onclick="UI._answer(false)">ยกเลิก</button>' +
+        '<button class="btn ' + (okClass || 'btn-primary') + '" onclick="UI._answer(true)">' + esc(okLabel || 'ยืนยัน') + '</button>');
+    });
+  },
+  _answer: function(v) { UI.closeModal(); if (UI._confirmResolve) { UI._confirmResolve(v); UI._confirmResolve = null; } },
+  promptReason: function(title, placeholder) {
+    return new Promise(function(resolve) {
+      UI._confirmResolve = null;
+      UI.modal(title,
+        '<div class="field"><label>เหตุผล *</label><textarea class="inp" id="uiReason" placeholder="' + esc(placeholder || 'กรุณาระบุเหตุผล') + '"></textarea></div>',
+        '<button class="btn btn-outline" onclick="UI.closeModal();UI._reasonCb(null)">ยกเลิก</button>' +
+        '<button class="btn btn-danger" onclick="var r=el(\'uiReason\').value.trim();if(!r){toast(\'⚠️ กรุณาระบุเหตุผล\',\'warning\');return;}UI.closeModal();UI._reasonCb(r)">ยืนยัน</button>');
+      UI._reasonCb = resolve;
+      setTimeout(function() { el('uiReason').focus(); }, 60);
+    });
+  }
+};
+
+/* ═══ Dropdown / Autocomplete builders (เลือกมากกว่าพิมพ์) ═══ */
+function selOptions(list, valField, labelField, selected, emptyLabel) {
+  var h = emptyLabel !== undefined ? '<option value="">' + esc(emptyLabel) + '</option>' : '';
+  (list || []).forEach(function(o) {
+    h += '<option value="' + esc(o[valField]) + '"' + (String(o[valField]) === String(selected) ? ' selected' : '') + '>' +
+      esc(o[labelField]) + '</option>';
+  });
+  return h;
+}
+function locSelect(id, selected, allLabel) {
+  return '<select class="sel" id="' + id + '">' +
+    selOptions(APP.locations, 'location_id', 'location_code', selected, allLabel) + '</select>';
+}
+function ingDatalist() {
+  var h = '<datalist id="dlIngredients">';
+  APP.ingredients.forEach(function(g) {
+    h += '<option value="' + esc(g.ingredient_name) + '">' + esc(g.ingredient_code + ' · ' + (g.category_name || '')) + '</option>';
+  });
+  return h + '</datalist>';
+}
+function ingByName(name) {
+  name = String(name || '').trim();
+  for (var i = 0; i < APP.ingredients.length; i++) {
+    if (APP.ingredients[i].ingredient_name === name) return APP.ingredients[i];
+  }
+  return null;
+}
+function ingById(id) {
+  for (var i = 0; i < APP.ingredients.length; i++) {
+    if (APP.ingredients[i].ingredient_id === id) return APP.ingredients[i];
+  }
+  return null;
+}
+function menuById(id) {
+  for (var i = 0; i < APP.menus.length; i++) if (APP.menus[i].menu_id === id) return APP.menus[i];
+  return null;
+}
+
+/* ═══ Export: CSV / Excel(SheetJS) / Print ═══ */
+function exportCSV(filename, columns, rows) {
+  var lines = [columns.map(function(c) { return '"' + c.label + '"'; }).join(',')];
+  rows.forEach(function(r) {
+    lines.push(columns.map(function(c) {
+      var v = r[c.key]; if (v === undefined || v === null) v = '';
+      return '"' + String(v).replace(/"/g, '""') + '"';
+    }).join(','));
+  });
+  var blob = new Blob(['﻿' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8' });
+  downloadBlob(blob, filename + '.csv');
+  toast('✅ Export CSV สำเร็จ', 'success');
+}
+function exportExcel(filename, columns, rows) {
+  var data = rows.map(function(r) {
+    var o = {};
+    columns.forEach(function(c) { o[c.label] = r[c.key] !== undefined ? r[c.key] : ''; });
+    return o;
+  });
+  var ws = XLSX.utils.json_to_sheet(data);
+  var wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Report');
+  XLSX.writeFile(wb, filename + '.xlsx');
+  toast('✅ Export Excel สำเร็จ', 'success');
+}
+function downloadBlob(blob, filename) {
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = filename;
+  document.body.appendChild(a); a.click();
+  setTimeout(function() { URL.revokeObjectURL(a.href); a.remove(); }, 400);
+}
+function printHTML(html) {
+  el('printArea').innerHTML = html;
+  setTimeout(function() { window.print(); }, 120);
+}
+function printHeader(docTitle, sub) {
+  return '<div class="p-head"><h1>' + esc(APP.settings.company_name || 'MEKTEC CANTEEN') + '</h1>' +
+    '<div class="p-sub"><b>' + esc(docTitle) + '</b></div>' +
+    (sub ? '<div class="p-sub">' + sub + '</div>' : '') + '</div>';
+}
+
+/* ═══ Generic data table ═══ */
+function renderRows(columns, rows) {
+  if (!rows.length) {
+    return '<tr><td colspan="' + columns.length + '"><div class="empty-state"><div class="e-ico">📭</div>ไม่พบข้อมูล</div></td></tr>';
+  }
+  return rows.map(function(r) {
+    return '<tr>' + columns.map(function(c) {
+      var v = r[c.key];
+      if (c.render) return '<td class="' + (c.cls || '') + '">' + c.render(r) + '</td>';
+      if (c.type === 'money') return '<td class="r">' + money(v) + '</td>';
+      if (c.type === 'num') return '<td class="r">' + fmt(v) + '</td>';
+      if (c.type === 'status') return '<td>' + statusBadge(v) + '</td>';
+      if (c.type === 'date') return '<td>' + thaiDate(v) + '</td>';
+      return '<td class="' + (c.cls || '') + '">' + esc(v) + '</td>';
+    }).join('') + '</tr>';
+  }).join('');
+}
+function tableHTML(columns, rows, extraCls) {
+  return '<div class="tbl-wrap"><table class="tbl ' + (extraCls || '') + '"><thead><tr>' +
+    columns.map(function(c) {
+      var cls = (c.type === 'money' || c.type === 'num') ? 'r' : (c.hcls || '');
+      return '<th class="' + cls + '">' + esc(c.label) + '</th>';
+    }).join('') + '</tr></thead><tbody>' + renderRows(columns, rows) + '</tbody></table></div>';
+}
+
+/* ═══ Charts ═══ */
+var CHART_COLORS = ['#2563EB','#16A34A','#F59E0B','#DC2626','#7C3AED','#0891B2','#EA580C','#DB2777','#65A30D','#64748B'];
+function makeChart(canvasId, cfg) {
+  if (APP.charts[canvasId]) { APP.charts[canvasId].destroy(); delete APP.charts[canvasId]; }
+  var cv = el(canvasId);
+  if (!cv || typeof Chart === 'undefined') return;
+  APP.charts[canvasId] = new Chart(cv.getContext('2d'), cfg);
+}
+
+/* ═══════════════════ AUTH UI ═══════════════════ */
+var AuthUI = {
+  switchTab: function(tab) {
+    el('tabLogin').classList.toggle('active', tab === 'login');
+    el('tabRegister').classList.toggle('active', tab === 'register');
+    el('loginForm').style.display = tab === 'login' ? '' : 'none';
+    el('registerForm').style.display = tab === 'register' ? '' : 'none';
+  },
+  doLogin: function() {
+    var u = el('loginUser').value.trim(), p = el('loginPass').value;
+    if (!u || !p) { toast('⚠️ กรุณากรอกชื่อผู้ใช้และรหัสผ่าน', 'warning'); return; }
+    btnBusy('btnLogin', true, 'กำลังเข้าสู่ระบบ…');
+    apiPublic('login', { username: u, password: p, device_info: navigator.userAgent.slice(0, 180) })
+      .then(function(res) {
+        if (!res.success) { toast('❌ ' + res.message, 'error'); btnBusy('btnLogin', false); return; }
+        APP.token = res.data.token;
+        localStorage.setItem('mektec_token', APP.token);
+        toast('✅ ' + res.message, 'success');
+        Boot.loadInitial();
+      })
+      .catch(function() { btnBusy('btnLogin', false); });
+  },
+  doRegister: function() {
+    var payload = {
+      username: el('regUser').value.trim(), password: el('regPass').value,
+      fullname: el('regName').value.trim(), employee_code: el('regEmp').value.trim(),
+      phone: el('regPhone').value.trim(), department: el('regDept').value.trim()
+    };
+    if (!payload.username || !payload.password || !payload.fullname) {
+      toast('⚠️ กรุณากรอกข้อมูลที่จำเป็น (*)', 'warning'); return;
+    }
+    btnBusy('btnRegister', true, 'กำลังสมัคร…');
+    apiPublic('registerUser', payload).then(function(res) {
+      btnBusy('btnRegister', false);
+      toast((res.success ? '✅ ' : '❌ ') + res.message, res.success ? 'success' : 'error');
+      if (res.success) AuthUI.switchTab('login');
+    }).catch(function() { btnBusy('btnRegister', false); });
+  },
+  doLogout: function() {
+    api('logout', null).catch(function() {});
+    AuthUI.clearSession('ออกจากระบบแล้ว');
+  },
+  sessionExpired: function() {
+    if (AuthUI._expiredShown) return;
+    AuthUI._expiredShown = true;
+    setTimeout(function() { AuthUI._expiredShown = false; }, 3000);
+    AuthUI.clearSession('Session หมดอายุ กรุณาเข้าสู่ระบบใหม่');
+  },
+  clearSession: function(msg) {
+    APP.token = ''; APP.user = null;
+    localStorage.removeItem('mektec_token');
+    el('shell').classList.remove('on');
+    el('loginView').style.display = 'flex';
+    if (msg) toast(msg, 'warning');
+  }
+};
+
+/* ═══════════════════ ROUTER + SIDEBAR ═══════════════════ */
+var NAV_ITEMS = [
+  { id: 'dashboard',  ico: '🏠', label: 'Dashboard' },
+  { id: 'menuplan',   ico: '📅', label: 'แผนเมนู' },
+  { id: 'menus',      ico: '🍲', label: 'เมนูอาหาร', badge: 'menus_no_recipe' },
+  { id: 'recipes',    ico: '📖', label: 'สูตรอาหาร' },
+  { id: 'ingredients',ico: '🥩', label: 'วัตถุดิบ' },
+  { id: 'stock',      ico: '📦', label: 'Stock', badge: 'low_total' },
+  { id: 'stockin',    ico: '📥', label: 'รับเข้าวัตถุดิบ' },
+  { id: 'requisition',ico: '📤', label: 'ใบเบิกวัตถุดิบ' },
+  { id: 'approval',   ico: '✅', label: 'อนุมัติใบเบิก', badge: 'pending_approval' },
+  { id: 'transfer',   ico: '🔄', label: 'โอน B1/B16' },
+  { id: 'purchase',   ico: '🛒', label: 'แผนสั่งซื้อ', badge: 'purchase_suggestions' },
+  { id: 'cost',       ico: '📊', label: 'ต้นทุน' },
+  { id: 'reports',    ico: '📈', label: 'รายงาน' },
+  { id: 'users',      ico: '👥', label: 'ผู้ใช้งาน', badge: 'pending_users' },
+  { id: 'settings',   ico: '⚙️', label: 'ตั้งค่า' }
+];
+
+function buildSidebar() {
+  var pages = (APP.user && APP.user.pages) || [];
+  el('sbNav').innerHTML = NAV_ITEMS.filter(function(it) { return pages.indexOf(it.id) !== -1; })
+    .map(function(it) {
+      return '<button class="sb-item" id="nav_' + it.id + '" onclick="nav(\'' + it.id + '\')">' +
+        '<span class="ico">' + it.ico + '</span><span>' + it.label + '</span>' +
+        '<span class="bdg" id="bdg_' + it.id + '" style="display:none"></span></button>';
+    }).join('');
+  updateBadges();
+}
+
+function updateBadges() {
+  var n = APP.notifications || {};
+  var vals = {
+    menus_no_recipe: n.menus_no_recipe, pending_approval: n.pending_approval,
+    purchase_suggestions: n.purchase_suggestions, pending_users: n.pending_users,
+    low_total: num(n.low_stock) + num(n.critical_stock) + num(n.out_of_stock)
+  };
+  NAV_ITEMS.forEach(function(it) {
+    if (!it.badge) return;
+    var b = el('bdg_' + it.id);
+    if (!b) return;
+    var v = num(vals[it.badge]);
+    b.style.display = v > 0 ? 'flex' : 'none';
+    b.textContent = v;
+  });
+}
+
+function nav(pageId, params) {
+  var pages = (APP.user && APP.user.pages) || [];
+  if (pages.indexOf(pageId) === -1) { toast('⚠️ คุณไม่มีสิทธิ์เข้าหน้านี้', 'warning'); return; }
+  APP.page = pageId;
+  nextSeq(); // ยกเลิกผล async ของหน้าเก่า
+  document.querySelectorAll('.sb-item').forEach(function(b) { b.classList.remove('active'); });
+  var btn = el('nav_' + pageId);
+  if (btn) btn.classList.add('active');
+  var item = NAV_ITEMS.filter(function(i) { return i.id === pageId; })[0];
+  el('pageTitle').textContent = item ? item.label : pageId;
+  UI.closeSidebar();
+  window.scrollTo(0, 0);
+  PAGES[pageId].render(params || {});
+}
+
+/* Background refresh master data (Cache-first: ข้อมูลเก่าแสดงก่อน) */
+function refreshMaster(silent) {
+  return api('getFastInitialData', null).then(function(res) {
+    if (!res.success) { if (!silent) toast('❌ ' + res.message, 'error'); return; }
+    var d = res.data;
+    APP.user = d.user; APP.settings = d.settings;
+    APP.locations = d.locations; APP.categories = d.categories; APP.vendors = d.vendors;
+    APP.ingredients = d.ingredients; APP.menus = d.menus; APP.stock = d.stock;
+    APP.notifications = d.notifications;
+    updateBadges();
+  });
+}
+
+/* ═══════════════════ BOOT ═══════════════════ */
+var Boot = {
+  start: function() {
+    el('todayChip').textContent = new Date().toLocaleDateString('th-TH',
+      { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+    if (APP.token) Boot.loadInitial();
+    else { el('loginView').style.display = 'flex'; }
+  },
+  loadInitial: function() {
+    el('loginView').style.display = 'none';
+    el('shell').classList.add('on');
+    el('content').innerHTML = '<div class="empty-state"><div class="spinner dark" style="width:30px;height:30px;margin:30px auto"></div>กำลังโหลดข้อมูล…</div>';
+    api('getFastInitialData', null).then(function(res) {
+      if (!res.success) {
+        toast('❌ ' + res.message, 'error');
+        AuthUI.clearSession();
+        btnBusy('btnLogin', false);
+        return;
+      }
+      var d = res.data;
+      APP.user = d.user; APP.settings = d.settings;
+      APP.locations = d.locations; APP.categories = d.categories; APP.vendors = d.vendors;
+      APP.ingredients = d.ingredients; APP.menus = d.menus; APP.stock = d.stock;
+      APP.notifications = d.notifications;
+      APP.settings.app_version = d.app_version;
+      el('brandName').textContent = d.settings.app_name || 'MEKTEC Canteen';
+      el('userName').textContent = d.user.fullname || d.user.username;
+      el('userRole').textContent = d.user.role + (d.user.department ? ' · ' + d.user.department : '');
+      el('userAvatar').textContent = (d.user.fullname || d.user.username || 'U').slice(0, 1).toUpperCase();
+      buildSidebar();
+      btnBusy('btnLogin', false);
+      nav('dashboard');
+    }).catch(function() { btnBusy('btnLogin', false); });
+  }
+};
+
+var PAGES = {};
+
+/* ═══════════════════ PAGE: DASHBOARD ═══════════════════ */
+PAGES.dashboard = {
+  render: function() {
+    var seq = nextSeq();
+    var cached = APP.cache.dashboard;
+    el('content').innerHTML = cached ? PAGES.dashboard.html(cached) :
+      '<div class="empty-state"><div class="spinner dark" style="width:28px;height:28px;margin:24px auto"></div>กำลังโหลด Dashboard…</div>';
+    if (cached) PAGES.dashboard.drawCharts(cached);
+    api('getDashboard', null).then(function(res) {
+      if (!isLatest(seq) || APP.page !== 'dashboard') return;
+      if (!res.success) { toast('❌ ' + res.message, 'error'); return; }
+      APP.cache.dashboard = res.data;
+      APP.notifications = res.data.notifications;
+      updateBadges();
+      el('content').innerHTML = PAGES.dashboard.html(res.data);
+      PAGES.dashboard.drawCharts(res.data);
+    });
+  },
+  html: function(d) {
+    var k = d.kpi;
+    var canWrite = APP.user.role !== 'Viewer';
+    var h = '<div class="kpi-grid">';
+    var kpis = [
+      ['🍲', k.menu_today, 'เมนูวันนี้', 'info', "nav('menuplan')"],
+      ['🥕', k.ingredients_required_today, 'วัตถุดิบต้องใช้วันนี้', 'info', "nav('requisition')"],
+      ['💰', money(k.stock_value), 'มูลค่า Stock', '', "nav('stock')"],
+      ['💸', money(k.estimated_cost_today), 'ประมาณการต้นทุนวันนี้', '', "nav('cost')"],
+      ['📥', money(k.today_in), 'รับเข้าวันนี้', 'ok', "nav('stockin')"],
+      ['📤', money(k.today_cost), 'เบิกใช้วันนี้', '', "nav('cost')"],
+      ['⚠️', k.low_stock, 'ของใกล้หมด', k.low_stock > 0 ? 'warn' : 'ok', "nav('stock')"],
+      ['🚫', k.out_of_stock, 'ของหมด', k.out_of_stock > 0 ? 'danger' : 'ok', "nav('stock')"],
+      ['✅', k.pending_approval, 'รออนุมัติ', k.pending_approval > 0 ? 'warn' : '', "nav('approval')"],
+      ['🛒', k.purchase_suggestions, 'แนะนำสั่งซื้อ', k.purchase_suggestions > 0 ? 'warn' : '', "nav('purchase')"]
+    ];
+    kpis.forEach(function(x) {
+      var canGo = (APP.user.pages || []).indexOf(x[4].slice(5, -2)) !== -1;
+      h += '<div class="kpi ' + x[3] + (canGo ? ' click" onclick="' + x[4] : '') + '">' +
+        '<div class="k-ico">' + x[0] + '</div><div class="k-val">' + x[1] + '</div><div class="k-lbl">' + x[2] + '</div></div>';
+    });
+    h += '</div>';
+
+    // Quick Actions
+    if (canWrite) {
+      var qa = [
+        ['➕', 'เพิ่มเมนูในแผน', "nav('menuplan')", 'menuplan'],
+        ['📤', 'สร้างใบเบิกวันนี้', "PAGES.requisition.createFromToday()", 'requisition'],
+        ['📥', 'รับวัตถุดิบ', "nav('stockin')", 'stockin'],
+        ['🔄', 'โอนวัตถุดิบ', "nav('transfer')", 'transfer'],
+        ['📦', 'ตรวจ Stock', "nav('stock')", 'stock'],
+        ['🛒', 'สร้าง Purchase Plan', "nav('purchase')", 'purchase']
+      ];
+      h += '<div class="section-title">Quick Action</div><div class="quick-grid">';
+      qa.forEach(function(q) {
+        if ((APP.user.pages || []).indexOf(q[3]) === -1) return;
+        h += '<div class="quick-btn" onclick="' + q[2] + '"><div class="q-ico">' + q[0] + '</div><div class="q-lbl">' + q[1] + '</div></div>';
+      });
+      h += '</div>';
+    }
+
+    // เมนูวันนี้
+    h += '<div class="section-title">เมนูวันนี้ · ' + thaiDate(d.today) + '</div><div class="card">';
+    if (!d.today_menus.length) {
+      h += '<div class="empty-state"><div class="e-ico">📅</div>ยังไม่มีแผนเมนูของวันนี้' +
+        (canWrite ? '<br><button class="btn btn-primary btn-sm" style="margin-top:10px" onclick="nav(\'menuplan\')">➕ วางแผนเมนู</button>' : '') + '</div>';
+    } else {
+      h += tableHTML([
+        { key: 'meal_period', label: 'ช่วงอาหาร' },
+        { key: 'menu_name', label: 'เมนู', render: function(r) {
+            return esc(r.menu_name) + (!r.has_recipe ? ' <span class="badge bg-yellow">⚠️ ไม่มีสูตร</span>' : '');
+          } },
+        { key: 'location_name', label: 'Location' },
+        { key: 'planned_quantity', label: 'จำนวนเสิร์ฟ', type: 'num' }
+      ], d.today_menus);
+      if (canWrite) {
+        h += '<div style="margin-top:13px;display:flex;gap:10px;flex-wrap:wrap">' +
+          '<button class="btn btn-primary" onclick="PAGES.requisition.createFromToday()">📤 สร้างใบเบิกวันนี้</button></div>';
+      }
+    }
+    h += '</div>';
+
+    // วัตถุดิบที่ต้องใช้วันนี้
+    if (d.today_requirement.length) {
+      h += '<div class="section-title">วัตถุดิบที่ต้องใช้วันนี้</div><div class="card">' +
+        tableHTML([
+          { key: 'ingredient_name', label: 'วัตถุดิบ' },
+          { key: 'required_quantity', label: 'ต้องใช้', type: 'num' },
+          { key: 'unit', label: 'หน่วย' },
+          { key: 'available_stock', label: 'Stock', type: 'num' },
+          { key: 'shortage', label: 'ขาด/เกิน', render: function(r) {
+              return r.shortage > 0 ? '<span style="color:var(--danger);font-weight:600">🔴 ขาด ' + fmt(r.shortage) + '</span>'
+                : '<span style="color:var(--success)">เกิน ' + fmt(r.available_stock - r.required_quantity) + '</span>';
+            } },
+          { key: 'status', label: 'สถานะ', render: function(r) {
+              return r.shortage > 0 ? statusBadge('shortage') + ' <span style="font-size:11px;color:var(--text-3)">ต้องสั่งเพิ่ม</span>' : statusBadge('ok');
+            } }
+        ], d.today_requirement) + '</div>';
+    }
+
+    // Charts
+    h += '<div class="section-title">ภาพรวม</div><div class="grid-2">' +
+      '<div class="card"><div class="card-head"><h3>มูลค่า Stock ตามหมวดหมู่</h3></div><div class="chart-box"><canvas id="chStockCat"></canvas></div></div>' +
+      '<div class="card"><div class="card-head"><h3>ต้นทุนรายวัน (7 วัน)</h3></div><div class="chart-box"><canvas id="chDailyCost"></canvas></div></div>' +
+      '<div class="card"><div class="card-head"><h3>Top 10 วัตถุดิบใช้มากสุด (30 วัน)</h3></div><div class="chart-box"><canvas id="chTopUsed"></canvas></div></div>' +
+      '<div class="card"><div class="card-head"><h3>สถานะ Stock</h3></div><div class="chart-box"><canvas id="chStockStatus"></canvas></div></div>' +
+      '<div class="card"><div class="card-head"><h3>ยอดซื้อตาม Vendor (30 วัน)</h3></div><div class="chart-box"><canvas id="chVendor"></canvas></div></div>' +
+      '<div class="card"><div class="card-head"><h3>Top 10 วัตถุดิบราคาสูงสุด</h3></div><div class="chart-box"><canvas id="chTopExp"></canvas></div></div>' +
+      '</div>';
+    return h;
+  },
+  drawCharts: function(d) {
+    var c = d.charts;
+    var catKeys = Object.keys(c.stock_by_category);
+    makeChart('chStockCat', { type: 'doughnut',
+      data: { labels: catKeys, datasets: [{ data: catKeys.map(function(k) { return c.stock_by_category[k]; }), backgroundColor: CHART_COLORS }] },
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right' } } } });
+    makeChart('chDailyCost', { type: 'bar',
+      data: { labels: c.daily_cost.map(function(x) { return x.date.slice(5); }),
+        datasets: [{ label: 'ต้นทุน (บาท)', data: c.daily_cost.map(function(x) { return x.cost; }), backgroundColor: '#2563EB', borderRadius: 6 }] },
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } } });
+    makeChart('chTopUsed', { type: 'bar',
+      data: { labels: c.top_used.map(function(x) { return x.name; }),
+        datasets: [{ label: 'ปริมาณ', data: c.top_used.map(function(x) { return x.qty; }), backgroundColor: '#16A34A', borderRadius: 6 }] },
+      options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } } });
+    makeChart('chStockStatus', { type: 'doughnut',
+      data: { labels: ['🟢 ปกติ', '🟡 ใกล้หมด', '🟠 วิกฤต', '🔴 หมด'],
+        datasets: [{ data: [c.stock_status.normal, c.stock_status.low, c.stock_status.critical, c.stock_status.out],
+          backgroundColor: ['#16A34A', '#F59E0B', '#EA580C', '#DC2626'] }] },
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right' } } } });
+    var venKeys = Object.keys(c.vendor_spend);
+    makeChart('chVendor', { type: 'bar',
+      data: { labels: venKeys, datasets: [{ label: 'ยอดซื้อ (บาท)', data: venKeys.map(function(k) { return c.vendor_spend[k]; }), backgroundColor: '#7C3AED', borderRadius: 6 }] },
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } } });
+    makeChart('chTopExp', { type: 'bar',
+      data: { labels: c.top_expensive.map(function(x) { return x.name; }),
+        datasets: [{ label: 'ราคา/หน่วย', data: c.top_expensive.map(function(x) { return x.price; }), backgroundColor: '#EA580C', borderRadius: 6 }] },
+      options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } } });
+  }
+};
+
+/* ═══════════════════ PAGE: MENU PLAN (Weekly) ═══════════════════ */
+PAGES.menuplan = {
+  st: null,
+  render: function() {
+    var self = PAGES.menuplan;
+    if (!self.st) {
+      self.st = { weekStart: mondayOf(todayStr()), location: recall('planLocation', ''), search: '' };
+    }
+    var s = self.st;
+    var canWrite = ['Admin', 'Supervisor'].indexOf(APP.user.role) !== -1;
+    var h = '<div class="toolbar">' +
+      '<button class="btn btn-outline btn-sm" onclick="PAGES.menuplan.shiftWeek(-1)">‹ สัปดาห์ก่อน</button>' +
+      '<button class="btn btn-outline btn-sm" onclick="PAGES.menuplan.goToday()">วันนี้</button>' +
+      '<button class="btn btn-outline btn-sm" onclick="PAGES.menuplan.shiftWeek(1)">สัปดาห์ถัดไป ›</button>' +
+      '<span style="font-weight:600;font-size:14px">' + thaiDate(s.weekStart) + ' – ' + thaiDate(addDays(s.weekStart, 5)) + '</span>' +
+      '<span class="grow"></span>' +
+      '<select class="sel" id="planLocFilter" onchange="PAGES.menuplan.setLoc(this.value)">' +
+      selOptions(APP.locations, 'location_id', 'location_code', s.location, 'ทุก Location') + '</select>' +
+      '<div class="search-box"><input class="inp" placeholder="ค้นหาเมนูในแผน…" value="' + esc(s.search) + '" oninput="PAGES.menuplan.setSearch(this.value)"></div>' +
+      '</div>';
+    if (canWrite) {
+      h += '<div class="toolbar">' +
+        '<button class="btn btn-primary btn-sm" onclick="PAGES.menuplan.openAdd(\'' + s.weekStart + '\')">➕ เพิ่มเมนู</button>' +
+        '<button class="btn btn-outline btn-sm" onclick="PAGES.menuplan.openCopy(\'day\')">📋 Copy วัน</button>' +
+        '<button class="btn btn-outline btn-sm" onclick="PAGES.menuplan.openCopy(\'week\')">📋 Copy สัปดาห์</button>' +
+        '<span class="grow"></span>' +
+        '<span style="font-size:12px;color:var(--text-3)">💡 ลากเมนูข้ามวันเพื่อย้ายได้</span></div>';
+    }
+    h += '<div class="week-grid" id="weekGrid"></div>';
+    h += '<div class="card" style="margin-top:16px"><div class="card-head"><h3>📤 สร้าง Draft ใบเบิกจากแผน</h3><span class="grow"></span>' +
+      '<input type="date" class="inp" style="width:auto" id="reqPlanDate" value="' + todayStr() + '">' +
+      locSelect('reqPlanLoc', recall('planLocation', APP.locations.length ? APP.locations[0].location_id : '')) +
+      '<button class="btn btn-success" id="btnDraftFromPlan" onclick="PAGES.menuplan.draftRequisition()">สร้างใบเบิกจาก Plan</button></div>' +
+      '<div style="font-size:12.5px;color:var(--text-2)">ระบบจะอ่านเมนูของวันที่เลือก รวมวัตถุดิบจากสูตร เทียบ Stock แล้วสร้าง Draft ใบเบิกให้อัตโนมัติ</div></div>';
+    el('content').innerHTML = h;
+    self.load();
+  },
+  setLoc: function(v) { this.st.location = v; remember('planLocation', v); this.load(); },
+  setSearch: function(v) { this.st.search = v; this.drawGrid(); },
+  goToday: function() { this.st.weekStart = mondayOf(todayStr()); this.render(); },
+  shiftWeek: function(dir) { this.st.weekStart = addDays(this.st.weekStart, dir * 7); this.render(); },
+  load: function() {
+    var self = this, s = self.st;
+    var seq = nextSeq();
+    api('getMenuPlans', { date_from: s.weekStart, date_to: addDays(s.weekStart, 5), location_id: s.location })
+      .then(function(res) {
+        if (!isLatest(seq) || APP.page !== 'menuplan') return;
+        if (!res.success) { toast('❌ ' + res.message, 'error'); return; }
+        self.plans = res.data;
+        self.drawGrid();
+      });
+  },
+  drawGrid: function() {
+    var self = this, s = self.st;
+    var grid = el('weekGrid');
+    if (!grid) return;
+    var canWrite = ['Admin', 'Supervisor'].indexOf(APP.user.role) !== -1;
+    var plans = (self.plans || []).filter(function(p) {
+      return !s.search || p.menu_name.toLowerCase().indexOf(s.search.toLowerCase()) !== -1;
+    });
+    var h = '';
+    for (var i = 0; i < 6; i++) {
+      var date = addDays(s.weekStart, i);
+      var dayPlans = plans.filter(function(p) { return String(p.plan_date).slice(0, 10) === date; });
+      var isToday = date === todayStr();
+      h += '<div class="day-col' + (isToday ? ' today' : '') + '" data-date="' + date + '"' +
+        (canWrite ? ' ondragover="event.preventDefault();this.classList.add(\'dragover\')" ondragleave="this.classList.remove(\'dragover\')" ondrop="PAGES.menuplan.onDrop(event,\'' + date + '\')"' : '') + '>' +
+        '<div class="day-head">' + DAY_TH[new Date(date + 'T12:00:00').getDay()] +
+        (isToday ? ' <span class="badge bg-blue" style="margin-left:6px">วันนี้</span>' : '') +
+        '<span class="dnum">' + thaiDate(date) + '</span></div>';
+      dayPlans.forEach(function(p) {
+        h += '<div class="plan-chip' + (!p.has_recipe ? ' no-recipe' : '') + '" ' +
+          (canWrite ? 'draggable="true" ondragstart="PAGES.menuplan.onDrag(event,\'' + p.plan_id + '\')" ' : '') +
+          'onclick="PAGES.menuplan.openEdit(\'' + p.plan_id + '\')">' +
+          '<b>' + esc(p.menu_name) + '</b>' +
+          (!p.has_recipe ? ' <span title="สูตรยังไม่ถูกกำหนด">⚠️</span>' : '') +
+          '<div class="pc-meta"><span>' + esc(p.meal_period) + '</span><span>' + esc(p.location_name) + '</span><span>' + fmt(p.planned_quantity) + ' ที่</span></div>' +
+          (canWrite ? '<button class="pc-x" onclick="event.stopPropagation();PAGES.menuplan.remove(\'' + p.plan_id + '\',\'' + esc(p.menu_name) + '\')">✕</button>' : '') +
+          '</div>';
+      });
+      if (canWrite) h += '<button class="day-add" onclick="PAGES.menuplan.openAdd(\'' + date + '\')">＋ เพิ่มเมนู</button>';
+      h += '</div>';
+    }
+    grid.innerHTML = h;
+  },
+  onDrag: function(ev, planId) { ev.dataTransfer.setData('text/plain', planId); },
+  onDrop: function(ev, date) {
+    ev.preventDefault();
+    ev.currentTarget.classList.remove('dragover');
+    var planId = ev.dataTransfer.getData('text/plain');
+    var plan = (this.plans || []).filter(function(p) { return p.plan_id === planId; })[0];
+    if (!plan || String(plan.plan_date).slice(0, 10) === date) return;
+    var self = this;
+    api('updateMenuPlan', { plan_id: planId, plan_date: date }).then(function(res) {
+      toast((res.success ? '✅ ' : '❌ ') + res.message, res.success ? 'success' : 'error');
+      if (res.success) self.load();
+    });
+  },
+  openAdd: function(date) {
+    var menus = APP.menus.filter(function(m) { return m.status === 'active'; });
+    UI.modal('เพิ่มเมนูในแผน — ' + thaiDate(date),
+      '<div class="field"><label>ค้นหาเมนู</label><input class="inp" id="mpSearch" placeholder="พิมพ์ชื่อเมนู…" oninput="PAGES.menuplan.filterMenuSel(this.value)"></div>' +
+      '<div class="field"><label>เมนู *</label><select class="sel" style="width:100%" id="mpMenu" size="6">' +
+      menus.map(function(m) {
+        return '<option value="' + m.menu_id + '">' + esc(m.menu_name) + (m.has_recipe ? '' : ' ⚠️ ไม่มีสูตร') + '</option>';
+      }).join('') + '</select></div>' +
+      '<div class="form-grid">' +
+      '<div class="field"><label>วันที่</label><input type="date" class="inp" id="mpDate" value="' + date + '"></div>' +
+      '<div class="field"><label>ช่วงอาหาร</label><select class="sel" style="width:100%" id="mpMeal">' +
+      MEALS.map(function(m) { return '<option' + (m === recall('lastMeal', 'กลางวัน') ? ' selected' : '') + '>' + m + '</option>'; }).join('') + '</select></div>' +
+      '<div class="field"><label>Location</label><select class="sel" style="width:100%" id="mpLoc">' +
+      selOptions(APP.locations, 'location_id', 'location_name', recall('planLocation', APP.locations.length ? APP.locations[0].location_id : '')) + '</select></div>' +
+      '<div class="field"><label>จำนวนเสิร์ฟ (ที่)</label><input type="number" step="1" min="1" class="inp" id="mpQty" value="100"></div>' +
+      '</div>',
+      '<button class="btn btn-outline" onclick="UI.closeModal()">ยกเลิก</button>' +
+      '<button class="btn btn-primary" id="btnMpSave" onclick="PAGES.menuplan.saveAdd()">บันทึก</button>');
+    var sel = el('mpMenu');
+    sel.onchange = function() {
+      var m = menuById(sel.value);
+      if (m) el('mpQty').value = m.default_batch_size || 100;
+    };
+  },
+  filterMenuSel: function(q) {
+    q = q.toLowerCase();
+    var sel = el('mpMenu');
+    APP.menus.filter(function(m) { return m.status === 'active'; }).forEach(function(m, i) {
+      if (sel.options[i]) sel.options[i].style.display = m.menu_name.toLowerCase().indexOf(q) !== -1 ? '' : 'none';
+    });
+  },
+  saveAdd: function() {
+    var menuId = el('mpMenu').value;
+    if (!menuId) { toast('⚠️ กรุณาเลือกเมนู', 'warning'); return; }
+    remember('lastMeal', el('mpMeal').value);
+    remember('planLocation', el('mpLoc').value);
+    btnBusy('btnMpSave', true);
+    api('createMenuPlan', {
+      plan_date: el('mpDate').value, menu_id: menuId, meal_period: el('mpMeal').value,
+      location_id: el('mpLoc').value, planned_quantity: el('mpQty').value
+    }).then(function(res) {
+      btnBusy('btnMpSave', false);
+      toast((res.success ? '✅ ' : '❌ ') + res.message, res.success ? 'success' : 'error');
+      if (res.success) { UI.closeModal(); PAGES.menuplan.load(); }
+    }).catch(function() { btnBusy('btnMpSave', false); });
+  },
+  openEdit: function(planId) {
+    var p = (this.plans || []).filter(function(x) { return x.plan_id === planId; })[0];
+    if (!p) return;
+    var canWrite = ['Admin', 'Supervisor'].indexOf(APP.user.role) !== -1;
+    if (!canWrite) {
+      UI.modal(p.menu_name, '<div>วันที่: ' + thaiDate(p.plan_date) + '<br>ช่วงอาหาร: ' + esc(p.meal_period) +
+        '<br>Location: ' + esc(p.location_name) + '<br>จำนวนเสิร์ฟ: ' + fmt(p.planned_quantity) + ' ที่</div>');
+      return;
+    }
+    UI.modal('แก้ไข: ' + p.menu_name,
+      (!p.has_recipe ? '<div class="warn-strip">⚠️ สูตรยังไม่ถูกกำหนด — <a href="#" onclick="UI.closeModal();nav(\'recipes\',{menu_id:\'' + p.menu_id + '\'});return false">สร้างสูตร</a></div>' : '') +
+      '<div class="form-grid">' +
+      '<div class="field"><label>วันที่</label><input type="date" class="inp" id="mpeDate" value="' + String(p.plan_date).slice(0, 10) + '"></div>' +
+      '<div class="field"><label>ช่วงอาหาร</label><select class="sel" style="width:100%" id="mpeMeal">' +
+      MEALS.map(function(m) { return '<option' + (m === p.meal_period ? ' selected' : '') + '>' + m + '</option>'; }).join('') + '</select></div>' +
+      '<div class="field"><label>Location</label><select class="sel" style="width:100%" id="mpeLoc">' +
+      selOptions(APP.locations, 'location_id', 'location_name', p.location_id) + '</select></div>' +
+      '<div class="field"><label>จำนวนเสิร์ฟ</label><input type="number" step="1" min="1" class="inp" id="mpeQty" value="' + num(p.planned_quantity) + '"></div>' +
+      '</div>',
+      '<button class="btn btn-danger" style="margin-right:auto" onclick="UI.closeModal();PAGES.menuplan.remove(\'' + p.plan_id + '\',\'' + esc(p.menu_name) + '\')">🗑 ลบ</button>' +
+      '<button class="btn btn-outline" onclick="UI.closeModal()">ยกเลิก</button>' +
+      '<button class="btn btn-primary" id="btnMpeSave" onclick="PAGES.menuplan.saveEdit(\'' + p.plan_id + '\')">บันทึก</button>');
+  },
+  saveEdit: function(planId) {
+    btnBusy('btnMpeSave', true);
+    api('updateMenuPlan', {
+      plan_id: planId, plan_date: el('mpeDate').value, meal_period: el('mpeMeal').value,
+      location_id: el('mpeLoc').value, planned_quantity: el('mpeQty').value
+    }).then(function(res) {
+      btnBusy('btnMpeSave', false);
+      toast((res.success ? '✅ ' : '❌ ') + res.message, res.success ? 'success' : 'error');
+      if (res.success) { UI.closeModal(); PAGES.menuplan.load(); }
+    }).catch(function() { btnBusy('btnMpeSave', false); });
+  },
+  remove: function(planId, name) {
+    UI.confirm('ลบเมนูจากแผน', 'ต้องการลบ "' + name + '" ออกจากแผนใช่หรือไม่?', 'ลบ', 'btn-danger').then(function(okay) {
+      if (!okay) return;
+      api('deleteMenuPlan', planId).then(function(res) {
+        toast((res.success ? '✅ ' : '❌ ') + res.message, res.success ? 'success' : 'error');
+        if (res.success) PAGES.menuplan.load();
+      });
+    });
+  },
+  openCopy: function(mode) {
+    var isDay = mode === 'day';
+    UI.modal(isDay ? '📋 Copy แผนทั้งวัน' : '📋 Copy แผนทั้งสัปดาห์',
+      '<div class="form-grid">' +
+      '<div class="field"><label>' + (isDay ? 'วันต้นทาง' : 'วันจันทร์ของสัปดาห์ต้นทาง') + '</label>' +
+      '<input type="date" class="inp" id="cpSrc" value="' + (isDay ? todayStr() : this.st.weekStart) + '"></div>' +
+      '<div class="field"><label>' + (isDay ? 'วันปลายทาง' : 'วันจันทร์ของสัปดาห์ปลายทาง') + '</label>' +
+      '<input type="date" class="inp" id="cpTarget" value="' + (isDay ? addDays(todayStr(), 1) : addDays(this.st.weekStart, 7)) + '"></div></div>' +
+      '<div style="font-size:12.5px;color:var(--text-2)">ระบบจะสร้างรายการใหม่ทั้งหมด (ID ใหม่) และข้ามรายการที่ซ้ำในปลายทาง</div>',
+      '<button class="btn btn-outline" onclick="UI.closeModal()">ยกเลิก</button>' +
+      '<button class="btn btn-primary" id="btnCpGo" onclick="PAGES.menuplan.doCopy(\'' + mode + '\')">คัดลอก</button>');
+  },
+  doCopy: function(mode) {
+    var src = el('cpSrc').value, target = el('cpTarget').value;
+    if (!src || !target) { toast('⚠️ กรุณาเลือกวันที่', 'warning'); return; }
+    if (mode === 'week') { src = mondayOf(src); target = mondayOf(target); }
+    btnBusy('btnCpGo', true, 'กำลังคัดลอก…');
+    api('copyMenuPlan', {
+      mode: mode, source_from: src,
+      source_to: mode === 'week' ? addDays(src, 5) : src, target_from: target
+    }).then(function(res) {
+      btnBusy('btnCpGo', false);
+      toast((res.success ? '✅ ' : '❌ ') + res.message, res.success ? 'success' : 'error');
+      if (res.success) { UI.closeModal(); PAGES.menuplan.load(); }
+    }).catch(function() { btnBusy('btnCpGo', false); });
+  },
+  draftRequisition: function() {
+    var date = el('reqPlanDate').value, loc = el('reqPlanLoc').value;
+    if (!date || !loc) { toast('⚠️ กรุณาเลือกวันที่และ Location', 'warning'); return; }
+    btnBusy('btnDraftFromPlan', true, 'กำลังคำนวณวัตถุดิบ…');
+    api('createDraftRequisitionFromPlan', { date: date, location_id: loc }).then(function(res) {
+      btnBusy('btnDraftFromPlan', false);
+      if (!res.success) { toast('❌ ' + res.message, 'error'); return; }
+      toast('✅ ' + res.message, 'success');
+      nav('requisition', { open: res.data.requisition.requisition_id });
+    }).catch(function() { btnBusy('btnDraftFromPlan', false); });
+  }
+};
+
+/* ═══════════════════ PAGE: MENUS ═══════════════════ */
+PAGES.menus = {
+  st: { search: '', cat: '', page: 1, per: 10 },
+  MENU_CATS: ['ข้าวแกง','ผัด','แกง','ต้ม','ก๋วยเตี๋ยว','ส้มตำ','ของหวาน','เครื่องดื่ม','เมนูเสริม'],
+  setPage: function(p) { this.st.page = p; this.draw(); },
+  setPer: function(p) { this.st.per = num(p); this.st.page = 1; this.draw(); },
+  render: function() {
+    var canWrite = ['Admin', 'Supervisor'].indexOf(APP.user.role) !== -1;
+    el('content').innerHTML =
+      '<div class="toolbar">' +
+      '<div class="search-box"><input class="inp" placeholder="ค้นหาเมนู / Code…" value="' + esc(this.st.search) + '" oninput="PAGES.menus.st.search=this.value;PAGES.menus.st.page=1;PAGES.menus.draw()"></div>' +
+      '<select class="sel" onchange="PAGES.menus.st.cat=this.value;PAGES.menus.st.page=1;PAGES.menus.draw()"><option value="">ทุกหมวด</option>' +
+      this.MENU_CATS.map(function(c) { return '<option' + (c === PAGES.menus.st.cat ? ' selected' : '') + '>' + c + '</option>'; }).join('') + '</select>' +
+      '<span class="grow"></span>' +
+      (canWrite ? '<button class="btn btn-primary" onclick="PAGES.menus.openForm()">➕ เพิ่มเมนู</button>' : '') +
+      '</div><div id="menusTable"></div>';
+    this.draw();
+  },
+  draw: function() {
+    var s = this.st;
+    var canWrite = ['Admin', 'Supervisor'].indexOf(APP.user.role) !== -1;
+    var rows = APP.menus.filter(function(m) {
+      if (s.cat && m.menu_category !== s.cat) return false;
+      if (s.search) {
+        var q = s.search.toLowerCase();
+        return (m.menu_name + ' ' + m.menu_code).toLowerCase().indexOf(q) !== -1;
+      }
+      return true;
+    });
+    var ps = pageSlice(rows, s.page, s.per);
+    s.page = ps.page;
+    var cols = [
+      { key: 'menu_code', label: 'Code' },
+      { key: 'menu_name', label: 'เมนู', render: function(m) {
+          return '<b>' + esc(m.menu_name) + '</b>' + (m.has_recipe ? '' : ' <span class="badge bg-yellow">⚠️ ไม่มีสูตร</span>');
+        } },
+      { key: 'menu_category', label: 'หมวด' },
+      { key: 'meal_period', label: 'ช่วงอาหาร' },
+      { key: 'default_batch_size', label: 'Batch มาตรฐาน', type: 'num' },
+      { key: 'status', label: 'สถานะ', type: 'status' },
+      { key: '_a', label: '', render: function(m) {
+          var h = '<div style="display:flex;gap:6px;justify-content:flex-end">' +
+            '<button class="btn btn-outline btn-sm" onclick="nav(\'recipes\',{menu_id:\'' + m.menu_id + '\'})">📖 สูตร</button>';
+          if (canWrite) h += '<button class="btn btn-ghost btn-sm" onclick="PAGES.menus.openForm(\'' + m.menu_id + '\')">✏️</button>';
+          return h + '</div>';
+        } }
+    ];
+    el('menusTable').innerHTML = tableHTML(cols, ps.rows) + pagerHTML(ps, 'PAGES.menus');
+  },
+  openForm: function(menuId) {
+    var m = menuId ? menuById(menuId) : null;
+    var cats = this.MENU_CATS;
+    UI.modal(m ? '✏️ แก้ไขเมนู' : '➕ เพิ่มเมนู',
+      '<div class="form-grid">' +
+      '<div class="field"><label>ชื่อเมนู *</label><input class="inp" id="mfName" value="' + esc(m ? m.menu_name : '') + '"></div>' +
+      '<div class="field"><label>หมวดเมนู</label><select class="sel" style="width:100%" id="mfCat">' +
+      cats.map(function(c) { return '<option' + (m && m.menu_category === c ? ' selected' : '') + '>' + c + '</option>'; }).join('') + '</select></div>' +
+      '<div class="field"><label>ช่วงอาหารหลัก</label><select class="sel" style="width:100%" id="mfMeal">' +
+      MEALS.map(function(x) { return '<option' + (m && m.meal_period === x ? ' selected' : '') + '>' + x + '</option>'; }).join('') + '</select></div>' +
+      '<div class="field"><label>Batch มาตรฐาน (ที่)</label><input type="number" step="1" min="1" class="inp" id="mfBatch" value="' + (m ? num(m.default_batch_size) : 100) + '"></div>' +
+      (m ? '<div class="field"><label>สถานะ</label><select class="sel" style="width:100%" id="mfStatus"><option value="active"' + (m.status === 'active' ? ' selected' : '') + '>ใช้งาน</option><option value="inactive"' + (m.status === 'inactive' ? ' selected' : '') + '>ปิดใช้งาน</option></select></div>' : '') +
+      '<div class="field full"><label>หมายเหตุ</label><input class="inp" id="mfNote" value="' + esc(m ? m.note : '') + '"></div>' +
+      '</div>',
+      '<button class="btn btn-outline" onclick="UI.closeModal()">ยกเลิก</button>' +
+      '<button class="btn btn-primary" id="btnMfSave" onclick="PAGES.menus.save(' + (m ? '\'' + m.menu_id + '\'' : 'null') + ')">บันทึก</button>');
+  },
+  save: function(menuId) {
+    var payload = {
+      menu_id: menuId || undefined, menu_name: el('mfName').value.trim(),
+      menu_category: el('mfCat').value, meal_period: el('mfMeal').value,
+      default_batch_size: el('mfBatch').value, note: el('mfNote').value.trim()
+    };
+    if (menuId && el('mfStatus')) payload.status = el('mfStatus').value;
+    if (!payload.menu_name) { toast('⚠️ กรุณากรอกชื่อเมนู', 'warning'); return; }
+    btnBusy('btnMfSave', true);
+    api('saveMenu', payload).then(function(res) {
+      btnBusy('btnMfSave', false);
+      toast((res.success ? '✅ ' : '❌ ') + res.message, res.success ? 'success' : 'error');
+      if (res.success) {
+        UI.closeModal();
+        refreshMaster(true).then(function() { if (APP.page === 'menus') PAGES.menus.draw(); });
+      }
+    }).catch(function() { btnBusy('btnMfSave', false); });
+  }
+};
+
+/* ═══════════════════ PAGE: RECIPES ═══════════════════ */
+PAGES.recipes = {
+  st: { menuId: '', items: [], batch: 100 },
+  render: function(params) {
+    var self = this;
+    if (params && params.menu_id) self.st.menuId = params.menu_id;
+    var menus = APP.menus.filter(function(m) { return m.status === 'active'; });
+    if (!self.st.menuId && menus.length) self.st.menuId = menus[0].menu_id;
+    el('content').innerHTML =
+      '<div class="toolbar"><label style="font-size:13px;color:var(--text-2)">เลือกเมนู:</label>' +
+      '<select class="sel" style="min-width:230px" id="rcMenuSel" onchange="PAGES.recipes.st.menuId=this.value;PAGES.recipes.load()">' +
+      menus.map(function(m) {
+        return '<option value="' + m.menu_id + '"' + (m.menu_id === self.st.menuId ? ' selected' : '') + '>' +
+          esc(m.menu_name) + (m.has_recipe ? '' : ' ⚠️') + '</option>';
+      }).join('') + '</select><span class="grow"></span><span id="rcVersionInfo" style="font-size:12.5px;color:var(--text-3)"></span></div>' +
+      '<div id="recipeBody"></div>' + ingDatalist();
+    self.load();
+  },
+  load: function() {
+    var self = this;
+    var seq = nextSeq();
+    el('recipeBody').innerHTML = '<div class="empty-state"><div class="spinner dark" style="margin:16px auto"></div></div>';
+    api('getRecipeByMenu', self.st.menuId).then(function(res) {
+      if (!isLatest(seq) || APP.page !== 'recipes') return;
+      if (!res.success) { toast('❌ ' + res.message, 'error'); return; }
+      var menu = menuById(self.st.menuId) || {};
+      self.st.batch = res.data.items.length ? num(res.data.items[0].batch_size) : (num(menu.default_batch_size) || 100);
+      self.st.items = res.data.items.map(function(r) {
+        return { ingredient_id: r.ingredient_id, ingredient_name: r.ingredient_name,
+          quantity: num(r.quantity), unit: r.unit, waste_percent: num(r.waste_percent) };
+      });
+      var vers = res.data.versions || [];
+      var active = vers.filter(function(v) { return v.status === 'active'; })[0];
+      el('rcVersionInfo').textContent = active ?
+        'Version ' + active.version_no + ' · มีผล ' + thaiDate(active.effective_date) + ' · อนุมัติโดย ' + active.approved_by : '';
+      self.draw();
+    });
+  },
+  draw: function() {
+    var self = this;
+    var canWrite = ['Admin', 'Supervisor'].indexOf(APP.user.role) !== -1;
+    var menu = menuById(self.st.menuId) || {};
+    var h = '';
+    if (!self.st.items.length) {
+      h += '<div class="warn-strip">⚠️ สูตรยังไม่ถูกกำหนด <span class="badge bg-yellow">ไม่มีสูตร</span> — เมนูนี้จะคำนวณวัตถุดิบเป็น 0 จนกว่าจะสร้างสูตร</div>';
+      if (canWrite) {
+        h += '<div class="ai-box"><b style="color:var(--purple)">🤖 AI Recipe Assistant</b><br>' +
+          'ให้ AI เสนอ Draft สูตรจากเมนูหมวดเดียวกัน — ผลลัพธ์เป็น <b>AI Suggested</b> เท่านั้น ต้องตรวจสอบและกดบันทึกเองจึงเป็นสูตรจริง<br>' +
+          '<button class="btn btn-sm" style="background:var(--purple);color:#fff;margin-top:8px" id="btnAiRc" onclick="PAGES.recipes.aiSuggest()">🤖 AI แนะนำสูตร</button></div>';
+      }
+    }
+    h += '<div class="card"><div class="card-head"><h3>📖 สูตร: ' + esc(menu.menu_name || '') + '</h3><span class="grow"></span>' +
+      '<label style="font-size:13px;color:var(--text-2)">ต่อ Batch</label>' +
+      '<input type="number" class="inp" style="width:90px" id="rcBatch" value="' + self.st.batch + '" min="1" ' + (canWrite ? '' : 'disabled') + ' onchange="PAGES.recipes.st.batch=num(this.value)||100"> <span style="font-size:13px;color:var(--text-2)">ที่</span></div>';
+    h += '<div class="tbl-wrap"><table class="tbl"><thead><tr><th>วัตถุดิบ</th><th class="r">ปริมาณ</th><th>หน่วย</th><th class="r">Waste %</th><th></th></tr></thead><tbody id="rcRows">';
+    h += self.rowsHTML(canWrite);
+    h += '</tbody></table></div>';
+    if (canWrite) {
+      h += '<div style="margin-top:13px;display:flex;gap:10px;flex-wrap:wrap">' +
+        '<button class="btn btn-outline btn-sm" onclick="PAGES.recipes.addRow()">➕ เพิ่มวัตถุดิบ</button>' +
+        '<button class="btn btn-outline btn-sm" onclick="PAGES.recipes.openDuplicate()">📋 คัดลอกสูตรจากเมนูอื่น</button>' +
+        '<span class="grow"></span>' +
+        '<button class="btn btn-primary" id="btnRcSave" onclick="PAGES.recipes.save()">💾 บันทึกสูตร (สร้าง Version ใหม่)</button></div>';
+    }
+    h += '</div>';
+    el('recipeBody').innerHTML = h;
+  },
+  rowsHTML: function(canWrite) {
+    var self = this;
+    if (!self.st.items.length) {
+      return '<tr><td colspan="5"><div class="empty-state" style="padding:22px"><div class="e-ico">🥕</div>ยังไม่มีวัตถุดิบในสูตร</div></td></tr>';
+    }
+    return self.st.items.map(function(it, i) {
+      var g = ingById(it.ingredient_id) || {};
+      return '<tr>' +
+        '<td>' + (canWrite ?
+          '<input class="inp" list="dlIngredients" style="min-width:170px" value="' + esc(it.ingredient_name) + '" onchange="PAGES.recipes.setIng(' + i + ',this)">' :
+          esc(it.ingredient_name)) + '</td>' +
+        '<td class="r">' + (canWrite ?
+          '<input type="number" step="0.001" min="0" class="num-inp" value="' + it.quantity + '" onchange="PAGES.recipes.st.items[' + i + '].quantity=num(this.value)">' :
+          fmt(it.quantity)) + '</td>' +
+        '<td>' + esc(it.unit || g.default_unit || '') + '</td>' +
+        '<td class="r">' + (canWrite ?
+          '<input type="number" step="0.1" min="0" class="num-inp" style="width:70px" value="' + it.waste_percent + '" onchange="PAGES.recipes.st.items[' + i + '].waste_percent=num(this.value)">' :
+          fmt(it.waste_percent)) + '</td>' +
+        '<td class="c">' + (canWrite ? '<button class="btn btn-ghost btn-sm" onclick="PAGES.recipes.delRow(' + i + ')">🗑</button>' : '') + '</td>' +
+        '</tr>';
+    }).join('');
+  },
+  setIng: function(i, input) {
+    var g = ingByName(input.value);
+    if (!g) { toast('⚠️ ไม่พบวัตถุดิบนี้ กรุณาเลือกจากรายการ', 'warning'); input.value = this.st.items[i].ingredient_name || ''; return; }
+    this.st.items[i].ingredient_id = g.ingredient_id;
+    this.st.items[i].ingredient_name = g.ingredient_name;
+    this.st.items[i].unit = g.default_unit;
+    this.redrawRows();
+  },
+  addRow: function() {
+    this.st.items.push({ ingredient_id: '', ingredient_name: '', quantity: 0, unit: '', waste_percent: 0 });
+    this.redrawRows();
+  },
+  delRow: function(i) { this.st.items.splice(i, 1); this.redrawRows(); },
+  redrawRows: function() {
+    var canWrite = ['Admin', 'Supervisor'].indexOf(APP.user.role) !== -1;
+    el('rcRows').innerHTML = this.rowsHTML(canWrite);
+  },
+  save: function() {
+    var self = this;
+    var items = self.st.items.filter(function(it) { return it.ingredient_id && num(it.quantity) > 0; });
+    if (!items.length) { toast('⚠️ กรุณาเพิ่มวัตถุดิบและปริมาณอย่างน้อย 1 รายการ', 'warning'); return; }
+    btnBusy('btnRcSave', true);
+    api('saveRecipe', { menu_id: self.st.menuId, batch_size: el('rcBatch').value, items: items })
+      .then(function(res) {
+        btnBusy('btnRcSave', false);
+        toast((res.success ? '✅ ' : '❌ ') + res.message, res.success ? 'success' : 'error');
+        if (res.success) refreshMaster(true).then(function() { if (APP.page === 'recipes') PAGES.recipes.render({ menu_id: self.st.menuId }); });
+      }).catch(function() { btnBusy('btnRcSave', false); });
+  },
+  aiSuggest: function() {
+    var self = this;
+    btnBusy('btnAiRc', true, 'AI กำลังวิเคราะห์…');
+    api('aiSuggestRecipe', self.st.menuId).then(function(res) {
+      btnBusy('btnAiRc', false);
+      if (!res.success) { toast('❌ ' + res.message, 'error'); return; }
+      var d = res.data;
+      UI.modal('🤖 AI Suggested — ' + d.menu_name,
+        '<div class="ai-box">' + esc(d.source) + '<br><b>นี่คือ Draft จาก AI ไม่ใช่สูตรจริง</b> — ตรวจสอบ/แก้ไขก่อนบันทึก</div>' +
+        tableHTML([
+          { key: 'ingredient_name', label: 'วัตถุดิบ' },
+          { key: 'quantity', label: 'ปริมาณ (ต่อ Batch ' + d.batch_size + ')', type: 'num' },
+          { key: 'unit', label: 'หน่วย' },
+          { key: 'usage_count', label: 'ใช้ในสูตรอื่น (ครั้ง)', type: 'num' }
+        ], d.items),
+        '<button class="btn btn-outline" onclick="UI.closeModal()">ปิด</button>' +
+        '<button class="btn" style="background:var(--purple);color:#fff" onclick="PAGES.recipes.applyAi()">นำไปแก้ไขในตารางสูตร</button>',
+        true);
+      self._aiDraft = d;
+    }).catch(function() { btnBusy('btnAiRc', false); });
+  },
+  applyAi: function() {
+    var d = this._aiDraft;
+    if (!d) return;
+    this.st.items = d.items.map(function(it) {
+      return { ingredient_id: it.ingredient_id, ingredient_name: it.ingredient_name,
+        quantity: num(it.quantity), unit: it.unit, waste_percent: 0 };
+    });
+    this.st.batch = d.batch_size;
+    UI.closeModal();
+    this.draw();
+    toast('🤖 นำ Draft จาก AI มาใส่ตารางแล้ว — ตรวจสอบและกดบันทึกเพื่อยืนยันเป็นสูตรจริง', 'warning');
+  },
+  openDuplicate: function() {
+    var self = this;
+    var others = APP.menus.filter(function(m) { return m.menu_id !== self.st.menuId && m.has_recipe; });
+    if (!others.length) { toast('⚠️ ยังไม่มีเมนูอื่นที่มีสูตร', 'warning'); return; }
+    UI.modal('📋 คัดลอกสูตรจากเมนูอื่น',
+      '<div class="field"><label>เมนูต้นทาง</label><select class="sel" style="width:100%" id="dupSrc">' +
+      selOptions(others, 'menu_id', 'menu_name', '') + '</select></div>',
+      '<button class="btn btn-outline" onclick="UI.closeModal()">ยกเลิก</button>' +
+      '<button class="btn btn-primary" id="btnDupGo" onclick="PAGES.recipes.doDuplicate()">คัดลอก</button>');
+  },
+  doDuplicate: function() {
+    var self = this;
+    btnBusy('btnDupGo', true);
+    api('duplicateRecipe', { source_menu_id: el('dupSrc').value, target_menu_id: self.st.menuId })
+      .then(function(res) {
+        btnBusy('btnDupGo', false);
+        toast((res.success ? '✅ ' : '❌ ') + res.message, res.success ? 'success' : 'error');
+        if (res.success) { UI.closeModal(); refreshMaster(true).then(function() { PAGES.recipes.render({ menu_id: self.st.menuId }); }); }
+      }).catch(function() { btnBusy('btnDupGo', false); });
+  }
+};
+
+/* ═══════════════════ PAGE: INGREDIENTS ═══════════════════ */
+PAGES.ingredients = {
+  st: { search: '', cat: '', page: 1, per: 10 },
+  UNITS: ['kg','g','L','ml','แพ็ก','ถุง','ลัง','ขวด','ฟอง','ชิ้น','ถาด','กล่อง','กระป๋อง','มัด'],
+  setPage: function(p) { this.st.page = p; this.draw(); },
+  setPer: function(p) { this.st.per = num(p); this.st.page = 1; this.draw(); },
+  render: function() {
+    var canWrite = ['Admin', 'Supervisor'].indexOf(APP.user.role) !== -1;
+    el('content').innerHTML =
+      '<div class="toolbar">' +
+      '<div class="search-box"><input class="inp" placeholder="ค้นหาชื่อ / Code / Vendor…" value="' + esc(this.st.search) + '" oninput="PAGES.ingredients.st.search=this.value;PAGES.ingredients.st.page=1;PAGES.ingredients.draw()"></div>' +
+      '<select class="sel" onchange="PAGES.ingredients.st.cat=this.value;PAGES.ingredients.st.page=1;PAGES.ingredients.draw()">' +
+      selOptions(APP.categories, 'category_id', 'category_name', this.st.cat, 'ทุกหมวดหมู่') + '</select>' +
+      '<span class="grow"></span>' +
+      (canWrite ? '<button class="btn btn-primary" onclick="PAGES.ingredients.openForm()">➕ เพิ่มวัตถุดิบ</button>' : '') +
+      '</div><div id="ingTable"></div>';
+    this.draw();
+  },
+  draw: function() {
+    var s = this.st;
+    var canWrite = ['Admin', 'Supervisor'].indexOf(APP.user.role) !== -1;
+    var rows = APP.ingredients.filter(function(g) {
+      if (s.cat && g.category_id !== s.cat) return false;
+      if (s.search) {
+        var q = s.search.toLowerCase();
+        return (g.ingredient_name + ' ' + g.ingredient_code + ' ' + (g.preferred_vendor_name || '') + ' ' + (g.category_name || '')).toLowerCase().indexOf(q) !== -1;
+      }
+      return true;
+    });
+    var ps = pageSlice(rows, s.page, s.per);
+    s.page = ps.page;
+    el('ingTable').innerHTML = tableHTML([
+      { key: 'ingredient_code', label: 'Code' },
+      { key: 'ingredient_name', label: 'วัตถุดิบ', render: function(g) { return '<b>' + esc(g.ingredient_name) + '</b>'; } },
+      { key: 'category_name', label: 'หมวดหมู่' },
+      { key: 'default_unit', label: 'หน่วยใช้' },
+      { key: 'purchase_unit', label: 'หน่วยซื้อ', render: function(g) {
+          return esc(g.purchase_unit) + (num(g.conversion_rate) > 1 ? ' <span style="font-size:11px;color:var(--text-3)">(1=' + fmt(g.conversion_rate) + ' ' + esc(g.default_unit) + ')</span>' : '');
+        } },
+      { key: 'last_price', label: 'ราคาล่าสุด', type: 'money' },
+      { key: 'min_stock', label: 'Min', type: 'num' },
+      { key: 'safety_stock', label: 'Safety', type: 'num' },
+      { key: 'preferred_vendor_name', label: 'Vendor' },
+      { key: '_a', label: '', render: function(g) {
+          return canWrite ? '<button class="btn btn-ghost btn-sm" onclick="PAGES.ingredients.openForm(\'' + g.ingredient_id + '\')">✏️</button>' : '';
+        } }
+    ], ps.rows) + pagerHTML(ps, 'PAGES.ingredients');
+  },
+  openForm: function(id) {
+    var g = id ? ingById(id) : null;
+    var units = this.UNITS;
+    function unitSel(selId, val) {
+      return '<select class="sel" style="width:100%" id="' + selId + '">' +
+        units.map(function(u) { return '<option' + (u === val ? ' selected' : '') + '>' + u + '</option>'; }).join('') + '</select>';
+    }
+    UI.modal(g ? '✏️ แก้ไขวัตถุดิบ' : '➕ เพิ่มวัตถุดิบ',
+      '<div class="form-grid">' +
+      '<div class="field full"><label>ชื่อวัตถุดิบ *</label><input class="inp" id="gfName" value="' + esc(g ? g.ingredient_name : '') + '"></div>' +
+      '<div class="field"><label>หมวดหมู่</label><select class="sel" style="width:100%" id="gfCat">' +
+      selOptions(APP.categories, 'category_id', 'category_name', g ? g.category_id : '') + '</select></div>' +
+      '<div class="field"><label>Vendor หลัก</label><select class="sel" style="width:100%" id="gfVen">' +
+      selOptions(APP.vendors, 'vendor_id', 'vendor_name', g ? g.preferred_vendor_id : '', 'ไม่ระบุ') + '</select></div>' +
+      '<div class="field"><label>หน่วยใช้งาน *</label>' + unitSel('gfUnit', g ? g.default_unit : 'kg') + '</div>' +
+      '<div class="field"><label>หน่วยสั่งซื้อ</label>' + unitSel('gfPUnit', g ? g.purchase_unit : 'kg') + '</div>' +
+      '<div class="field"><label>อัตราแปลง (1 หน่วยซื้อ = ? หน่วยใช้)</label><input type="number" step="0.001" min="0.001" class="inp" id="gfConv" value="' + (g ? num(g.conversion_rate) || 1 : 1) + '"></div>' +
+      '<div class="field"><label>ราคาล่าสุด (บาท/หน่วยใช้)</label><input type="number" step="0.01" min="0" class="inp" id="gfPrice" value="' + (g ? num(g.last_price) : 0) + '"></div>' +
+      '<div class="field"><label>Min Stock (จุดเตือนใกล้หมด)</label><input type="number" step="0.001" min="0" class="inp" id="gfMin" value="' + (g ? num(g.min_stock) : 0) + '"></div>' +
+      '<div class="field"><label>Safety Stock (จุดวิกฤต)</label><input type="number" step="0.001" min="0" class="inp" id="gfSafety" value="' + (g ? num(g.safety_stock) : 0) + '"></div>' +
+      (g ? '<div class="field"><label>สถานะ</label><select class="sel" style="width:100%" id="gfStatus"><option value="active"' + (g.status === 'active' ? ' selected' : '') + '>ใช้งาน</option><option value="inactive"' + (g.status === 'inactive' ? ' selected' : '') + '>ปิดใช้งาน</option></select></div>' : '') +
+      '<div class="field full"><label>หมายเหตุ</label><input class="inp" id="gfNote" value="' + esc(g ? g.note : '') + '"></div>' +
+      '</div>',
+      '<button class="btn btn-outline" onclick="UI.closeModal()">ยกเลิก</button>' +
+      '<button class="btn btn-primary" id="btnGfSave" onclick="PAGES.ingredients.save(' + (g ? '\'' + g.ingredient_id + '\'' : 'null') + ')">บันทึก</button>');
+  },
+  save: function(id) {
+    var payload = {
+      ingredient_id: id || undefined, ingredient_name: el('gfName').value.trim(),
+      category_id: el('gfCat').value, preferred_vendor_id: el('gfVen').value,
+      default_unit: el('gfUnit').value, purchase_unit: el('gfPUnit').value,
+      conversion_rate: el('gfConv').value, last_price: el('gfPrice').value,
+      min_stock: el('gfMin').value, safety_stock: el('gfSafety').value,
+      note: el('gfNote').value.trim()
+    };
+    if (id && el('gfStatus')) payload.status = el('gfStatus').value;
+    if (!payload.ingredient_name) { toast('⚠️ กรุณากรอกชื่อวัตถุดิบ', 'warning'); return; }
+    btnBusy('btnGfSave', true);
+    api('saveIngredient', payload).then(function(res) {
+      btnBusy('btnGfSave', false);
+      toast((res.success ? '✅ ' : '❌ ') + res.message, res.success ? 'success' : 'error');
+      if (res.success) {
+        UI.closeModal();
+        refreshMaster(true).then(function() { if (APP.page === 'ingredients') PAGES.ingredients.draw(); });
+      }
+    }).catch(function() { btnBusy('btnGfSave', false); });
+  }
+};
+
+/* ═══════════════════ PAGE: STOCK ═══════════════════ */
+PAGES.stock = {
+  st: { tab: 'balance', location: '', search: '', status: '', page: 1, per: 10, mvPage: 1, mvPer: 25, mvType: '' },
+  setPage: function(p) { if (this.st.tab === 'balance') { this.st.page = p; this.drawBalance(); } else { this.st.mvPage = p; this.drawMoves(); } },
+  setPer: function(p) { if (this.st.tab === 'balance') { this.st.per = num(p); this.st.page = 1; this.drawBalance(); } else { this.st.mvPer = num(p); this.st.mvPage = 1; this.drawMoves(); } },
+  render: function() {
+    var s = this.st;
+    var canAdjust = ['Admin', 'Supervisor'].indexOf(APP.user.role) !== -1;
+    el('content').innerHTML =
+      '<div class="tabs">' +
+      '<button class="' + (s.tab === 'balance' ? 'active' : '') + '" onclick="PAGES.stock.st.tab=\'balance\';PAGES.stock.render()">📦 Stock คงเหลือ</button>' +
+      '<button class="' + (s.tab === 'moves' ? 'active' : '') + '" onclick="PAGES.stock.st.tab=\'moves\';PAGES.stock.render()">📜 ประวัติเคลื่อนไหว</button>' +
+      '<button class="' + (s.tab === 'analysis' ? 'active' : '') + '" onclick="PAGES.stock.st.tab=\'analysis\';PAGES.stock.render()">🤖 Smart Stock Analysis</button>' +
+      '</div><div id="stockBody"></div>';
+    if (s.tab === 'balance') this.renderBalance(canAdjust);
+    else if (s.tab === 'moves') this.renderMoves();
+    else this.renderAnalysis();
+  },
+  /* ── Tab: Balance ── */
+  renderBalance: function(canAdjust) {
+    var s = this.st;
+    el('stockBody').innerHTML =
+      '<div class="toolbar">' +
+      '<select class="sel" onchange="PAGES.stock.st.location=this.value;PAGES.stock.st.page=1;PAGES.stock.loadBalance()">' +
+      selOptions(APP.locations, 'location_id', 'location_code', s.location, '🏢 Stock รวมทุกคลัง') + '</select>' +
+      '<div class="search-box"><input class="inp" placeholder="ค้นหาวัตถุดิบ…" value="' + esc(s.search) + '" oninput="PAGES.stock.st.search=this.value;PAGES.stock.st.page=1;PAGES.stock.drawBalance()"></div>' +
+      '<select class="sel" onchange="PAGES.stock.st.status=this.value;PAGES.stock.st.page=1;PAGES.stock.drawBalance()">' +
+      '<option value="">ทุกสถานะ</option><option value="normal"' + (s.status === 'normal' ? ' selected' : '') + '>🟢 ปกติ</option>' +
+      '<option value="low"' + (s.status === 'low' ? ' selected' : '') + '>🟡 ใกล้หมด</option>' +
+      '<option value="critical"' + (s.status === 'critical' ? ' selected' : '') + '>🟠 วิกฤต</option>' +
+      '<option value="out"' + (s.status === 'out' ? ' selected' : '') + '>🔴 หมด</option></select>' +
+      '<span class="grow"></span>' +
+      (canAdjust ? '<button class="btn btn-warning" onclick="PAGES.stock.openAdjust()">⚖️ ปรับ Stock</button>' : '') +
+      '<button class="btn btn-outline" onclick="PAGES.stock.exportBalance()">📊 Excel</button>' +
+      '</div><div class="info-strip" id="stockSummary"></div><div id="balTable"></div>';
+    this.loadBalance();
+  },
+  loadBalance: function() {
+    var self = this, seq = nextSeq();
+    api('getStockBalances', { location_id: self.st.location }).then(function(res) {
+      if (!isLatest(seq) || APP.page !== 'stock') return;
+      if (!res.success) { toast('❌ ' + res.message, 'error'); return; }
+      self.balances = res.data;
+      if (!self.st.location) APP.stock = res.data;
+      self.drawBalance();
+    });
+  },
+  filteredBalances: function() {
+    var s = this.st;
+    return (this.balances || []).filter(function(b) {
+      if (s.status && b.stock_status !== s.status) return false;
+      if (s.search) {
+        var q = s.search.toLowerCase();
+        return (b.ingredient_name + ' ' + (b.category_name || '')).toLowerCase().indexOf(q) !== -1;
+      }
+      return true;
+    });
+  },
+  drawBalance: function() {
+    var rows = this.filteredBalances();
+    var totalValue = 0, cLow = 0, cOut = 0;
+    (this.balances || []).forEach(function(b) {
+      totalValue += num(b.stock_value);
+      if (b.stock_status === 'low' || b.stock_status === 'critical') cLow++;
+      if (b.stock_status === 'out') cOut++;
+    });
+    if (el('stockSummary')) {
+      el('stockSummary').innerHTML = '<span>มูลค่ารวม <b>' + money(totalValue) + '</b></span>' +
+        '<span>ใกล้หมด/วิกฤต <b>' + cLow + '</b> รายการ</span><span>หมด <b>' + cOut + '</b> รายการ</span>';
+    }
+    var ps = pageSlice(rows, this.st.page, this.st.per);
+    this.st.page = ps.page;
+    el('balTable').innerHTML = tableHTML([
+      { key: 'ingredient_name', label: 'วัตถุดิบ', render: function(b) { return '<b>' + esc(b.ingredient_name) + '</b>'; } },
+      { key: 'category_name', label: 'หมวดหมู่' },
+      { key: 'location_name', label: 'คลัง' },
+      { key: 'current_balance', label: 'คงเหลือ', type: 'num' },
+      { key: 'reserved_quantity', label: 'จองแล้ว', type: 'num' },
+      { key: 'available_balance', label: 'พร้อมใช้', render: function(b) { return '<b>' + fmt(b.available_balance) + '</b>'; }, cls: 'r' },
+      { key: 'unit', label: 'หน่วย' },
+      { key: 'min_stock', label: 'Min', type: 'num' },
+      { key: 'stock_value', label: 'มูลค่า', type: 'money' },
+      { key: 'stock_status', label: 'สถานะ', type: 'status' }
+    ], ps.rows) + pagerHTML(ps, 'PAGES.stock');
+  },
+  exportBalance: function() {
+    exportExcel('stock_balance_' + todayStr(), [
+      { key: 'ingredient_name', label: 'วัตถุดิบ' }, { key: 'category_name', label: 'หมวดหมู่' },
+      { key: 'location_name', label: 'คลัง' }, { key: 'current_balance', label: 'คงเหลือ' },
+      { key: 'reserved_quantity', label: 'จองแล้ว' }, { key: 'available_balance', label: 'พร้อมใช้' },
+      { key: 'unit', label: 'หน่วย' }, { key: 'min_stock', label: 'Min' },
+      { key: 'stock_value', label: 'มูลค่า' }, { key: 'stock_status', label: 'สถานะ' }
+    ], this.filteredBalances());
+  },
+  openAdjust: function() {
+    UI.modal('⚖️ ปรับ Stock (Inventory Adjustment)',
+      '<div class="form-grid">' +
+      '<div class="field"><label>คลัง *</label><select class="sel" style="width:100%" id="adjLoc" onchange="PAGES.stock.adjShowCurrent()">' +
+      selOptions(APP.locations, 'location_id', 'location_name', recall('lastLocation', '')) + '</select></div>' +
+      '<div class="field"><label>วัตถุดิบ *</label><input class="inp" list="dlIngredients" id="adjIng" placeholder="พิมพ์เพื่อค้นหา…" onchange="PAGES.stock.adjShowCurrent()"></div>' +
+      '<div class="field"><label>Stock ปัจจุบัน</label><input class="inp" id="adjCurrent" disabled value="—"></div>' +
+      '<div class="field"><label>จำนวนใหม่ (นับจริง) *</label><input type="number" step="0.001" min="0" class="inp" id="adjNew"></div>' +
+      '<div class="field full"><label>เหตุผล *</label><textarea class="inp" id="adjReason" placeholder="เช่น นับ Stock ประจำเดือน / ของเสีย / ตกหล่น"></textarea></div>' +
+      '</div>' + ingDatalist(),
+      '<button class="btn btn-outline" onclick="UI.closeModal()">ยกเลิก</button>' +
+      '<button class="btn btn-warning" id="btnAdjSave" onclick="PAGES.stock.saveAdjust()">ปรับ Stock</button>');
+  },
+  adjShowCurrent: function() {
+    var g = ingByName(el('adjIng').value);
+    var loc = el('adjLoc').value;
+    if (!g || !loc) { el('adjCurrent').value = '—'; return; }
+    var seq = nextSeq();
+    api('getStockBalances', { location_id: loc }).then(function(res) {
+      if (!isLatest(seq)) return;
+      if (!res.success) return;
+      var b = res.data.filter(function(x) { return x.ingredient_id === g.ingredient_id; })[0];
+      el('adjCurrent').value = (b ? fmt(b.current_balance) : '0') + ' ' + g.default_unit;
+    });
+  },
+  saveAdjust: function() {
+    var g = ingByName(el('adjIng').value);
+    if (!g) { toast('⚠️ กรุณาเลือกวัตถุดิบจากรายการ', 'warning'); return; }
+    if (!el('adjReason').value.trim()) { toast('⚠️ กรุณาระบุเหตุผล', 'warning'); return; }
+    if (el('adjNew').value === '') { toast('⚠️ กรุณากรอกจำนวนใหม่', 'warning'); return; }
+    remember('lastLocation', el('adjLoc').value);
+    btnBusy('btnAdjSave', true);
+    api('createAdjustment', {
+      location_id: el('adjLoc').value, ingredient_id: g.ingredient_id,
+      new_quantity: el('adjNew').value, reason: el('adjReason').value.trim()
+    }).then(function(res) {
+      btnBusy('btnAdjSave', false);
+      toast((res.success ? '✅ ' : '❌ ') + res.message, res.success ? 'success' : 'error');
+      if (res.success) { UI.closeModal(); PAGES.stock.loadBalance(); refreshMaster(true); }
+    }).catch(function() { btnBusy('btnAdjSave', false); });
+  },
+  /* ── Tab: Movements ── */
+  renderMoves: function() {
+    var s = this.st;
+    var types = ['STOCK_IN','ISSUE','TRANSFER_IN','TRANSFER_OUT','ADJUSTMENT_IN','ADJUSTMENT_OUT','RETURN'];
+    el('stockBody').innerHTML =
+      '<div class="toolbar">' +
+      '<input type="date" class="inp" style="width:auto" id="mvFrom" value="' + addDays(todayStr(), -7) + '" onchange="PAGES.stock.loadMoves()">' +
+      '<span>ถึง</span><input type="date" class="inp" style="width:auto" id="mvTo" value="' + todayStr() + '" onchange="PAGES.stock.loadMoves()">' +
+      '<select class="sel" id="mvLoc" onchange="PAGES.stock.loadMoves()">' + selOptions(APP.locations, 'location_id', 'location_code', '', 'ทุกคลัง') + '</select>' +
+      '<select class="sel" onchange="PAGES.stock.st.mvType=this.value;PAGES.stock.st.mvPage=1;PAGES.stock.drawMoves()"><option value="">ทุกประเภท</option>' +
+      types.map(function(t) { return '<option' + (s.mvType === t ? ' selected' : '') + '>' + t + '</option>'; }).join('') + '</select>' +
+      '<div class="search-box"><input class="inp" id="mvSearch" placeholder="ค้นหาวัตถุดิบ/เลขที่…" oninput="PAGES.stock.st.mvPage=1;PAGES.stock.drawMoves()"></div>' +
+      '</div><div id="mvTable"></div>';
+    this.loadMoves();
+  },
+  loadMoves: function() {
+    var self = this, seq = nextSeq();
+    el('mvTable').innerHTML = '<div class="empty-state"><div class="spinner dark" style="margin:16px auto"></div></div>';
+    api('listStockTransactions', { date_from: el('mvFrom').value, date_to: el('mvTo').value, location_id: el('mvLoc').value })
+      .then(function(res) {
+        if (!isLatest(seq) || APP.page !== 'stock') return;
+        if (!res.success) { toast('❌ ' + res.message, 'error'); return; }
+        self.moves = res.data;
+        self.drawMoves();
+      });
+  },
+  drawMoves: function() {
+    var s = this.st;
+    var q = (el('mvSearch') ? el('mvSearch').value : '').toLowerCase();
+    var rows = (this.moves || []).filter(function(t) {
+      if (s.mvType && t.transaction_type !== s.mvType) return false;
+      if (q) return (t.ingredient_name + ' ' + t.transaction_no + ' ' + t.reference_no).toLowerCase().indexOf(q) !== -1;
+      return true;
+    });
+    var ps = pageSlice(rows, s.mvPage, s.mvPer);
+    s.mvPage = ps.page;
+    var typeBadge = { STOCK_IN: 'bg-green', ISSUE: 'bg-blue', TRANSFER_IN: 'bg-purple', TRANSFER_OUT: 'bg-purple', ADJUSTMENT_IN: 'bg-yellow', ADJUSTMENT_OUT: 'bg-yellow', RETURN: 'bg-gray' };
+    el('mvTable').innerHTML = tableHTML([
+      { key: 'transaction_date', label: 'วันที่' },
+      { key: 'transaction_no', label: 'เลขที่' },
+      { key: 'transaction_type', label: 'ประเภท', render: function(t) {
+          return '<span class="badge ' + (typeBadge[t.transaction_type] || 'bg-gray') + '">' + t.transaction_type + '</span>';
+        } },
+      { key: 'ingredient_name', label: 'วัตถุดิบ' },
+      { key: 'quantity', label: 'จำนวน', render: function(t) {
+          var n = num(t.quantity);
+          return '<span style="color:' + (n >= 0 ? 'var(--success)' : 'var(--danger)') + ';font-weight:600">' + (n >= 0 ? '+' : '') + fmt(n) + '</span>';
+        }, cls: 'r' },
+      { key: 'unit', label: 'หน่วย' },
+      { key: 'balance_after', label: 'คงเหลือ', type: 'num' },
+      { key: 'location_name', label: 'คลัง' },
+      { key: 'created_by', label: 'ผู้ทำรายการ' },
+      { key: 'note', label: 'หมายเหตุ' }
+    ], ps.rows) + pagerHTML(ps, 'PAGES.stock');
+  },
+  /* ── Tab: AI Analysis ── */
+  renderAnalysis: function() {
+    el('stockBody').innerHTML = '<div class="ai-box"><b style="color:var(--purple)">🤖 Smart Stock Analysis</b> — วิเคราะห์อัตราการใช้ 14 วันล่าสุด, วันที่คาดว่าจะหมด, Stock สูงเกิน และราคาผิดปกติ (เป็นคำแนะนำเท่านั้น ไม่แก้ Stock อัตโนมัติ)</div><div id="anaBody"><div class="empty-state"><div class="spinner dark" style="margin:16px auto"></div>กำลังวิเคราะห์…</div></div>';
+    var seq = nextSeq();
+    api('getStockAnalysis', null).then(function(res) {
+      if (!isLatest(seq) || APP.page !== 'stock') return;
+      if (!res.success) { toast('❌ ' + res.message, 'error'); return; }
+      if (!res.data.length) {
+        el('anaBody').innerHTML = '<div class="card"><div class="empty-state"><div class="e-ico">✅</div>ไม่มีประเด็นที่ต้องระวังตอนนี้</div></div>';
+        return;
+      }
+      var lvBadge = { danger: 'bg-red', warning: 'bg-yellow', info: 'bg-blue' };
+      el('anaBody').innerHTML = '<div class="card">' + tableHTML([
+        { key: 'level', label: 'ระดับ', render: function(r) {
+            return '<span class="badge ' + lvBadge[r.level] + '">' + (r.level === 'danger' ? '🔴 ด่วน' : r.level === 'warning' ? '🟡 เฝ้าระวัง' : 'ℹ️ ข้อมูล') + '</span>';
+          } },
+        { key: 'ingredient_name', label: 'วัตถุดิบ' },
+        { key: 'message', label: 'คำแนะนำจากระบบ' }
+      ], res.data) + '</div>';
+    });
+  }
+};
+
+/* ═══════════════════ PAGE: STOCK IN ═══════════════════ */
+PAGES.stockin = {
+  st: { items: [], histPage: 1, histPer: 10 },
+  setPage: function(p) { this.st.histPage = p; this.drawHistory(); },
+  setPer: function(p) { this.st.histPer = num(p); this.st.histPage = 1; this.drawHistory(); },
+  render: function() {
+    var self = this;
+    self.st.items = [{ name: '', qty: '', price: '' }];
+    var canWrite = ['Admin', 'Supervisor'].indexOf(APP.user.role) !== -1;
+    var h = '';
+    if (canWrite) {
+      h += '<div class="card"><div class="card-head"><h3>📥 รับเข้าวัตถุดิบ</h3></div>' +
+        '<div class="form-grid" style="grid-template-columns:repeat(auto-fit,minmax(170px,1fr))">' +
+        '<div class="field"><label>วันที่รับ</label><input type="date" class="inp" id="siDate" value="' + todayStr() + '"></div>' +
+        '<div class="field"><label>คลังที่รับเข้า *</label><select class="sel" style="width:100%" id="siLoc">' +
+        selOptions(APP.locations, 'location_id', 'location_name', recall('lastLocation', '')) + '</select></div>' +
+        '<div class="field"><label>Vendor</label><select class="sel" style="width:100%" id="siVendor" onchange="PAGES.stockin.vendorDefault()">' +
+        selOptions(APP.vendors, 'vendor_id', 'vendor_name', recall('lastVendor', ''), 'ไม่ระบุ') + '</select></div>' +
+        '<div class="field"><label>เลขที่บิล/ใบส่งของ</label><input class="inp" id="siDoc" placeholder="เช่น INV-1234"></div>' +
+        '</div>' +
+        '<div class="tbl-wrap"><table class="tbl"><thead><tr><th style="min-width:190px">วัตถุดิบ</th><th class="r">จำนวน (หน่วยใช้)</th><th>หน่วย</th><th class="r">ราคา/หน่วย</th><th class="r">รวม</th><th></th></tr></thead><tbody id="siRows"></tbody></table></div>' +
+        '<div style="margin-top:12px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">' +
+        '<button class="btn btn-outline btn-sm" onclick="PAGES.stockin.addRow()">➕ เพิ่มรายการ</button>' +
+        '<span class="grow"></span><span style="font-size:14px">ยอดรวม: <b id="siTotal">฿0.00</b></span>' +
+        '<button class="btn btn-primary" id="btnSiSave" onclick="PAGES.stockin.save()">📥 บันทึกรับเข้า</button></div>' +
+        '<div class="field" style="margin-top:10px"><label>หมายเหตุ</label><input class="inp" id="siNote"></div>' +
+        '</div>' + ingDatalist();
+    }
+    h += '<div class="section-title">ประวัติรับเข้า</div><div class="toolbar">' +
+      '<input type="date" class="inp" style="width:auto" id="siHistFrom" value="' + addDays(todayStr(), -14) + '" onchange="PAGES.stockin.loadHistory()">' +
+      '<span>ถึง</span><input type="date" class="inp" style="width:auto" id="siHistTo" value="' + todayStr() + '" onchange="PAGES.stockin.loadHistory()">' +
+      '<div class="search-box"><input class="inp" id="siHistSearch" placeholder="ค้นหา…" oninput="PAGES.stockin.st.histPage=1;PAGES.stockin.drawHistory()"></div></div>' +
+      '<div id="siHistTable"></div>';
+    el('content').innerHTML = h;
+    if (canWrite) this.drawRows();
+    this.loadHistory();
+  },
+  vendorDefault: function() { remember('lastVendor', el('siVendor').value); },
+  addRow: function() { this.st.items.push({ name: '', qty: '', price: '' }); this.drawRows(); },
+  delRow: function(i) { this.st.items.splice(i, 1); if (!this.st.items.length) this.addRow(); this.drawRows(); },
+  drawRows: function() {
+    var self = this;
+    el('siRows').innerHTML = self.st.items.map(function(it, i) {
+      var g = ingByName(it.name);
+      var lineTotal = num(it.qty) * num(it.price);
+      return '<tr>' +
+        '<td><input class="inp" list="dlIngredients" value="' + esc(it.name) + '" placeholder="พิมพ์เพื่อค้นหา…" onchange="PAGES.stockin.setItem(' + i + ',\'name\',this.value)"></td>' +
+        '<td class="r"><input type="number" step="0.001" min="0" class="num-inp" value="' + esc(it.qty) + '" onchange="PAGES.stockin.setItem(' + i + ',\'qty\',this.value)"></td>' +
+        '<td>' + esc(g ? g.default_unit : '—') + '</td>' +
+        '<td class="r"><input type="number" step="0.01" min="0" class="num-inp" value="' + esc(it.price) + '" onchange="PAGES.stockin.setItem(' + i + ',\'price\',this.value)"></td>' +
+        '<td class="r"><b>' + money(lineTotal) + '</b></td>' +
+        '<td class="c"><button class="btn btn-ghost btn-sm" onclick="PAGES.stockin.delRow(' + i + ')">🗑</button></td></tr>';
+    }).join('');
+    var total = self.st.items.reduce(function(sum, it) { return sum + num(it.qty) * num(it.price); }, 0);
+    el('siTotal').textContent = money(total);
+  },
+  setItem: function(i, field, val) {
+    var it = this.st.items[i];
+    it[field] = val;
+    if (field === 'name') {
+      var g = ingByName(val);
+      if (g) { if (!it.price) it.price = num(g.last_price) || ''; }
+      else if (val) toast('⚠️ ไม่พบวัตถุดิบ "' + val + '" กรุณาเลือกจากรายการ', 'warning');
+    }
+    this.drawRows();
+  },
+  save: function() {
+    var self = this;
+    var items = [];
+    for (var i = 0; i < self.st.items.length; i++) {
+      var it = self.st.items[i];
+      if (!it.name && !num(it.qty)) continue;
+      var g = ingByName(it.name);
+      if (!g) { toast('⚠️ แถวที่ ' + (i + 1) + ': กรุณาเลือกวัตถุดิบจากรายการ', 'warning'); return; }
+      if (num(it.qty) <= 0) { toast('⚠️ แถวที่ ' + (i + 1) + ': จำนวนต้องมากกว่า 0', 'warning'); return; }
+      items.push({ ingredient_id: g.ingredient_id, quantity: num(it.qty), unit: g.default_unit, unit_price: num(it.price) });
+    }
+    if (!items.length) { toast('⚠️ กรุณาเพิ่มรายการวัตถุดิบ', 'warning'); return; }
+    remember('lastLocation', el('siLoc').value);
+    btnBusy('btnSiSave', true);
+    api('createStockIn', {
+      stockin_date: el('siDate').value, location_id: el('siLoc').value,
+      vendor_id: el('siVendor').value, document_no: el('siDoc').value.trim(),
+      note: el('siNote').value.trim(), items: items
+    }).then(function(res) {
+      btnBusy('btnSiSave', false);
+      if (!res.success) { toast('❌ ' + res.message, 'error'); return; }
+      toast('✅ ' + res.message, 'success');
+      (res.data.price_alerts || []).forEach(function(a) { toast(a, 'warning'); });
+      refreshMaster(true);
+      PAGES.stockin.render();
+    }).catch(function() { btnBusy('btnSiSave', false); });
+  },
+  loadHistory: function() {
+    var self = this, seq = nextSeq();
+    api('listStockIn', { date_from: el('siHistFrom').value, date_to: el('siHistTo').value })
+      .then(function(res) {
+        if (!isLatest(seq) || APP.page !== 'stockin') return;
+        if (!res.success) return;
+        self.history = res.data;
+        self.drawHistory();
+      });
+  },
+  drawHistory: function() {
+    var q = (el('siHistSearch') ? el('siHistSearch').value : '').toLowerCase();
+    var rows = (this.history || []).filter(function(r) {
+      if (!q) return true;
+      return (r.ingredient_name + ' ' + r.stockin_no + ' ' + (r.vendor_name || '') + ' ' + (r.document_no || '')).toLowerCase().indexOf(q) !== -1;
+    });
+    var ps = pageSlice(rows, this.st.histPage, this.st.histPer);
+    this.st.histPage = ps.page;
+    el('siHistTable').innerHTML = tableHTML([
+      { key: 'stockin_date', label: 'วันที่' },
+      { key: 'stockin_no', label: 'เลขที่' },
+      { key: 'ingredient_name', label: 'วัตถุดิบ' },
+      { key: 'quantity', label: 'จำนวน', type: 'num' },
+      { key: 'unit', label: 'หน่วย' },
+      { key: 'unit_price', label: 'ราคา/หน่วย', type: 'money' },
+      { key: 'total_amount', label: 'รวม', type: 'money' },
+      { key: 'vendor_name', label: 'Vendor' },
+      { key: 'location_name', label: 'คลัง' },
+      { key: 'created_by', label: 'ผู้รับ' }
+    ], ps.rows) + pagerHTML(ps, 'PAGES.stockin');
+  }
+};
+
+/* ═══════════════════ PAGE: REQUISITION ═══════════════════ */
+PAGES.requisition = {
+  st: { page: 1, per: 10, status: '', edit: null },
+  setPage: function(p) { this.st.page = p; this.drawList(); },
+  setPer: function(p) { this.st.per = num(p); this.st.page = 1; this.drawList(); },
+  render: function(params) {
+    var self = this;
+    self.st.edit = null;
+    el('content').innerHTML =
+      '<div class="toolbar">' +
+      '<button class="btn btn-primary" id="btnReqToday" onclick="PAGES.requisition.createFromToday()">⚡ สร้างใบเบิกจากเมนูวันนี้</button>' +
+      '<button class="btn btn-outline" onclick="PAGES.requisition.openManual()">➕ สร้างใบเบิกเอง</button>' +
+      '<span class="grow"></span>' +
+      '<select class="sel" onchange="PAGES.requisition.st.status=this.value;PAGES.requisition.st.page=1;PAGES.requisition.drawList()">' +
+      '<option value="">ทุกสถานะ</option>' +
+      ['draft','pending','approved','issued','rejected','cancelled'].map(function(st) {
+        return '<option value="' + st + '"' + (self.st.status === st ? ' selected' : '') + '>' + st + '</option>';
+      }).join('') + '</select>' +
+      '<input type="date" class="inp" style="width:auto" id="reqFrom" value="' + addDays(todayStr(), -14) + '" onchange="PAGES.requisition.load()">' +
+      '<input type="date" class="inp" style="width:auto" id="reqTo" value="' + todayStr() + '" onchange="PAGES.requisition.load()">' +
+      '</div><div id="reqList"></div><div id="reqDetail"></div>' + ingDatalist();
+    self.load(params && params.open);
+  },
+  load: function(openId) {
+    var self = this, seq = nextSeq();
+    api('listRequisitions', { date_from: el('reqFrom').value, date_to: el('reqTo').value })
+      .then(function(res) {
+        if (!isLatest(seq) || APP.page !== 'requisition') return;
+        if (!res.success) { toast('❌ ' + res.message, 'error'); return; }
+        self.list = res.data;
+        self.drawList();
+        if (openId) self.open(openId);
+      });
+  },
+  drawList: function() {
+    var self = this;
+    var rows = (self.list || []).filter(function(r) { return !self.st.status || r.status === self.st.status; });
+    var ps = pageSlice(rows, self.st.page, self.st.per);
+    self.st.page = ps.page;
+    el('reqList').innerHTML = tableHTML([
+      { key: 'requisition_no', label: 'เลขที่', render: function(r) {
+          return '<a href="#" style="color:var(--primary-600);font-weight:600" onclick="PAGES.requisition.open(\'' + r.requisition_id + '\');return false">' + esc(r.requisition_no) + '</a>';
+        } },
+      { key: 'requisition_date', label: 'วันที่' },
+      { key: 'location_name', label: 'Location' },
+      { key: 'meal_period', label: 'ช่วงอาหาร' },
+      { key: 'status', label: 'สถานะ', type: 'status' },
+      { key: 'requested_by', label: 'ผู้เบิก' },
+      { key: 'approved_by', label: 'ผู้อนุมัติ' },
+      { key: '_a', label: '', render: function(r) {
+          return '<div style="display:flex;gap:6px;justify-content:flex-end">' +
+            '<button class="btn btn-outline btn-sm" onclick="PAGES.requisition.open(\'' + r.requisition_id + '\')">เปิด</button>' +
+            '<button class="btn btn-ghost btn-sm" title="Duplicate" onclick="PAGES.requisition.duplicate(\'' + r.requisition_id + '\')">📋</button></div>';
+        } }
+    ], ps.rows) + pagerHTML(ps, 'PAGES.requisition');
+  },
+  createFromToday: function() {
+    if (APP.page !== 'requisition') { nav('requisition'); }
+    var locs = APP.locations;
+    UI.modal('⚡ สร้างใบเบิกจากเมนูวันนี้',
+      '<div class="form-grid">' +
+      '<div class="field"><label>วันที่</label><input type="date" class="inp" id="cfDate" value="' + todayStr() + '"></div>' +
+      '<div class="field"><label>Location</label><select class="sel" style="width:100%" id="cfLoc">' +
+      selOptions(locs, 'location_id', 'location_name', recall('lastLocation', locs.length ? locs[0].location_id : '')) + '</select></div>' +
+      '<div class="field full"><label>ช่วงอาหาร</label><select class="sel" style="width:100%" id="cfMeal"><option value="">ทั้งวัน</option>' +
+      MEALS.filter(function(m) { return m !== 'ทั้งวัน'; }).map(function(m) { return '<option>' + m + '</option>'; }).join('') + '</select></div></div>' +
+      '<div style="font-size:12.5px;color:var(--text-2)">ระบบจะรวมวัตถุดิบจากทุกเมนูในแผน คำนวณจำนวนแนะนำ และสร้าง Draft ให้แก้เฉพาะช่อง "เบิกจริง"</div>',
+      '<button class="btn btn-outline" onclick="UI.closeModal()">ยกเลิก</button>' +
+      '<button class="btn btn-primary" id="btnCfGo" onclick="PAGES.requisition.doCreateFromPlan()">สร้าง Draft</button>');
+  },
+  doCreateFromPlan: function() {
+    remember('lastLocation', el('cfLoc').value);
+    btnBusy('btnCfGo', true, 'กำลังคำนวณ…');
+    api('createDraftRequisitionFromPlan', {
+      date: el('cfDate').value, location_id: el('cfLoc').value, meal_period: el('cfMeal').value
+    }).then(function(res) {
+      btnBusy('btnCfGo', false);
+      if (!res.success) { toast('❌ ' + res.message, 'error'); return; }
+      UI.closeModal();
+      toast('✅ ' + res.message, 'success');
+      if (APP.page !== 'requisition') nav('requisition', { open: res.data.requisition.requisition_id });
+      else { PAGES.requisition.load(res.data.requisition.requisition_id); }
+    }).catch(function() { btnBusy('btnCfGo', false); });
+  },
+  openManual: function() {
+    var self = this;
+    self.st.edit = {
+      requisition: { requisition_id: '', requisition_no: '(ใหม่)', requisition_date: todayStr(),
+        location_id: recall('lastLocation', APP.locations.length ? APP.locations[0].location_id : ''),
+        meal_period: 'ทั้งวัน', status: 'draft', requested_by: APP.user.username, note: '' },
+      items: [], isNew: true
+    };
+    self.drawDetail();
+    el('reqDetail').scrollIntoView({ behavior: 'smooth' });
+  },
+  open: function(reqId) {
+    var self = this, seq = nextSeq();
+    el('reqDetail').innerHTML = '<div class="empty-state"><div class="spinner dark" style="margin:16px auto"></div></div>';
+    api('getRequisition', reqId).then(function(res) {
+      if (!isLatest(seq) || APP.page !== 'requisition') return;
+      if (!res.success) { toast('❌ ' + res.message, 'error'); return; }
+      self.st.edit = { requisition: res.data.requisition, items: res.data.items, isNew: false };
+      self.drawDetail();
+      el('reqDetail').scrollIntoView({ behavior: 'smooth' });
+    });
+  },
+  drawDetail: function() {
+    var self = this;
+    var ed = self.st.edit;
+    if (!ed) { el('reqDetail').innerHTML = ''; return; }
+    var r = ed.requisition;
+    var editable = ed.isNew || r.status === 'draft' || r.status === 'pending';
+    var canApprove = ['Admin', 'Supervisor'].indexOf(APP.user.role) !== -1;
+    var h = '<div class="card" style="margin-top:18px"><div class="card-head">' +
+      '<h3>📤 ใบเบิก ' + esc(r.requisition_no) + '</h3>' + statusBadge(r.status) +
+      '<span class="grow"></span>' +
+      '<button class="btn btn-outline btn-sm" onclick="PAGES.requisition.print()">🖨 พิมพ์</button>' +
+      '<button class="btn btn-ghost btn-sm" onclick="PAGES.requisition.st.edit=null;PAGES.requisition.drawDetail()">✕ ปิด</button></div>';
+    h += '<div class="info-strip">' +
+      '<span>วันที่ <b>' + thaiDate(r.requisition_date) + '</b></span>' +
+      (ed.isNew ? '<span>Location <select class="sel" style="padding:4px 26px 4px 8px" id="rqLoc">' + selOptions(APP.locations, 'location_id', 'location_name', r.location_id) + '</select></span>'
+        : '<span>Location <b>' + esc(r.location_name) + '</b></span>') +
+      '<span>ช่วงอาหาร <b>' + esc(r.meal_period) + '</b></span>' +
+      '<span>ผู้เบิก <b>' + esc(r.requested_by) + '</b></span>' +
+      (r.approved_by ? '<span>ผู้อนุมัติ <b>' + esc(r.approved_by) + '</b></span>' : '') + '</div>';
+    if (r.note) h += '<div style="font-size:12.5px;color:var(--text-2);margin-bottom:11px">📝 ' + esc(r.note) + '</div>';
+
+    h += '<div class="tbl-wrap"><table class="tbl"><thead><tr>' +
+      '<th>วัตถุดิบ</th><th class="r">ตามสูตร</th><th class="r">Stock</th><th class="r">แนะนำเบิก</th>' +
+      '<th class="r">เบิกจริง</th>' +
+      (r.status === 'approved' || r.status === 'issued' ? '<th class="r">อนุมัติ</th>' : '') +
+      (r.status === 'issued' ? '<th class="r">จ่ายจริง</th>' : '') +
+      '<th>หน่วย</th><th>หมายเหตุ</th>' + (editable ? '<th></th>' : '') + '</tr></thead><tbody>';
+    ed.items.forEach(function(it, i) {
+      if (!editable && num(it.requested_quantity) <= 0) return;
+      var stock = it.current_available !== undefined ? num(it.current_available) : num(it.stock_before);
+      var short = num(it.requested_quantity) > stock;
+      h += '<tr><td><b>' + esc(it.ingredient_name) + '</b></td>' +
+        '<td class="r">' + fmt(it.recipe_quantity) + '</td>' +
+        '<td class="r" style="' + (short ? 'color:var(--danger);font-weight:600' : '') + '">' + fmt(stock) + '</td>' +
+        '<td class="r">' + fmt(it.recommended_quantity) + '</td>' +
+        '<td class="r">' + (editable ?
+          '<input type="number" step="0.001" min="0" class="num-inp" value="' + num(it.requested_quantity) + '" onchange="PAGES.requisition.st.edit.items[' + i + '].requested_quantity=num(this.value)">' :
+          '<b>' + fmt(it.requested_quantity) + '</b>') + '</td>' +
+        (r.status === 'approved' || r.status === 'issued' ? '<td class="r">' + fmt(it.approved_quantity) + '</td>' : '') +
+        (r.status === 'issued' ? '<td class="r"><b>' + fmt(it.actual_quantity) + '</b></td>' : '') +
+        '<td>' + esc(it.unit) + '</td>' +
+        '<td style="font-size:12px">' + (short ? '<span class="badge bg-red">🔴 ขาด ' + fmt(num(it.requested_quantity) - stock) + '</span> <button class="btn btn-ghost btn-sm" onclick="nav(\'purchase\')">🛒 เพิ่มในแผนสั่งซื้อ</button>' : esc(it.note || '')) + '</td>' +
+        (editable ? '<td class="c"><button class="btn btn-ghost btn-sm" onclick="PAGES.requisition.delItem(' + i + ')">🗑</button></td>' : '') +
+        '</tr>';
+    });
+    h += '</tbody></table></div>';
+
+    h += '<div style="margin-top:13px;display:flex;gap:10px;flex-wrap:wrap;align-items:center">';
+    if (editable) {
+      h += '<div class="search-box" style="min-width:230px"><input class="inp" list="dlIngredients" id="rqAddIng" placeholder="➕ พิมพ์เพื่อเพิ่มวัตถุดิบ…" onchange="PAGES.requisition.addItem(this)"></div>';
+      h += '<span class="grow"></span>';
+      h += '<button class="btn btn-outline" id="btnRqDraft" onclick="PAGES.requisition.save(false)">💾 บันทึก Draft</button>';
+      h += '<button class="btn btn-primary" id="btnRqSubmit" onclick="PAGES.requisition.save(true)">📨 ส่งขออนุมัติ</button>';
+      if (!ed.isNew) h += '<button class="btn btn-ghost" onclick="PAGES.requisition.cancel(\'' + r.requisition_id + '\')">ยกเลิกใบเบิก</button>';
+    } else if (r.status === 'approved' && canApprove) {
+      h += '<span class="grow"></span><button class="btn btn-success" id="btnRqIssue" onclick="PAGES.requisition.issue(\'' + r.requisition_id + '\',false)">📦 จ่ายวัตถุดิบ (ตัด Stock)</button>';
+    }
+    h += '</div></div>';
+    el('reqDetail').innerHTML = h;
+  },
+  addItem: function(input) {
+    var g = ingByName(input.value);
+    if (!g) { if (input.value) toast('⚠️ ไม่พบวัตถุดิบนี้', 'warning'); return; }
+    var ed = this.st.edit;
+    var dup = ed.items.filter(function(it) { return it.ingredient_id === g.ingredient_id; })[0];
+    if (dup) { toast('⚠️ มีวัตถุดิบนี้ในใบเบิกแล้ว', 'warning'); input.value = ''; return; }
+    var stockRow = APP.stock.filter(function(b) { return b.ingredient_id === g.ingredient_id; })[0];
+    ed.items.push({
+      requisition_item_id: '', ingredient_id: g.ingredient_id, ingredient_name: g.ingredient_name,
+      unit: g.default_unit, recipe_quantity: 0, recommended_quantity: 0, requested_quantity: 1,
+      current_available: stockRow ? num(stockRow.available_balance) : 0, note: ''
+    });
+    input.value = '';
+    this.drawDetail();
+  },
+  delItem: function(i) { this.st.edit.items.splice(i, 1); this.drawDetail(); },
+  save: function(submit) {
+    var self = this;
+    var ed = self.st.edit;
+    var items = ed.items.filter(function(it) { return num(it.requested_quantity) > 0; })
+      .map(function(it) { return { ingredient_id: it.ingredient_id, requested_quantity: num(it.requested_quantity), note: it.note }; });
+    if (!items.length) { toast('⚠️ กรุณาระบุจำนวนเบิกอย่างน้อย 1 รายการ', 'warning'); return; }
+    var btn = submit ? 'btnRqSubmit' : 'btnRqDraft';
+    btnBusy(btn, true, submit ? 'กำลังส่ง…' : 'กำลังบันทึก…');
+    api('createRequisition', {
+      requisition_id: ed.isNew ? undefined : ed.requisition.requisition_id,
+      requisition_date: ed.requisition.requisition_date,
+      location_id: ed.isNew ? el('rqLoc').value : ed.requisition.location_id,
+      meal_period: ed.requisition.meal_period, submit: !!submit, items: items
+    }).then(function(res) {
+      btnBusy(btn, false);
+      toast((res.success ? '' : '❌ ') + res.message, res.success ? 'success' : 'error');
+      if (res.success) { self.load(submit ? null : res.data.requisition_id); if (submit) self.st.edit = null; refreshMaster(true); }
+    }).catch(function() { btnBusy(btn, false); });
+  },
+  cancel: function(reqId) {
+    var self = this;
+    UI.confirm('ยกเลิกใบเบิก', 'ต้องการยกเลิกใบเบิกนี้ใช่หรือไม่?', 'ยกเลิกใบเบิก', 'btn-danger').then(function(okay) {
+      if (!okay) return;
+      api('cancelRequisition', { requisition_id: reqId }).then(function(res) {
+        toast((res.success ? '✅ ' : '❌ ') + res.message, res.success ? 'success' : 'error');
+        if (res.success) { self.st.edit = null; self.drawDetail(); self.load(); }
+      });
+    });
+  },
+  duplicate: function(reqId) {
+    var self = this;
+    api('duplicateRequisition', reqId).then(function(res) {
+      toast((res.success ? '✅ ' : '❌ ') + res.message, res.success ? 'success' : 'error');
+      if (res.success) self.load(res.data.requisition_id);
+    });
+  },
+  issue: function(reqId, allowNegative) {
+    var self = this;
+    UI.confirm('จ่ายวัตถุดิบ', 'ยืนยันจ่ายวัตถุดิบและตัด Stock ตามจำนวนที่อนุมัติ?', 'จ่ายวัตถุดิบ', 'btn-success').then(function(okay) {
+      if (!okay) return;
+      api('issueRequisition', { requisition_id: reqId, allow_negative: allowNegative }).then(function(res) {
+        if (!res.success && res.code === 'INSUFFICIENT_STOCK') {
+          UI.confirm('⚠️ Stock ไม่เพียงพอ', res.message + '\n\nต้องการจ่ายต่อ (Stock จะติดลบ) หรือไม่?', 'จ่ายต่อ (ยอมติดลบ)', 'btn-danger')
+            .then(function(force) {
+              if (!force) return;
+              api('issueRequisition', { requisition_id: reqId, allow_negative: true }).then(function(res2) {
+                toast((res2.success ? '' : '❌ ') + res2.message, res2.success ? 'success' : 'error');
+                if (res2.success) { self.load(reqId); refreshMaster(true); }
+              });
+            });
+          return;
+        }
+        toast((res.success ? '' : '❌ ') + res.message, res.success ? 'success' : 'error');
+        if (res.success) { self.load(reqId); refreshMaster(true); }
+      });
+    });
+  },
+  print: function() {
+    var ed = this.st.edit;
+    if (!ed || ed.isNew) { toast('⚠️ บันทึกใบเบิกก่อนพิมพ์', 'warning'); return; }
+    var r = ed.requisition;
+    var rows = ed.items.filter(function(it) { return num(it.requested_quantity) > 0; });
+    var qtyField = r.status === 'issued' ? 'actual_quantity' : (r.status === 'approved' ? 'approved_quantity' : 'requested_quantity');
+    var h = printHeader('ใบเบิกวัตถุดิบ (Requisition)',
+      'เลขที่ ' + esc(r.requisition_no) + ' · วันที่ ' + thaiDate(r.requisition_date) +
+      ' · Location: ' + esc(r.location_name) + ' · ช่วงอาหาร: ' + esc(r.meal_period));
+    h += '<table><thead><tr><th style="width:44px">ลำดับ</th><th>วัตถุดิบ</th><th>หน่วย</th><th style="text-align:right">จำนวน</th><th>หมายเหตุ</th></tr></thead><tbody>';
+    rows.forEach(function(it, i) {
+      h += '<tr><td style="text-align:center">' + (i + 1) + '</td><td>' + esc(it.ingredient_name) + '</td>' +
+        '<td>' + esc(it.unit) + '</td><td style="text-align:right">' + fmt(num(it[qtyField]) || num(it.requested_quantity)) + '</td>' +
+        '<td>' + esc(it.note || '') + '</td></tr>';
+    });
+    h += '</tbody></table>';
+    h += '<div class="p-sign"><div>ผู้เบิก<br>(' + esc(r.requested_by) + ')</div><div>ผู้ตรวจสอบ<br>&nbsp;</div><div>ผู้อนุมัติ<br>' + (r.approved_by ? '(' + esc(r.approved_by) + ')' : '&nbsp;') + '</div></div>';
+    printHTML(h);
+  }
+};
+
+/* ═══════════════════ PAGE: APPROVAL ═══════════════════ */
+PAGES.approval = {
+  st: { page: 1, per: 10 },
+  setPage: function(p) { this.st.page = p; this.draw(); },
+  setPer: function(p) { this.st.per = num(p); this.st.page = 1; this.draw(); },
+  render: function() {
+    el('content').innerHTML = '<div class="info-strip"><span>รายการใบเบิกที่ <b>รออนุมัติ</b> — ตรวจสอบจำนวนและกดอนุมัติ/ปฏิเสธ</span></div>' +
+      '<div id="apList"></div><div id="apDetail"></div>';
+    this.load();
+  },
+  load: function() {
+    var self = this, seq = nextSeq();
+    api('listRequisitions', { status: 'pending', date_from: addDays(todayStr(), -60), date_to: addDays(todayStr(), 7) })
+      .then(function(res) {
+        if (!isLatest(seq) || APP.page !== 'approval') return;
+        if (!res.success) { toast('❌ ' + res.message, 'error'); return; }
+        self.list = res.data;
+        self.draw();
+        refreshMaster(true);
+      });
+  },
+  draw: function() {
+    var self = this;
+    var ps = pageSlice(self.list || [], self.st.page, self.st.per);
+    self.st.page = ps.page;
+    el('apList').innerHTML = tableHTML([
+      { key: 'requisition_no', label: 'เลขที่' },
+      { key: 'requisition_date', label: 'วันที่' },
+      { key: 'location_name', label: 'Location' },
+      { key: 'meal_period', label: 'ช่วงอาหาร' },
+      { key: 'requested_by', label: 'ผู้เบิก' },
+      { key: '_a', label: '', render: function(r) {
+          return '<button class="btn btn-primary btn-sm" onclick="PAGES.approval.open(\'' + r.requisition_id + '\')">ตรวจสอบ</button>';
+        } }
+    ], ps.rows) + pagerHTML(ps, 'PAGES.approval');
+  },
+  open: function(reqId) {
+    var self = this, seq = nextSeq();
+    el('apDetail').innerHTML = '<div class="empty-state"><div class="spinner dark" style="margin:16px auto"></div></div>';
+    api('getRequisition', reqId).then(function(res) {
+      if (!isLatest(seq) || APP.page !== 'approval') return;
+      if (!res.success) { toast('❌ ' + res.message, 'error'); return; }
+      self.cur = res.data;
+      var r = res.data.requisition;
+      var h = '<div class="card" style="margin-top:16px"><div class="card-head"><h3>✅ ตรวจสอบใบเบิก ' + esc(r.requisition_no) + '</h3>' +
+        statusBadge(r.status) + '<span class="grow"></span>' +
+        '<button class="btn btn-ghost btn-sm" onclick="el(\'apDetail\').innerHTML=\'\'">✕ ปิด</button></div>' +
+        '<div class="info-strip"><span>วันที่ <b>' + thaiDate(r.requisition_date) + '</b></span>' +
+        '<span>Location <b>' + esc(r.location_name) + '</b></span><span>ผู้เบิก <b>' + esc(r.requested_by) + '</b></span></div>';
+      if (r.note) h += '<div style="font-size:12.5px;color:var(--text-2);margin-bottom:11px">📝 ' + esc(r.note) + '</div>';
+      h += '<div class="tbl-wrap"><table class="tbl"><thead><tr><th>วัตถุดิบ</th><th class="r">ตามสูตร</th><th class="r">Stock พร้อมใช้</th><th class="r">ขอเบิก</th><th class="r">อนุมัติ</th><th>หน่วย</th><th></th></tr></thead><tbody>';
+      res.data.items.forEach(function(it, i) {
+        if (num(it.requested_quantity) <= 0) return;
+        var short = num(it.requested_quantity) > num(it.current_available);
+        h += '<tr><td><b>' + esc(it.ingredient_name) + '</b></td>' +
+          '<td class="r">' + fmt(it.recipe_quantity) + '</td>' +
+          '<td class="r" style="' + (short ? 'color:var(--danger);font-weight:600' : '') + '">' + fmt(it.current_available) + '</td>' +
+          '<td class="r"><b>' + fmt(it.requested_quantity) + '</b></td>' +
+          '<td class="r"><input type="number" step="0.001" min="0" class="num-inp" id="apq_' + i + '" value="' + num(it.requested_quantity) + '"></td>' +
+          '<td>' + esc(it.unit) + '</td>' +
+          '<td>' + (short ? '<span class="badge bg-red">🔴 เกิน Stock</span>' : '') + '</td></tr>';
+      });
+      h += '</tbody></table></div>' +
+        '<div style="margin-top:14px;display:flex;gap:10px;flex-wrap:wrap;justify-content:flex-end">' +
+        '<button class="btn btn-danger" onclick="PAGES.approval.reject(\'' + r.requisition_id + '\')">❌ ปฏิเสธ</button>' +
+        '<button class="btn btn-success" id="btnApGo" onclick="PAGES.approval.approve(\'' + r.requisition_id + '\')">✅ อนุมัติตามจำนวนที่ระบุ</button></div></div>';
+      el('apDetail').innerHTML = h;
+      el('apDetail').scrollIntoView({ behavior: 'smooth' });
+    });
+  },
+  approve: function(reqId) {
+    var self = this;
+    var items = [];
+    (self.cur.items || []).forEach(function(it, i) {
+      var inp = el('apq_' + i);
+      if (inp) items.push({ requisition_item_id: it.requisition_item_id, approved_quantity: num(inp.value) });
+    });
+    btnBusy('btnApGo', true, 'กำลังอนุมัติ…');
+    api('approveRequisition', { requisition_id: reqId, items: items }).then(function(res) {
+      btnBusy('btnApGo', false);
+      toast((res.success ? '' : '❌ ') + res.message, res.success ? 'success' : 'error');
+      if (res.success) { el('apDetail').innerHTML = ''; self.load(); }
+    }).catch(function() { btnBusy('btnApGo', false); });
+  },
+  reject: function(reqId) {
+    var self = this;
+    UI.promptReason('❌ ปฏิเสธใบเบิก', 'เหตุผลที่ปฏิเสธ เช่น จำนวนเกินความจำเป็น').then(function(reason) {
+      if (!reason) return;
+      api('rejectRequisition', { requisition_id: reqId, reason: reason }).then(function(res) {
+        toast((res.success ? '✅ ' : '❌ ') + res.message, res.success ? 'success' : 'error');
+        if (res.success) { el('apDetail').innerHTML = ''; self.load(); }
+      });
+    });
+  }
+};
+
+/* ═══════════════════ PAGE: TRANSFER ═══════════════════ */
+PAGES.transfer = {
+  st: { items: [], page: 1, per: 10 },
+  setPage: function(p) { this.st.page = p; this.drawHistory(); },
+  setPer: function(p) { this.st.per = num(p); this.st.page = 1; this.drawHistory(); },
+  render: function() {
+    var self = this;
+    self.st.items = [{ name: '', qty: '' }];
+    var canWrite = ['Admin', 'Supervisor'].indexOf(APP.user.role) !== -1;
+    var h = '';
+    if (canWrite) {
+      var locs = APP.locations;
+      h += '<div class="card"><div class="card-head"><h3>🔄 โอนวัตถุดิบระหว่างคลัง</h3></div>' +
+        '<div class="form-grid" style="grid-template-columns:repeat(auto-fit,minmax(170px,1fr))">' +
+        '<div class="field"><label>วันที่โอน</label><input type="date" class="inp" id="trDate" value="' + todayStr() + '"></div>' +
+        '<div class="field"><label>จากคลัง *</label><select class="sel" style="width:100%" id="trFrom">' +
+        selOptions(locs, 'location_id', 'location_name', locs.length ? locs[0].location_id : '') + '</select></div>' +
+        '<div class="field"><label>ไปคลัง *</label><select class="sel" style="width:100%" id="trTo">' +
+        selOptions(locs, 'location_id', 'location_name', locs.length > 1 ? locs[1].location_id : '') + '</select></div>' +
+        '<div class="field"><label>หมายเหตุ</label><input class="inp" id="trNote"></div></div>' +
+        '<div class="tbl-wrap"><table class="tbl"><thead><tr><th style="min-width:190px">วัตถุดิบ</th><th class="r">จำนวนโอน</th><th>หน่วย</th><th></th></tr></thead><tbody id="trRows"></tbody></table></div>' +
+        '<div style="margin-top:12px;display:flex;gap:10px;flex-wrap:wrap">' +
+        '<button class="btn btn-outline btn-sm" onclick="PAGES.transfer.addRow()">➕ เพิ่มรายการ</button>' +
+        '<span class="grow"></span>' +
+        '<button class="btn btn-primary" id="btnTrSave" onclick="PAGES.transfer.save()">🔄 ยืนยันการโอน</button></div></div>' + ingDatalist();
+    }
+    h += '<div class="section-title">ประวัติการโอน</div><div class="toolbar">' +
+      '<input type="date" class="inp" style="width:auto" id="trHistFrom" value="' + addDays(todayStr(), -30) + '" onchange="PAGES.transfer.loadHistory()">' +
+      '<span>ถึง</span><input type="date" class="inp" style="width:auto" id="trHistTo" value="' + todayStr() + '" onchange="PAGES.transfer.loadHistory()"></div>' +
+      '<div id="trHistTable"></div>';
+    el('content').innerHTML = h;
+    if (canWrite) this.drawRows();
+    this.loadHistory();
+  },
+  addRow: function() { this.st.items.push({ name: '', qty: '' }); this.drawRows(); },
+  delRow: function(i) { this.st.items.splice(i, 1); if (!this.st.items.length) this.addRow(); this.drawRows(); },
+  drawRows: function() {
+    var self = this;
+    el('trRows').innerHTML = self.st.items.map(function(it, i) {
+      var g = ingByName(it.name);
+      return '<tr>' +
+        '<td><input class="inp" list="dlIngredients" value="' + esc(it.name) + '" placeholder="พิมพ์เพื่อค้นหา…" onchange="PAGES.transfer.st.items[' + i + '].name=this.value;PAGES.transfer.drawRows()"></td>' +
+        '<td class="r"><input type="number" step="0.001" min="0" class="num-inp" value="' + esc(it.qty) + '" onchange="PAGES.transfer.st.items[' + i + '].qty=this.value"></td>' +
+        '<td>' + esc(g ? g.default_unit : '—') + '</td>' +
+        '<td class="c"><button class="btn btn-ghost btn-sm" onclick="PAGES.transfer.delRow(' + i + ')">🗑</button></td></tr>';
+    }).join('');
+  },
+  save: function() {
+    var self = this;
+    if (el('trFrom').value === el('trTo').value) { toast('⚠️ คลังต้นทางและปลายทางต้องต่างกัน', 'warning'); return; }
+    var items = [];
+    for (var i = 0; i < self.st.items.length; i++) {
+      var it = self.st.items[i];
+      if (!it.name && !num(it.qty)) continue;
+      var g = ingByName(it.name);
+      if (!g) { toast('⚠️ แถวที่ ' + (i + 1) + ': กรุณาเลือกวัตถุดิบจากรายการ', 'warning'); return; }
+      if (num(it.qty) <= 0) { toast('⚠️ แถวที่ ' + (i + 1) + ': จำนวนต้องมากกว่า 0', 'warning'); return; }
+      items.push({ ingredient_id: g.ingredient_id, quantity: num(it.qty), unit: g.default_unit });
+    }
+    if (!items.length) { toast('⚠️ กรุณาเพิ่มรายการที่ต้องการโอน', 'warning'); return; }
+    btnBusy('btnTrSave', true, 'กำลังโอน…');
+    api('createTransfer', {
+      transfer_date: el('trDate').value, from_location: el('trFrom').value,
+      to_location: el('trTo').value, note: el('trNote').value.trim(), items: items
+    }).then(function(res) {
+      btnBusy('btnTrSave', false);
+      if (!res.success) {
+        if (res.code === 'INSUFFICIENT_STOCK') toast(res.message, 'warning');
+        else toast('❌ ' + res.message, 'error');
+        return;
+      }
+      toast('✅ ' + res.message, 'success');
+      refreshMaster(true);
+      PAGES.transfer.render();
+    }).catch(function() { btnBusy('btnTrSave', false); });
+  },
+  loadHistory: function() {
+    var self = this, seq = nextSeq();
+    api('listTransfers', { date_from: el('trHistFrom').value, date_to: el('trHistTo').value })
+      .then(function(res) {
+        if (!isLatest(seq) || APP.page !== 'transfer') return;
+        if (!res.success) return;
+        self.history = res.data;
+        self.drawHistory();
+      });
+  },
+  drawHistory: function() {
+    var canWrite = ['Admin', 'Supervisor'].indexOf(APP.user.role) !== -1;
+    var ps = pageSlice(this.history || [], this.st.page, this.st.per);
+    this.st.page = ps.page;
+    el('trHistTable').innerHTML = tableHTML([
+      { key: 'transfer_date', label: 'วันที่' },
+      { key: 'transfer_no', label: 'เลขที่' },
+      { key: 'ingredient_name', label: 'วัตถุดิบ' },
+      { key: 'quantity', label: 'จำนวน', type: 'num' },
+      { key: 'unit', label: 'หน่วย' },
+      { key: 'from_location_name', label: 'จาก' },
+      { key: 'to_location_name', label: 'ไป' },
+      { key: 'status', label: 'สถานะ', type: 'status' },
+      { key: 'created_by', label: 'ผู้โอน' },
+      { key: '_a', label: '', render: function(t) {
+          return (canWrite && !t.received_by) ?
+            '<button class="btn btn-outline btn-sm" onclick="PAGES.transfer.receive(\'' + esc(t.transfer_no) + '\')">✔ รับโอน</button>' :
+            (t.received_by ? '<span style="font-size:12px;color:var(--text-3)">รับโดย ' + esc(t.received_by) + '</span>' : '');
+        } }
+    ], ps.rows) + pagerHTML(ps, 'PAGES.transfer');
+  },
+  receive: function(transferNo) {
+    var self = this;
+    api('receiveTransfer', transferNo).then(function(res) {
+      toast((res.success ? '✅ ' : '❌ ') + res.message, res.success ? 'success' : 'error');
+      if (res.success) self.loadHistory();
+    });
+  }
+};
+
+/* ═══════════════════ PAGE: PURCHASE PLAN ═══════════════════ */
+PAGES.purchase = {
+  st: { tab: 'suggest', items: [], page: 1, per: 10 },
+  setPage: function(p) { this.st.page = p; this.drawHistory(); },
+  setPer: function(p) { this.st.per = num(p); this.st.page = 1; this.drawHistory(); },
+  render: function() {
+    var s = this.st;
+    el('content').innerHTML =
+      '<div class="tabs">' +
+      '<button class="' + (s.tab === 'suggest' ? 'active' : '') + '" onclick="PAGES.purchase.st.tab=\'suggest\';PAGES.purchase.render()">🛒 แนะนำสั่งซื้อ</button>' +
+      '<button class="' + (s.tab === 'history' ? 'active' : '') + '" onclick="PAGES.purchase.st.tab=\'history\';PAGES.purchase.render()">📜 แผนสั่งซื้อที่บันทึก</button>' +
+      '</div><div id="ppBody"></div>';
+    if (s.tab === 'suggest') this.renderSuggest();
+    else this.renderHistory();
+  },
+  renderSuggest: function() {
+    el('ppBody').innerHTML =
+      '<div class="toolbar">' +
+      '<label style="font-size:13px;color:var(--text-2)">คำนวณจากแผนเมนู:</label>' +
+      '<input type="date" class="inp" style="width:auto" id="ppFrom" value="' + todayStr() + '">' +
+      '<span>ถึง</span><input type="date" class="inp" style="width:auto" id="ppTo" value="' + addDays(todayStr(), 2) + '">' +
+      '<select class="sel" id="ppLoc">' + selOptions(APP.locations, 'location_id', 'location_code', '', 'ทุกคลัง') + '</select>' +
+      '<button class="btn btn-primary" id="btnPpCalc" onclick="PAGES.purchase.calc()">🧮 คำนวณ</button>' +
+      '<span class="grow"></span>' +
+      '<button class="btn btn-outline" onclick="PAGES.purchase.exportSuggest()">📊 Excel</button>' +
+      '</div>' +
+      '<div style="font-size:12.5px;color:var(--text-2);margin-bottom:12px">สูตร: แนะนำซื้อ = ต้องใช้ตามแผน + Safety Stock − Stock พร้อมใช้ (ระบบไม่สั่งซื้อจริงอัตโนมัติ — ตรวจสอบและยืนยันก่อน)</div>' +
+      '<div id="ppSuggest"></div>';
+    this.calc();
+  },
+  calc: function() {
+    var self = this, seq = nextSeq();
+    el('ppSuggest').innerHTML = '<div class="empty-state"><div class="spinner dark" style="margin:16px auto"></div>กำลังคำนวณ…</div>';
+    api('calculatePurchaseSuggestion', { date_from: el('ppFrom').value, date_to: el('ppTo').value, location_id: el('ppLoc').value })
+      .then(function(res) {
+        if (!isLatest(seq) || APP.page !== 'purchase') return;
+        if (!res.success) { toast('❌ ' + res.message, 'error'); return; }
+        self.st.items = res.data.items.map(function(it) { it.final_quantity = it.recommended_purchase; return it; });
+        self.drawSuggest();
+      });
+  },
+  drawSuggest: function() {
+    var self = this;
+    var items = self.st.items;
+    if (!items.length) {
+      el('ppSuggest').innerHTML = '<div class="card"><div class="empty-state"><div class="e-ico">✅</div>ไม่มีรายการที่ต้องสั่งซื้อตอนนี้</div></div>';
+      return;
+    }
+    var canWrite = ['Admin', 'Supervisor'].indexOf(APP.user.role) !== -1;
+    // Group by Vendor
+    var byVendor = {};
+    items.forEach(function(it, idx) {
+      it._idx = idx;
+      (byVendor[it.vendor_name] = byVendor[it.vendor_name] || []).push(it);
+    });
+    var total = items.reduce(function(sum, it) { return sum + num(it.final_quantity) * num(it.last_price); }, 0);
+    var h = '<div class="info-strip"><span>รวม <b>' + items.length + '</b> รายการ</span><span>ประมาณการ <b id="ppTotalTxt">' + money(total) + '</b></span></div>';
+    Object.keys(byVendor).sort(function(a, b) { return a.localeCompare(b, 'th'); }).forEach(function(vn) {
+      var list = byVendor[vn];
+      var vTotal = list.reduce(function(sum, it) { return sum + num(it.final_quantity) * num(it.last_price); }, 0);
+      h += '<div class="card"><div class="card-head"><h3>🏪 ' + esc(vn) + '</h3>' +
+        '<span class="badge bg-blue">' + list.length + ' รายการ</span><span class="grow"></span>' +
+        '<b>' + money(vTotal) + '</b></div>';
+      h += '<div class="tbl-wrap"><table class="tbl"><thead><tr><th>วัตถุดิบ</th><th class="r">Stock</th><th class="r">ต้องใช้</th><th class="r">Safety</th><th class="r">แนะนำซื้อ</th><th class="r">สั่งจริง</th><th>หน่วย</th><th class="r">ราคา</th><th class="r">รวม</th><th>สถานะ</th></tr></thead><tbody>';
+      list.forEach(function(it) {
+        h += '<tr><td><b>' + esc(it.ingredient_name) + '</b></td>' +
+          '<td class="r">' + fmt(it.current_stock) + '</td>' +
+          '<td class="r">' + fmt(it.required_quantity) + '</td>' +
+          '<td class="r">' + fmt(it.safety_stock) + '</td>' +
+          '<td class="r"><b>' + fmt(it.recommended_purchase) + '</b></td>' +
+          '<td class="r">' + (canWrite ? '<input type="number" step="0.001" min="0" class="num-inp" value="' + num(it.final_quantity) + '" onchange="PAGES.purchase.setFinal(' + it._idx + ',this.value)">' : fmt(it.final_quantity)) + '</td>' +
+          '<td>' + esc(it.unit) + '</td>' +
+          '<td class="r">' + money(it.last_price) + '</td>' +
+          '<td class="r">' + money(num(it.final_quantity) * num(it.last_price)) + '</td>' +
+          '<td>' + statusBadge(it.stock_status) + '</td></tr>';
+      });
+      h += '</tbody></table></div></div>';
+    });
+    if (canWrite) {
+      h += '<div class="card"><div class="card-head"><h3>บันทึกเป็นแผนสั่งซื้อ</h3><span class="grow"></span>' +
+        '<label style="font-size:13px;color:var(--text-2)">ต้องการของวันที่</label>' +
+        '<input type="date" class="inp" style="width:auto" id="ppReqDate" value="' + addDays(todayStr(), 1) + '">' +
+        '<button class="btn btn-success" id="btnPpSave" onclick="PAGES.purchase.savePlan()">💾 สร้าง Purchase Plan</button></div>' +
+        '<div style="font-size:12.5px;color:var(--text-2)">รายการที่จำนวนสั่งจริง = 0 จะไม่ถูกบันทึก</div></div>';
+    }
+    el('ppSuggest').innerHTML = h;
+  },
+  setFinal: function(idx, val) {
+    this.st.items[idx].final_quantity = num(val);
+    var total = this.st.items.reduce(function(sum, it) { return sum + num(it.final_quantity) * num(it.last_price); }, 0);
+    if (el('ppTotalTxt')) el('ppTotalTxt').textContent = money(total);
+  },
+  exportSuggest: function() {
+    if (!this.st.items.length) { toast('⚠️ ไม่มีข้อมูลให้ Export', 'warning'); return; }
+    exportExcel('purchase_suggestion_' + todayStr(), [
+      { key: 'vendor_name', label: 'Vendor' }, { key: 'ingredient_name', label: 'วัตถุดิบ' },
+      { key: 'current_stock', label: 'Stock' }, { key: 'required_quantity', label: 'ต้องใช้' },
+      { key: 'safety_stock', label: 'Safety' }, { key: 'recommended_purchase', label: 'แนะนำซื้อ' },
+      { key: 'final_quantity', label: 'สั่งจริง' }, { key: 'unit', label: 'หน่วย' },
+      { key: 'last_price', label: 'ราคา/หน่วย' }, { key: 'estimated_amount', label: 'ประมาณการ' }
+    ], this.st.items);
+  },
+  savePlan: function() {
+    var self = this;
+    var items = self.st.items.filter(function(it) { return num(it.final_quantity) > 0; })
+      .map(function(it) {
+        return { ingredient_id: it.ingredient_id, vendor_id: it.vendor_id,
+          current_stock: it.current_stock, required_quantity: it.required_quantity,
+          recommended_purchase: it.recommended_purchase, final_quantity: it.final_quantity };
+      });
+    if (!items.length) { toast('⚠️ ไม่มีรายการที่จำนวนสั่งมากกว่า 0', 'warning'); return; }
+    btnBusy('btnPpSave', true);
+    api('createPurchasePlan', { required_date: el('ppReqDate').value, items: items }).then(function(res) {
+      btnBusy('btnPpSave', false);
+      toast((res.success ? '' : '❌ ') + res.message, res.success ? 'success' : 'error');
+      if (res.success) { self.st.tab = 'history'; self.render(); }
+    }).catch(function() { btnBusy('btnPpSave', false); });
+  },
+  renderHistory: function() {
+    el('ppBody').innerHTML = '<div class="toolbar">' +
+      '<input type="date" class="inp" style="width:auto" id="ppHFrom" value="' + addDays(todayStr(), -30) + '" onchange="PAGES.purchase.loadHistory()">' +
+      '<span>ถึง</span><input type="date" class="inp" style="width:auto" id="ppHTo" value="' + todayStr() + '" onchange="PAGES.purchase.loadHistory()">' +
+      '<span class="grow"></span><button class="btn btn-outline btn-sm" onclick="PAGES.purchase.printPlans()">🖨 พิมพ์</button></div>' +
+      '<div id="ppHistTable"></div>';
+    this.loadHistory();
+  },
+  loadHistory: function() {
+    var self = this, seq = nextSeq();
+    api('listPurchasePlans', { date_from: el('ppHFrom').value, date_to: el('ppHTo').value })
+      .then(function(res) {
+        if (!isLatest(seq) || APP.page !== 'purchase') return;
+        if (!res.success) return;
+        self.history = res.data;
+        self.drawHistory();
+      });
+  },
+  drawHistory: function() {
+    var canWrite = ['Admin', 'Supervisor'].indexOf(APP.user.role) !== -1;
+    var ps = pageSlice(this.history || [], this.st.page, this.st.per);
+    this.st.page = ps.page;
+    el('ppHistTable').innerHTML = tableHTML([
+      { key: 'plan_date', label: 'วันที่' },
+      { key: 'purchase_plan_no', label: 'เลขที่' },
+      { key: 'required_date', label: 'ต้องการของ' },
+      { key: 'vendor_name', label: 'Vendor' },
+      { key: 'ingredient_name', label: 'วัตถุดิบ' },
+      { key: 'final_purchase_quantity', label: 'จำนวนสั่ง', type: 'num' },
+      { key: 'unit', label: 'หน่วย' },
+      { key: 'estimated_amount', label: 'ประมาณการ', type: 'money' },
+      { key: 'status', label: 'สถานะ', type: 'status' },
+      { key: '_a', label: '', render: function(p) {
+          if (!canWrite || p.status === 'received' || p.status === 'cancelled') return '';
+          return '<button class="btn btn-outline btn-sm" onclick="PAGES.purchase.setStatus(\'' + esc(p.purchase_plan_no) + '\',\'' + (p.status === 'confirmed' ? 'ordered' : 'received') + '\')">' +
+            (p.status === 'confirmed' ? '📞 สั่งซื้อแล้ว' : '📦 รับของแล้ว') + '</button>';
+        } }
+    ], ps.rows) + pagerHTML(ps, 'PAGES.purchase');
+  },
+  setStatus: function(ppNo, status) {
+    var self = this;
+    api('updatePurchasePlanStatus', { purchase_plan_no: ppNo, status: status }).then(function(res) {
+      toast((res.success ? '✅ ' : '❌ ') + res.message, res.success ? 'success' : 'error');
+      if (res.success) self.loadHistory();
+    });
+  },
+  printPlans: function() {
+    var rows = this.history || [];
+    if (!rows.length) { toast('⚠️ ไม่มีข้อมูลให้พิมพ์', 'warning'); return; }
+    var h = printHeader('แผนสั่งซื้อวัตถุดิบ (Purchase Plan)', 'ช่วงวันที่ ' + thaiDate(el('ppHFrom').value) + ' – ' + thaiDate(el('ppHTo').value));
+    var byVendor = {};
+    rows.forEach(function(p) { (byVendor[p.vendor_name] = byVendor[p.vendor_name] || []).push(p); });
+    Object.keys(byVendor).forEach(function(vn) {
+      h += '<h3 style="margin:12px 0 4px">🏪 ' + esc(vn) + '</h3>' +
+        '<table><thead><tr><th>เลขที่</th><th>วัตถุดิบ</th><th style="text-align:right">จำนวน</th><th>หน่วย</th><th style="text-align:right">ประมาณการ</th><th>ต้องการของ</th></tr></thead><tbody>';
+      byVendor[vn].forEach(function(p) {
+        h += '<tr><td>' + esc(p.purchase_plan_no) + '</td><td>' + esc(p.ingredient_name) + '</td>' +
+          '<td style="text-align:right">' + fmt(p.final_purchase_quantity) + '</td><td>' + esc(p.unit) + '</td>' +
+          '<td style="text-align:right">' + money(p.estimated_amount) + '</td><td>' + thaiDate(p.required_date) + '</td></tr>';
+      });
+      h += '</tbody></table>';
+    });
+    h += '<div class="p-sign"><div>ผู้จัดทำ</div><div>ผู้ตรวจสอบ</div><div>ผู้อนุมัติ</div></div>';
+    printHTML(h);
+  }
+};
+
+/* ═══════════════════ PAGE: COST ═══════════════════ */
+PAGES.cost = {
+  st: { groupBy: 'day' },
+  render: function() {
+    var presets = [
+      ['today', 'วันนี้'], ['yesterday', 'เมื่อวาน'], ['this_week', 'สัปดาห์นี้'],
+      ['last_week', 'สัปดาห์ก่อน'], ['this_month', 'เดือนนี้'], ['last_month', 'เดือนก่อน']
+    ];
+    el('content').innerHTML =
+      '<div class="toolbar">' +
+      '<select class="sel" id="costPreset" onchange="PAGES.cost.applyPreset(this.value)">' +
+      presets.map(function(p) { return '<option value="' + p[0] + '"' + (p[0] === 'this_week' ? ' selected' : '') + '>' + p[1] + '</option>'; }).join('') +
+      '<option value="custom">กำหนดเอง</option></select>' +
+      '<input type="date" class="inp" style="width:auto" id="costFrom" value="' + mondayOf(todayStr()) + '" onchange="el(\'costPreset\').value=\'custom\';PAGES.cost.load()">' +
+      '<span>ถึง</span><input type="date" class="inp" style="width:auto" id="costTo" value="' + todayStr() + '" onchange="el(\'costPreset\').value=\'custom\';PAGES.cost.load()">' +
+      '<select class="sel" id="costGroup" onchange="PAGES.cost.st.groupBy=this.value;PAGES.cost.load()">' +
+      '<option value="day">รายวัน</option><option value="category">ตามหมวดหมู่</option>' +
+      '<option value="location">ตาม Location</option><option value="vendor">ตาม Vendor</option>' +
+      '<option value="ingredient">ตามวัตถุดิบ</option></select>' +
+      '<select class="sel" id="costLoc" onchange="PAGES.cost.load()">' + selOptions(APP.locations, 'location_id', 'location_code', '', 'ทุกคลัง') + '</select>' +
+      '<span class="grow"></span>' +
+      '<button class="btn btn-outline" onclick="PAGES.cost.exportDetail()">📊 Excel รายละเอียด</button>' +
+      '</div><div id="costBody"></div>';
+    this.load();
+  },
+  applyPreset: function(p) {
+    var t = todayStr();
+    var map = {
+      today: [t, t], yesterday: [addDays(t, -1), addDays(t, -1)],
+      this_week: [mondayOf(t), t], last_week: [addDays(mondayOf(t), -7), addDays(mondayOf(t), -1)],
+      this_month: [t.slice(0, 8) + '01', t],
+      last_month: [addDays(t.slice(0, 8) + '01', -1).slice(0, 8) + '01', addDays(t.slice(0, 8) + '01', -1)]
+    };
+    if (map[p]) { el('costFrom').value = map[p][0]; el('costTo').value = map[p][1]; this.load(); }
+  },
+  load: function() {
+    var self = this, seq = nextSeq();
+    el('costBody').innerHTML = '<div class="empty-state"><div class="spinner dark" style="margin:16px auto"></div></div>';
+    api('getCostSummary', {
+      date_from: el('costFrom').value, date_to: el('costTo').value,
+      group_by: el('costGroup').value, location_id: el('costLoc').value
+    }).then(function(res) {
+      if (!isLatest(seq) || APP.page !== 'cost') return;
+      if (!res.success) { toast('❌ ' + res.message, 'error'); return; }
+      self.data = res.data;
+      var d = res.data;
+      var h = '<div class="kpi-grid">' +
+        '<div class="kpi"><div class="k-ico">💸</div><div class="k-val">' + money(d.total_cost) + '</div><div class="k-lbl">ต้นทุนรวมช่วงที่เลือก</div></div>' +
+        '<div class="kpi"><div class="k-ico">🧾</div><div class="k-val">' + fmt(d.details.length) + '</div><div class="k-lbl">จำนวนรายการเบิกจ่าย</div></div>' +
+        '</div>';
+      h += '<div class="grid-2"><div class="card"><div class="card-head"><h3>ต้นทุนตามกลุ่ม</h3></div><div class="chart-box"><canvas id="chCost"></canvas></div></div>';
+      h += '<div class="card"><div class="card-head"><h3>สรุปตามกลุ่ม</h3></div>' +
+        tableHTML([
+          { key: 'key', label: 'กลุ่ม' },
+          { key: 'items', label: 'รายการ', type: 'num' },
+          { key: 'quantity', label: 'ปริมาณ', type: 'num' },
+          { key: 'cost', label: 'ต้นทุน', type: 'money' }
+        ], d.groups) + '</div></div>';
+      h += '<div class="card"><div class="card-head"><h3>Daily Ingredient Cost (รายละเอียด)</h3><span class="grow"></span>' +
+        '<span style="font-size:12px;color:var(--text-3)">พร้อมนำไปใช้ต่อใน Excel: วันที่ / วัตถุดิบ / จำนวน / ราคา / Vendor / Location</span></div>' +
+        tableHTML([
+          { key: 'date', label: 'วันที่' }, { key: 'reference_no', label: 'ใบเบิก' },
+          { key: 'ingredient_name', label: 'วัตถุดิบ' }, { key: 'category_name', label: 'หมวด' },
+          { key: 'quantity', label: 'จำนวนใช้', type: 'num' }, { key: 'unit', label: 'หน่วย' },
+          { key: 'unit_price', label: 'ราคา/หน่วย', type: 'money' }, { key: 'total_amount', label: 'รวมเงิน', type: 'money' },
+          { key: 'vendor_name', label: 'Vendor' }, { key: 'location_name', label: 'Location' }
+        ], d.details.slice(0, 200)) +
+        (d.details.length > 200 ? '<div style="font-size:12px;color:var(--text-3);margin-top:8px">แสดง 200 รายการแรก — Export Excel เพื่อดูทั้งหมด</div>' : '') + '</div>';
+      el('costBody').innerHTML = h;
+      makeChart('chCost', { type: 'bar',
+        data: { labels: d.groups.map(function(g) { return g.key; }),
+          datasets: [{ label: 'ต้นทุน (บาท)', data: d.groups.map(function(g) { return g.cost; }), backgroundColor: '#2563EB', borderRadius: 6 }] },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } } });
+    });
+  },
+  exportDetail: function() {
+    if (!this.data) { toast('⚠️ ยังไม่มีข้อมูล', 'warning'); return; }
+    exportExcel('daily_ingredient_cost_' + el('costFrom').value + '_' + el('costTo').value, [
+      { key: 'date', label: 'วันที่' }, { key: 'reference_no', label: 'ใบเบิก/เอกสาร' },
+      { key: 'ingredient_name', label: 'วัตถุดิบ' }, { key: 'category_name', label: 'หมวดหมู่' },
+      { key: 'quantity', label: 'จำนวนใช้' }, { key: 'unit', label: 'หน่วย' },
+      { key: 'unit_price', label: 'ราคาต่อหน่วย' }, { key: 'total_amount', label: 'รวมเงิน' },
+      { key: 'vendor_name', label: 'Vendor' }, { key: 'location_name', label: 'Location' }
+    ], this.data.details);
+  }
+};
+
+/* ═══════════════════ PAGE: REPORTS ═══════════════════ */
+PAGES.reports = {
+  st: { type: 'stock_balance', page: 1, per: 25 },
+  TYPES: [
+    ['กลุ่ม Stock', [
+      ['stock_balance', 'Stock คงเหลือ'], ['low_stock', 'วัตถุดิบใกล้หมด'],
+      ['out_of_stock', 'วัตถุดิบหมด'], ['stock_value', 'มูลค่า Stock'],
+      ['stock_movement', 'การเคลื่อนไหว Stock'], ['stock_in', 'รับเข้าวัตถุดิบ'],
+      ['stock_issue', 'การเบิกจ่าย'], ['transfer', 'การโอนวัตถุดิบ']
+    ]],
+    ['กลุ่มการใช้งาน', [
+      ['usage_daily', 'การใช้รายวัน'], ['usage_by_ingredient', 'การใช้ตามวัตถุดิบ'],
+      ['usage_by_category', 'การใช้ตามหมวดหมู่'], ['usage_by_menu', 'การใช้ตามใบเบิก/เมนู'],
+      ['usage_by_location', 'การใช้ตาม Location'], ['recipe_vs_actual', 'Recipe vs Actual (Variance)']
+    ]],
+    ['กลุ่มต้นทุน/จัดซื้อ', [
+      ['cost_daily', 'ต้นทุนรายวัน'], ['cost_by_category', 'ต้นทุนตามหมวดหมู่'],
+      ['cost_by_location', 'ต้นทุนตาม Location'], ['daily_ingredient_cost', 'Daily Ingredient Cost'],
+      ['vendor_purchase', 'ยอดซื้อตาม Vendor'], ['price_history', 'ประวัติราคา'],
+      ['requisition_history', 'ประวัติใบเบิก'], ['purchase_plan', 'แผนสั่งซื้อ']
+    ]]
+  ],
+  setPage: function(p) { this.st.page = p; this.draw(); },
+  setPer: function(p) { this.st.per = num(p); this.st.page = 1; this.draw(); },
+  render: function() {
+    var self = this;
+    var typeOpts = '';
+    self.TYPES.forEach(function(grp) {
+      typeOpts += '<optgroup label="' + grp[0] + '">' +
+        grp[1].map(function(t) {
+          return '<option value="' + t[0] + '"' + (t[0] === self.st.type ? ' selected' : '') + '>' + t[1] + '</option>';
+        }).join('') + '</optgroup>';
+    });
+    el('content').innerHTML =
+      '<div class="card"><div class="card-head"><h3>📈 Report Center</h3></div>' +
+      '<div class="toolbar">' +
+      '<select class="sel" style="min-width:220px" id="rpType" onchange="PAGES.reports.st.type=this.value;PAGES.reports.load()">' + typeOpts + '</select>' +
+      '<select class="sel" id="rpPreset" onchange="PAGES.reports.applyPreset(this.value)">' +
+      '<option value="today">วันนี้</option><option value="yesterday">เมื่อวาน</option>' +
+      '<option value="this_week" selected>สัปดาห์นี้</option><option value="last_week">สัปดาห์ก่อน</option>' +
+      '<option value="this_month">เดือนนี้</option><option value="last_month">เดือนก่อน</option>' +
+      '<option value="custom">กำหนดเอง</option></select>' +
+      '<input type="date" class="inp" style="width:auto" id="rpFrom" value="' + mondayOf(todayStr()) + '" onchange="el(\'rpPreset\').value=\'custom\';PAGES.reports.load()">' +
+      '<span>ถึง</span><input type="date" class="inp" style="width:auto" id="rpTo" value="' + todayStr() + '" onchange="el(\'rpPreset\').value=\'custom\';PAGES.reports.load()">' +
+      '</div><div class="toolbar">' +
+      '<select class="sel" id="rpLoc" onchange="PAGES.reports.load()">' + selOptions(APP.locations, 'location_id', 'location_code', '', 'ทุกคลัง') + '</select>' +
+      '<select class="sel" id="rpCat" onchange="PAGES.reports.load()">' + selOptions(APP.categories, 'category_id', 'category_name', '', 'ทุกหมวดหมู่') + '</select>' +
+      '<select class="sel" id="rpVen" onchange="PAGES.reports.load()">' + selOptions(APP.vendors, 'vendor_id', 'vendor_name', '', 'ทุก Vendor') + '</select>' +
+      '<select class="sel" style="max-width:190px" id="rpIng" onchange="PAGES.reports.load()">' + selOptions(APP.ingredients, 'ingredient_id', 'ingredient_name', '', 'ทุกวัตถุดิบ') + '</select>' +
+      '<span class="grow"></span>' +
+      '<button class="btn btn-outline btn-sm" onclick="PAGES.reports.export(\'csv\')">📄 CSV</button>' +
+      '<button class="btn btn-outline btn-sm" onclick="PAGES.reports.export(\'excel\')">📊 Excel</button>' +
+      '<button class="btn btn-outline btn-sm" onclick="PAGES.reports.printReport()">🖨 Print</button>' +
+      '</div></div><div id="rpBody"></div>';
+    this.load();
+  },
+  applyPreset: function(p) {
+    var t = todayStr();
+    var map = {
+      today: [t, t], yesterday: [addDays(t, -1), addDays(t, -1)],
+      this_week: [mondayOf(t), t], last_week: [addDays(mondayOf(t), -7), addDays(mondayOf(t), -1)],
+      this_month: [t.slice(0, 8) + '01', t],
+      last_month: [addDays(t.slice(0, 8) + '01', -1).slice(0, 8) + '01', addDays(t.slice(0, 8) + '01', -1)]
+    };
+    if (map[p]) { el('rpFrom').value = map[p][0]; el('rpTo').value = map[p][1]; this.load(); }
+  },
+  load: function() {
+    var self = this, seq = nextSeq();
+    self.st.page = 1;
+    el('rpBody').innerHTML = '<div class="empty-state"><div class="spinner dark" style="margin:16px auto"></div>กำลังสร้างรายงาน…</div>';
+    api('getReport', {
+      type: self.st.type, date_from: el('rpFrom').value, date_to: el('rpTo').value,
+      location_id: el('rpLoc').value, category_id: el('rpCat').value,
+      vendor_id: el('rpVen').value, ingredient_id: el('rpIng').value
+    }).then(function(res) {
+      if (!isLatest(seq) || APP.page !== 'reports') return;
+      if (!res.success) { toast('❌ ' + res.message, 'error'); el('rpBody').innerHTML = ''; return; }
+      self.data = res.data;
+      self.draw();
+    });
+  },
+  draw: function() {
+    var d = this.data;
+    if (!d) return;
+    var ps = pageSlice(d.rows, this.st.page, this.st.per);
+    this.st.page = ps.page;
+    el('rpBody').innerHTML = '<div class="card"><div class="card-head"><h3>' + esc(d.title) + '</h3>' +
+      '<span style="font-size:12.5px;color:var(--text-3)">' + thaiDate(d.date_from) + ' – ' + thaiDate(d.date_to) + '</span></div>' +
+      tableHTML(d.columns, ps.rows) + pagerHTML(ps, 'PAGES.reports') + '</div>';
+  },
+  export: function(kind) {
+    var d = this.data;
+    if (!d || !d.rows.length) { toast('⚠️ ไม่มีข้อมูลให้ Export', 'warning'); return; }
+    var name = this.st.type + '_' + el('rpFrom').value;
+    if (kind === 'csv') exportCSV(name, d.columns, d.rows);
+    else exportExcel(name, d.columns, d.rows);
+  },
+  printReport: function() {
+    var d = this.data;
+    if (!d || !d.rows.length) { toast('⚠️ ไม่มีข้อมูลให้พิมพ์', 'warning'); return; }
+    var h = printHeader(d.title, 'ช่วงวันที่ ' + thaiDate(d.date_from) + ' – ' + thaiDate(d.date_to));
+    h += '<table><thead><tr>' + d.columns.map(function(c) { return '<th>' + esc(c.label) + '</th>'; }).join('') + '</tr></thead><tbody>';
+    d.rows.forEach(function(r) {
+      h += '<tr>' + d.columns.map(function(c) {
+        var v = r[c.key];
+        if (c.type === 'money') v = money(v);
+        else if (c.type === 'num') v = fmt(v);
+        return '<td' + ((c.type === 'money' || c.type === 'num') ? ' style="text-align:right"' : '') + '>' + esc(v) + '</td>';
+      }).join('') + '</tr>';
+    });
+    h += '</tbody></table><div style="font-size:11px;margin-top:8px">พิมพ์เมื่อ ' + new Date().toLocaleString('th-TH') + ' · ' + esc(APP.user.fullname || APP.user.username) + '</div>';
+    printHTML(h);
+  }
+};
+
+/* ═══════════════════ PAGE: USERS ═══════════════════ */
+PAGES.users = {
+  st: { search: '', page: 1, per: 10 },
+  setPage: function(p) { this.st.page = p; this.draw(); },
+  setPer: function(p) { this.st.per = num(p); this.st.page = 1; this.draw(); },
+  render: function() {
+    el('content').innerHTML =
+      '<div class="toolbar">' +
+      '<div class="search-box"><input class="inp" placeholder="ค้นหาผู้ใช้…" oninput="PAGES.users.st.search=this.value;PAGES.users.st.page=1;PAGES.users.draw()"></div>' +
+      '<span class="grow"></span>' +
+      '<button class="btn btn-primary" onclick="PAGES.users.openForm()">➕ เพิ่มผู้ใช้</button>' +
+      '</div><div id="usersTable"></div>';
+    this.load();
+  },
+  load: function() {
+    var self = this, seq = nextSeq();
+    api('listUsers', null).then(function(res) {
+      if (!isLatest(seq) || APP.page !== 'users') return;
+      if (!res.success) { toast('❌ ' + res.message, 'error'); return; }
+      self.list = res.data;
+      self.draw();
+    });
+  },
+  draw: function() {
+    var self = this;
+    var q = self.st.search.toLowerCase();
+    var rows = (self.list || []).filter(function(u) {
+      if (!q) return true;
+      return (u.username + ' ' + u.fullname + ' ' + u.role + ' ' + (u.department || '')).toLowerCase().indexOf(q) !== -1;
+    });
+    rows.sort(function(a, b) { return (a.status === 'pending' ? 0 : 1) - (b.status === 'pending' ? 0 : 1); });
+    var ps = pageSlice(rows, self.st.page, self.st.per);
+    self.st.page = ps.page;
+    var stBadge = { pending: 'bg-yellow', active: 'bg-green', inactive: 'bg-gray', rejected: 'bg-red' };
+    el('usersTable').innerHTML = tableHTML([
+      { key: 'username', label: 'ชื่อผู้ใช้', render: function(u) { return '<b>' + esc(u.username) + '</b>'; } },
+      { key: 'fullname', label: 'ชื่อ-นามสกุล' },
+      { key: 'employee_code', label: 'รหัสพนักงาน' },
+      { key: 'role', label: 'Role', render: function(u) { return '<span class="badge bg-blue">' + esc(u.role) + '</span>'; } },
+      { key: 'department', label: 'แผนก' },
+      { key: 'status', label: 'สถานะ', render: function(u) {
+          return '<span class="badge ' + (stBadge[u.status] || 'bg-gray') + '">' + esc(u.status) + '</span>';
+        } },
+      { key: '_a', label: '', render: function(u) {
+          var h = '<div style="display:flex;gap:6px;justify-content:flex-end">';
+          if (u.status === 'pending') {
+            h += '<button class="btn btn-success btn-sm" onclick="PAGES.users.quickStatus(\'' + u.user_id + '\',\'active\')">✅ อนุมัติ</button>' +
+              '<button class="btn btn-danger btn-sm" onclick="PAGES.users.quickStatus(\'' + u.user_id + '\',\'rejected\')">ปฏิเสธ</button>';
+          }
+          h += '<button class="btn btn-ghost btn-sm" onclick="PAGES.users.openForm(\'' + u.user_id + '\')">✏️</button></div>';
+          return h;
+        } }
+    ], ps.rows) + pagerHTML(ps, 'PAGES.users');
+  },
+  quickStatus: function(userId, status) {
+    var self = this;
+    api('saveUser', { user_id: userId, status: status }).then(function(res) {
+      toast((res.success ? '✅ ' : '❌ ') + res.message, res.success ? 'success' : 'error');
+      if (res.success) { self.load(); refreshMaster(true); }
+    });
+  },
+  openForm: function(userId) {
+    var u = userId ? (this.list || []).filter(function(x) { return x.user_id === userId; })[0] : null;
+    UI.modal(u ? '✏️ แก้ไขผู้ใช้: ' + u.username : '➕ เพิ่มผู้ใช้',
+      '<div class="form-grid">' +
+      (!u ? '<div class="field"><label>ชื่อผู้ใช้ *</label><input class="inp" id="ufUser"></div>' +
+        '<div class="field"><label>รหัสผ่าน *</label><input class="inp" id="ufPass" type="password"></div>' : '') +
+      '<div class="field"><label>ชื่อ-นามสกุล</label><input class="inp" id="ufName" value="' + esc(u ? u.fullname : '') + '"></div>' +
+      '<div class="field"><label>รหัสพนักงาน</label><input class="inp" id="ufEmp" value="' + esc(u ? u.employee_code : '') + '"></div>' +
+      '<div class="field"><label>ตำแหน่ง</label><input class="inp" id="ufPos" value="' + esc(u ? u.position : '') + '"></div>' +
+      '<div class="field"><label>แผนก</label><input class="inp" id="ufDept" value="' + esc(u ? u.department : '') + '"></div>' +
+      '<div class="field"><label>Role</label><select class="sel" style="width:100%" id="ufRole">' +
+      ['Admin','Supervisor','User','Viewer'].map(function(r) {
+        return '<option' + (u && u.role === r ? ' selected' : (!u && r === 'User' ? ' selected' : '')) + '>' + r + '</option>';
+      }).join('') + '</select></div>' +
+      '<div class="field"><label>สถานะ</label><select class="sel" style="width:100%" id="ufStatus">' +
+      ['active','pending','inactive','rejected'].map(function(st) {
+        return '<option' + (u && u.status === st ? ' selected' : '') + '>' + st + '</option>';
+      }).join('') + '</select></div>' +
+      (u ? '<div class="field full"><label>ตั้งรหัสผ่านใหม่ (เว้นว่าง = ไม่เปลี่ยน)</label><input class="inp" id="ufNewPass" type="password"></div>' : '') +
+      '</div>',
+      '<button class="btn btn-outline" onclick="UI.closeModal()">ยกเลิก</button>' +
+      '<button class="btn btn-primary" id="btnUfSave" onclick="PAGES.users.save(' + (u ? '\'' + u.user_id + '\'' : 'null') + ')">บันทึก</button>');
+  },
+  save: function(userId) {
+    var self = this;
+    var payload = {
+      user_id: userId || undefined,
+      fullname: el('ufName').value.trim(), employee_code: el('ufEmp').value.trim(),
+      position: el('ufPos').value.trim(), department: el('ufDept').value.trim(),
+      role: el('ufRole').value, status: el('ufStatus').value
+    };
+    if (!userId) {
+      payload.username = el('ufUser').value.trim();
+      payload.password = el('ufPass').value;
+      if (!payload.username || !payload.password) { toast('⚠️ กรุณากรอกชื่อผู้ใช้และรหัสผ่าน', 'warning'); return; }
+    } else if (el('ufNewPass') && el('ufNewPass').value) {
+      payload.new_password = el('ufNewPass').value;
+    }
+    btnBusy('btnUfSave', true);
+    api('saveUser', payload).then(function(res) {
+      btnBusy('btnUfSave', false);
+      toast((res.success ? '✅ ' : '❌ ') + res.message, res.success ? 'success' : 'error');
+      if (res.success) { UI.closeModal(); self.load(); }
+    }).catch(function() { btnBusy('btnUfSave', false); });
+  }
+};
+
+/* ═══════════════════ PAGE: SETTINGS (+ Master Data) ═══════════════════ */
+PAGES.settings = {
+  st: { tab: 'system' },
+  render: function() {
+    var s = this.st;
+    var isAdmin = APP.user.role === 'Admin';
+    el('content').innerHTML =
+      '<div class="tabs">' +
+      '<button class="' + (s.tab === 'system' ? 'active' : '') + '" onclick="PAGES.settings.st.tab=\'system\';PAGES.settings.render()">⚙️ ระบบ</button>' +
+      '<button class="' + (s.tab === 'categories' ? 'active' : '') + '" onclick="PAGES.settings.st.tab=\'categories\';PAGES.settings.render()">🗂 หมวดหมู่</button>' +
+      '<button class="' + (s.tab === 'vendors' ? 'active' : '') + '" onclick="PAGES.settings.st.tab=\'vendors\';PAGES.settings.render()">🏪 Vendors</button>' +
+      '<button class="' + (s.tab === 'locations' ? 'active' : '') + '" onclick="PAGES.settings.st.tab=\'locations\';PAGES.settings.render()">🏢 Locations</button>' +
+      (isAdmin ? '<button class="' + (s.tab === 'audit' ? 'active' : '') + '" onclick="PAGES.settings.st.tab=\'audit\';PAGES.settings.render()">🕵️ Audit Log</button>' : '') +
+      '</div><div id="setBody"></div>';
+    if (s.tab === 'system') this.renderSystem();
+    else if (s.tab === 'audit') this.renderAudit();
+    else this.renderMaster(s.tab);
+  },
+  renderSystem: function() {
+    var st = APP.settings;
+    var isAdmin = APP.user.role === 'Admin';
+    var dis = isAdmin ? '' : ' disabled';
+    el('setBody').innerHTML = '<div class="card"><div class="card-head"><h3>ตั้งค่าระบบ</h3></div>' +
+      '<div class="form-grid">' +
+      '<div class="field"><label>ชื่อระบบ</label><input class="inp" id="stAppName" value="' + esc(st.app_name) + '"' + dis + '></div>' +
+      '<div class="field"><label>ชื่อบริษัท</label><input class="inp" id="stCompany" value="' + esc(st.company_name) + '"' + dis + '></div>' +
+      '<div class="field"><label>Logo URL</label><input class="inp" id="stLogo" value="' + esc(st.logo_url) + '"' + dis + '></div>' +
+      '<div class="field"><label>Location เริ่มต้น</label><input class="inp" id="stDefLoc" value="' + esc(st.default_location) + '"' + dis + '></div>' +
+      '<div class="field"><label>Variance เตือน (%)</label><input type="number" step="0.1" class="inp" id="stVarWarn" value="' + esc(st.variance_warning_percent) + '"' + dis + '></div>' +
+      '<div class="field"><label>Variance เกินมาก (%)</label><input type="number" step="0.1" class="inp" id="stVarDanger" value="' + esc(st.variance_danger_percent) + '"' + dis + '></div>' +
+      '<div class="field"><label>เตือนราคาเพิ่มขึ้น (%)</label><input type="number" step="0.1" class="inp" id="stPriceWarn" value="' + esc(st.price_increase_warning_percent) + '"' + dis + '></div>' +
+      '<div class="field"><label>Session Timeout (ชั่วโมง)</label><input type="number" step="1" min="1" class="inp" id="stSession" value="' + esc(st.session_timeout_hours) + '"' + dis + '></div>' +
+      '</div>' +
+      (isAdmin ? '<div style="display:flex;justify-content:flex-end;margin-top:12px"><button class="btn btn-primary" id="btnStSave" onclick="PAGES.settings.saveSystem()">💾 บันทึกการตั้งค่า</button></div>' : '') +
+      '<div style="font-size:12px;color:var(--text-3);margin-top:10px">Version ' + esc(APP.settings.app_version || '1.0.0') + ' · MEKTEC Canteen Smart Ingredient & Requisition System</div></div>';
+  },
+  saveSystem: function() {
+    btnBusy('btnStSave', true);
+    api('saveSettings', {
+      app_name: el('stAppName').value, company_name: el('stCompany').value,
+      logo_url: el('stLogo').value, default_location: el('stDefLoc').value,
+      variance_warning_percent: el('stVarWarn').value, variance_danger_percent: el('stVarDanger').value,
+      price_increase_warning_percent: el('stPriceWarn').value, session_timeout_hours: el('stSession').value
+    }).then(function(res) {
+      btnBusy('btnStSave', false);
+      toast((res.success ? '✅ ' : '❌ ') + res.message, res.success ? 'success' : 'error');
+      if (res.success) { APP.settings = Object.assign(APP.settings, res.data); el('brandName').textContent = APP.settings.app_name; }
+    }).catch(function() { btnBusy('btnStSave', false); });
+  },
+  /* ── Master data tabs: categories / vendors / locations ── */
+  MASTER_CFG: {
+    categories: {
+      title: 'หมวดหมู่วัตถุดิบ', listKey: 'categories', idField: 'category_id', saveFn: 'saveCategory',
+      cols: [['category_name', 'ชื่อหมวดหมู่'], ['description', 'คำอธิบาย']],
+      fields: [['category_name', 'ชื่อหมวดหมู่ *'], ['description', 'คำอธิบาย']]
+    },
+    vendors: {
+      title: 'ผู้ขาย (Vendors)', listKey: 'vendors', idField: 'vendor_id', saveFn: 'saveVendor',
+      cols: [['vendor_code', 'Code'], ['vendor_name', 'ชื่อผู้ขาย'], ['contact_name', 'ผู้ติดต่อ'], ['phone', 'โทร'], ['note', 'หมายเหตุ']],
+      fields: [['vendor_code', 'Code'], ['vendor_name', 'ชื่อผู้ขาย *'], ['contact_name', 'ผู้ติดต่อ'], ['phone', 'โทร'], ['note', 'หมายเหตุ']]
+    },
+    locations: {
+      title: 'คลัง (Locations)', listKey: 'locations', idField: 'location_id', saveFn: 'saveLocation',
+      cols: [['location_code', 'Code'], ['location_name', 'ชื่อคลัง']],
+      fields: [['location_code', 'Code *'], ['location_name', 'ชื่อคลัง *']]
+    }
+  },
+  renderMaster: function(kind) {
+    var cfg = this.MASTER_CFG[kind];
+    var canWrite = ['Admin', 'Supervisor'].indexOf(APP.user.role) !== -1;
+    if (kind === 'locations') canWrite = APP.user.role === 'Admin';
+    var rows = APP[cfg.listKey] || [];
+    var cols = cfg.cols.map(function(c) { return { key: c[0], label: c[1] }; });
+    cols.push({ key: 'status', label: 'สถานะ', type: 'status' });
+    if (canWrite) {
+      cols.push({ key: '_a', label: '', render: function(r) {
+        return '<button class="btn btn-ghost btn-sm" onclick="PAGES.settings.openMasterForm(\'' + kind + '\',\'' + r[cfg.idField] + '\')">✏️</button>';
+      } });
+    }
+    el('setBody').innerHTML =
+      '<div class="toolbar"><h3 style="font-size:15px">' + cfg.title + '</h3><span class="grow"></span>' +
+      (canWrite ? '<button class="btn btn-primary btn-sm" onclick="PAGES.settings.openMasterForm(\'' + kind + '\')">➕ เพิ่ม</button>' : '') +
+      '</div>' + tableHTML(cols, rows) +
+      '<div style="font-size:12px;color:var(--text-3);margin-top:10px">Master Data ใช้ Soft Delete — ปิดใช้งานแทนการลบ เพื่อรักษาประวัติข้อมูล</div>';
+  },
+  openMasterForm: function(kind, id) {
+    var cfg = this.MASTER_CFG[kind];
+    var row = id ? (APP[cfg.listKey] || []).filter(function(r) { return r[cfg.idField] === id; })[0] : null;
+    var h = '<div class="form-grid">';
+    cfg.fields.forEach(function(f) {
+      h += '<div class="field' + (cfg.fields.length <= 2 ? ' full' : '') + '"><label>' + f[1] + '</label>' +
+        '<input class="inp" id="mst_' + f[0] + '" value="' + esc(row ? row[f[0]] : '') + '"></div>';
+    });
+    if (row) {
+      h += '<div class="field"><label>สถานะ</label><select class="sel" style="width:100%" id="mst_status">' +
+        '<option value="active"' + (row.status === 'active' ? ' selected' : '') + '>ใช้งาน</option>' +
+        '<option value="inactive"' + (row.status === 'inactive' ? ' selected' : '') + '>ปิดใช้งาน</option></select></div>';
+    }
+    h += '</div>';
+    UI.modal((row ? '✏️ แก้ไข' : '➕ เพิ่ม') + ' — ' + cfg.title, h,
+      '<button class="btn btn-outline" onclick="UI.closeModal()">ยกเลิก</button>' +
+      '<button class="btn btn-primary" id="btnMstSave" onclick="PAGES.settings.saveMaster(\'' + kind + '\',' + (id ? '\'' + id + '\'' : 'null') + ')">บันทึก</button>');
+  },
+  saveMaster: function(kind, id) {
+    var cfg = this.MASTER_CFG[kind];
+    var payload = {};
+    if (id) payload[cfg.idField] = id;
+    cfg.fields.forEach(function(f) { payload[f[0]] = el('mst_' + f[0]).value.trim(); });
+    if (id && el('mst_status')) payload.status = el('mst_status').value;
+    btnBusy('btnMstSave', true);
+    api(cfg.saveFn, payload).then(function(res) {
+      btnBusy('btnMstSave', false);
+      toast((res.success ? '✅ ' : '❌ ') + res.message, res.success ? 'success' : 'error');
+      if (res.success) {
+        UI.closeModal();
+        refreshMaster(true).then(function() { if (APP.page === 'settings') PAGES.settings.render(); });
+      }
+    }).catch(function() { btnBusy('btnMstSave', false); });
+  },
+  renderAudit: function() {
+    el('setBody').innerHTML = '<div class="empty-state"><div class="spinner dark" style="margin:16px auto"></div>กำลังโหลด Audit Log…</div>';
+    var seq = nextSeq();
+    api('listAuditLogs', null).then(function(res) {
+      if (!isLatest(seq) || APP.page !== 'settings') return;
+      if (!res.success) { toast('❌ ' + res.message, 'error'); return; }
+      el('setBody').innerHTML = '<div class="card">' + tableHTML([
+        { key: 'timestamp', label: 'เวลา' },
+        { key: 'username', label: 'ผู้ใช้' },
+        { key: 'action', label: 'Action', render: function(r) { return '<span class="badge bg-blue">' + esc(r.action) + '</span>'; } },
+        { key: 'module', label: 'Module' },
+        { key: 'reference_id', label: 'อ้างอิง' },
+        { key: 'new_value', label: 'รายละเอียด', render: function(r) {
+            return '<span style="font-size:11.5px;color:var(--text-2)">' + esc(String(r.new_value || '').slice(0, 120)) + '</span>';
+          } }
+      ], res.data.slice(0, 100)) + '<div style="font-size:12px;color:var(--text-3);margin-top:8px">แสดง 100 รายการล่าสุด</div></div>';
+    });
+  }
+};
+
+/* ═══════════════════ START ═══════════════════ */
+window.addEventListener('DOMContentLoaded', function() { Boot.start(); });
+</script>
+</body>
+</html>
