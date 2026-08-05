@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <base target="_top">
+  <meta charset="UTF-8">
+  <title>Canteen Smart Stock</title>
+  <?!= include('Styles'); ?>
+</head>
+<body>
+
+  <!-- ===== Header ===== -->
+  <header class="app-header">
+    <div class="app-header-title">
+      <span class="logo-dot"></span>
+      <span>Canteen Smart Stock</span>
+    </div>
+    <div class="app-header-user" id="headerUser">—</div>
+  </header>
+
+  <!-- ===== Employee bar (ใช้ร่วมทุกหน้า — กรอกครั้งเดียว) ===== -->
+  <section class="employee-bar" id="employeeBar">
+    <div class="employee-input-row">
+      <input id="employeeIdInput" class="input employee-input" placeholder="รหัสพนักงาน เช่น 1A013592"
+             autocomplete="off" inputmode="text">
+      <button class="btn btn-primary" id="btnValidateEmployee">ตรวจสอบ</button>
+    </div>
+    <div class="employee-result" id="employeeResult"></div>
+  </section>
+
+  <main class="app-main" id="appMain">
+
+    <!-- ===== HOME ===== -->
+    <section class="page" id="page-home">
+      <div class="todo-card" id="homeTodo">
+        <div class="todo-title">วันนี้ต้องทำอะไร</div>
+        <div id="homeTodoList" class="todo-list">กำลังโหลด…</div>
+      </div>
+
+      <div class="quick-grid">
+        <button class="quick-btn" data-goto="receive">
+          <span class="quick-icon">📥</span><span>รับสินค้า</span>
+        </button>
+        <button class="quick-btn" data-goto="issue">
+          <span class="quick-icon">📤</span><span>เบิกสินค้า</span>
+        </button>
+        <button class="quick-btn" data-goto="stock">
+          <span class="quick-icon">📦</span><span>เช็ก Stock</span>
+        </button>
+        <button class="quick-btn" data-goto="more">
+          <span class="quick-icon">🕘</span><span>ประวัติ</span>
+        </button>
+      </div>
+
+      <div class="cards-row" id="homeCards">
+        <div class="stat-card"><div class="stat-value" id="statTotalItems">–</div><div class="stat-label">รายการสินค้า</div></div>
+        <div class="stat-card warn"><div class="stat-value" id="statLowStock">–</div><div class="stat-label">Stock ต่ำ</div></div>
+        <div class="stat-card danger"><div class="stat-value" id="statExpired">–</div><div class="stat-label">มีของหมดอายุ</div></div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">รายการล่าสุด</div>
+        <div id="homeRecent" class="txn-list">กำลังโหลด…</div>
+      </div>
+    </section>
+
+    <!-- ===== RECEIVE (Bulk Receiving) ===== -->
+    <section class="page hidden" id="page-receive">
+      <div class="card">
+        <div class="card-title">รับสินค้า <span class="card-subtitle">กรอก Header ครั้งเดียว ใช้กับทุกรายการ</span></div>
+        <div class="form-grid">
+          <label>Vendor *<select id="rcvVendor" class="input"></select></label>
+          <label>PO Number<input id="rcvPo" class="input" placeholder="เช่น PO-2026-001"></label>
+          <label>Delivery Note<input id="rcvDeliveryNote" class="input" placeholder="เลขใบส่งของ"></label>
+          <label>Default Location *<select id="rcvLocation" class="input"></select></label>
+          <label>Expected Date (ของค้างส่ง)<input id="rcvExpectedDate" type="date" class="input"></label>
+          <label>Remark<input id="rcvRemark" class="input"></label>
+        </div>
+        <div class="attach-row">
+          <label class="btn btn-ghost attach-btn">📎 แนบใบส่งของ / รูป
+            <input type="file" id="rcvFile" accept="image/*,.pdf" hidden>
+          </label>
+          <span id="rcvFileStatus" class="attach-status"></span>
+        </div>
+      </div>
+
+      <div class="card table-card">
+        <div class="table-toolbar">
+          <button class="btn btn-ghost" id="rcvAddRow">+ เพิ่มรายการ</button>
+          <button class="btn btn-ghost" id="rcvAdd10">+ 10 แถว</button>
+          <span class="table-hint">พิมพ์ชื่อ/สแกนบาร์โค้ด หรือ Paste จาก Excel ได้ (ชื่อ ⇥ จำนวน)</span>
+        </div>
+        <div class="table-scroll">
+          <table class="grid" id="rcvTable">
+            <thead>
+              <tr>
+                <th class="col-no">#</th><th class="col-item">Item</th><th class="col-qty">Ordered</th>
+                <th class="col-qty">Received *</th><th class="col-unit">Unit</th><th class="col-lot">Lot</th>
+                <th class="col-date">Expiry</th><th class="col-loc">Location</th><th class="col-price">Price</th>
+                <th class="col-del"></th>
+              </tr>
+            </thead>
+            <tbody id="rcvBody"></tbody>
+          </table>
+        </div>
+        <div class="table-footer">
+          <div id="rcvSummary" class="table-summary"></div>
+          <button class="btn btn-primary btn-lg" id="rcvSave">💾 บันทึกทั้งหมด</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== ISSUE (Bulk Issue / FEFO) ===== -->
+    <section class="page hidden" id="page-issue">
+      <div class="card">
+        <div class="card-title">เบิกสินค้า <span class="card-subtitle">ระบบตัด Lot ตาม FEFO อัตโนมัติ</span></div>
+        <div class="form-grid">
+          <label>จุดใช้งาน (To Location) *<select id="issToLocation" class="input"></select></label>
+          <label>จาก Location (ไม่บังคับ)<select id="issFromLocation" class="input"><option value="">— ทุกที่ (FEFO) —</option></select></label>
+          <label>Remark<input id="issRemark" class="input"></label>
+        </div>
+      </div>
+
+      <div class="card table-card">
+        <div class="table-toolbar">
+          <button class="btn btn-ghost" id="issAddRow">+ เพิ่มรายการ</button>
+          <button class="btn btn-ghost" id="issAdd10">+ 10 แถว</button>
+          <span class="table-hint">Paste จาก Excel ได้ (ชื่อ ⇥ จำนวน)</span>
+        </div>
+        <div class="table-scroll">
+          <table class="grid" id="issTable">
+            <thead>
+              <tr>
+                <th class="col-no">#</th><th class="col-item">Item</th><th class="col-qty">คงเหลือ</th>
+                <th class="col-qty">จำนวนเบิก *</th><th class="col-unit">Unit</th>
+                <th class="col-lots">Lot ที่จะถูกตัด (FEFO)</th><th class="col-del"></th>
+              </tr>
+            </thead>
+            <tbody id="issBody"></tbody>
+          </table>
+        </div>
+        <div class="table-footer">
+          <div id="issSummary" class="table-summary"></div>
+          <button class="btn btn-primary btn-lg" id="issSave">📤 เบิกทั้งหมด</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== STOCK ===== -->
+    <section class="page hidden" id="page-stock">
+      <div class="search-bar">
+        <input id="stockSearch" class="input" placeholder="🔍 ค้นหา ชื่อสินค้า / รหัส / Lot / Location" autocomplete="off">
+        <button class="btn btn-ghost" id="stockRefresh">⟳</button>
+      </div>
+      <div id="stockList" class="stock-list">กำลังโหลด…</div>
+    </section>
+
+    <!-- ===== MORE / HISTORY ===== -->
+    <section class="page hidden" id="page-more">
+      <div class="card">
+        <div class="card-title">ประวัติรายการ (Transaction History)</div>
+        <div class="form-grid">
+          <label>ประเภท
+            <select id="histType" class="input">
+              <option value="">ทั้งหมด</option>
+              <option value="RECEIVE">รับสินค้า</option>
+              <option value="ISSUE">เบิกสินค้า</option>
+            </select>
+          </label>
+          <label>รหัสพนักงาน<input id="histEmployee" class="input" placeholder="เช่น 1A013592"></label>
+          <label>ค้นหา (สินค้า/เลขเอกสาร)<input id="histQuery" class="input"></label>
+          <label>ตั้งแต่วันที่<input id="histFrom" type="date" class="input"></label>
+          <label>ถึงวันที่<input id="histTo" type="date" class="input"></label>
+        </div>
+        <button class="btn btn-primary" id="histLoad">ค้นหา</button>
+      </div>
+      <div class="card">
+        <div id="histList" class="txn-list">กด "ค้นหา" เพื่อดูประวัติ</div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ===== Bottom Navigation ===== -->
+  <nav class="bottom-nav">
+    <button class="nav-btn active" data-page="home"><span class="nav-icon">🏠</span><span>Home</span></button>
+    <button class="nav-btn" data-page="receive"><span class="nav-icon">📥</span><span>รับ</span></button>
+    <button class="nav-btn" data-page="issue"><span class="nav-icon">📤</span><span>เบิก</span></button>
+    <button class="nav-btn" data-page="stock"><span class="nav-icon">📦</span><span>Stock</span></button>
+    <button class="nav-btn" data-page="more"><span class="nav-icon">☰</span><span>More</span></button>
+  </nav>
+
+  <!-- ===== Autocomplete dropdown (ตัวเดียว ใช้ร่วมทุก cell) ===== -->
+  <div id="acDropdown" class="ac-dropdown hidden"></div>
+
+  <!-- ===== Success overlay ===== -->
+  <div id="successOverlay" class="overlay hidden">
+    <div class="overlay-card">
+      <div class="success-check">✓</div>
+      <div class="success-title">บันทึกสำเร็จ</div>
+      <div id="successBody" class="success-body"></div>
+      <div class="overlay-actions">
+        <button class="btn btn-primary btn-lg" id="successNew">ทำรายการใหม่</button>
+        <button class="btn btn-ghost btn-lg" id="successHome">กลับหน้าหลัก</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== Item detail modal ===== -->
+  <div id="itemModal" class="overlay hidden">
+    <div class="overlay-card modal-card">
+      <button class="modal-close" id="itemModalClose">✕</button>
+      <div id="itemModalBody">กำลังโหลด…</div>
+    </div>
+  </div>
+
+  <!-- ===== Loading + Toast ===== -->
+  <div id="loading" class="loading hidden"><div class="spinner"></div><div id="loadingText">กำลังบันทึก…</div></div>
+  <div id="toast" class="toast hidden"></div>
+
+  <?!= include('App'); ?>
+</body>
+</html>

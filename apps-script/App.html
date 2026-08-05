@@ -1,0 +1,815 @@
+<script>
+/* =====================================================
+   Canteen Smart Stock — App.html (Frontend logic)
+   ทุกปุ่มเชื่อม google.script.run จริง — ไม่มี mockup
+   ===================================================== */
+
+/* ---------- Server call wrapper ---------- */
+function gs(fnName) {
+  var args = Array.prototype.slice.call(arguments, 1);
+  return new Promise(function (resolve, reject) {
+    var runner = google.script.run
+      .withSuccessHandler(function (res) {
+        if (res && res.ok) resolve(res.data);
+        else reject(new Error(res && res.error ? res.error : 'เกิดข้อผิดพลาด'));
+      })
+      .withFailureHandler(function (err) { reject(err); });
+    runner[fnName].apply(runner, args);
+  });
+}
+
+/* ---------- Global state ---------- */
+var S = {
+  items: [], locations: [], vendors: [], balances: {},
+  employee: null,            // ผู้บันทึกที่ validate แล้ว (ใช้ร่วมทุกหน้า)
+  rcvAttachment: null,       // {fileId, url}
+  stockRows: [],
+  device: (navigator.userAgent || '').slice(0, 120)
+};
+
+/* ---------- Helpers ---------- */
+function $(id) { return document.getElementById(id); }
+function el(tag, cls, html) {
+  var e = document.createElement(tag);
+  if (cls) e.className = cls;
+  if (html !== undefined) e.innerHTML = html;
+  return e;
+}
+function esc(s) {
+  return String(s === undefined || s === null ? '' : s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+function fmtNum(n) {
+  n = Number(n) || 0;
+  return n % 1 === 0 ? n.toLocaleString('th-TH') : n.toLocaleString('th-TH', { maximumFractionDigits: 2 });
+}
+function showLoading(text) { $('loadingText').textContent = text || 'กำลังโหลด…'; $('loading').classList.remove('hidden'); }
+function hideLoading() { $('loading').classList.add('hidden'); }
+var toastTimer = null;
+function toast(msg, isError) {
+  var t = $('toast');
+  t.textContent = msg;
+  t.className = 'toast' + (isError ? ' error' : '');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(function () { t.classList.add('hidden'); }, 4200);
+}
+
+/* ---------- Navigation ---------- */
+var PAGES = ['home', 'receive', 'issue', 'stock', 'more'];
+function goto(page) {
+  PAGES.forEach(function (p) {
+    $('page-' + p).classList.toggle('hidden', p !== page);
+  });
+  document.querySelectorAll('.nav-btn').forEach(function (b) {
+    b.classList.toggle('active', b.dataset.page === page);
+  });
+  if (page === 'stock') loadStock();
+  if (page === 'home') loadHome();
+  window.scrollTo(0, 0);
+}
+document.querySelectorAll('.nav-btn').forEach(function (b) {
+  b.addEventListener('click', function () { goto(b.dataset.page); });
+});
+document.querySelectorAll('[data-goto]').forEach(function (b) {
+  b.addEventListener('click', function () { goto(b.dataset.goto); });
+});
+
+/* ---------- Employee validation (กรอกครั้งเดียว ใช้ทุกหน้า) ---------- */
+function renderEmployee() {
+  var box = $('employeeResult');
+  if (S.employee) {
+    box.innerHTML = '<span class="ok">✓ ' + esc(S.employee.name) + '</span>' +
+      '<span class="badge">' + esc(S.employee.role) + '</span>' +
+      '<span class="badge">' + esc(S.employee.building) + '</span>';
+    $('headerUser').textContent = S.employee.name + ' (' + S.employee.employeeId + ')';
+  } else {
+    box.innerHTML = '<span class="err">ยังไม่ได้ตรวจสอบรหัสพนักงาน</span>';
+    $('headerUser').textContent = '—';
+  }
+}
+function validateEmployee() {
+  var id = $('employeeIdInput').value.trim();
+  if (!id) { toast('กรุณากรอกรหัสพนักงาน', true); return; }
+  showLoading('กำลังตรวจสอบรหัสพนักงาน…');
+  gs('apiValidateEmployee', id).then(function (user) {
+    S.employee = user;
+    renderEmployee();
+    toast('✓ ' + user.name);
+  }).catch(function (e) {
+    S.employee = null;
+    renderEmployee();
+    $('employeeResult').innerHTML = '<span class="err">' + esc(e.message) + '</span>';
+  }).finally(hideLoading);
+}
+$('btnValidateEmployee').addEventListener('click', validateEmployee);
+$('employeeIdInput').addEventListener('keydown', function (e) {
+  if (e.key === 'Enter') { e.preventDefault(); validateEmployee(); }
+});
+
+/* ---------- Bootstrap ---------- */
+function init() {
+  showLoading('กำลังโหลดข้อมูลระบบ…');
+  Promise.all([gs('apiBootstrap'), gs('apiGetCurrentUser')]).then(function (res) {
+    var boot = res[0], me = res[1];
+    S.items = boot.items; S.locations = boot.locations;
+    S.vendors = boot.vendors; S.balances = boot.balances;
+
+    fillSelect($('rcvVendor'), S.vendors.map(function (v) { return v.name; }), 'เลือก Vendor');
+    fillSelectKV($('rcvLocation'), S.locations, 'เลือก Location');
+    fillSelectKV($('issToLocation'), S.locations, 'เลือกจุดใช้งาน');
+    fillSelectKV($('issFromLocation'), S.locations, null);
+
+    // Auto fill จาก Google Account ถ้า email ตรง USER_MASTER
+    if (me.user) {
+      S.employee = me.user;
+      $('employeeIdInput').value = me.user.employeeId;
+      renderEmployee();
+      toast('เข้าสู่ระบบเป็น ' + me.user.name);
+    } else {
+      renderEmployee();
+    }
+
+    initReceiveGrid();
+    initIssueGrid();
+    loadHome();
+  }).catch(function (e) {
+    toast('โหลดข้อมูลไม่สำเร็จ: ' + e.message, true);
+  }).finally(hideLoading);
+}
+function fillSelect(sel, names, placeholder) {
+  sel.innerHTML = placeholder ? '<option value="">— ' + esc(placeholder) + ' —</option>' : sel.innerHTML;
+  names.forEach(function (n) {
+    var o = document.createElement('option');
+    o.value = n; o.textContent = n; sel.appendChild(o);
+  });
+}
+function fillSelectKV(sel, locations, placeholder) {
+  if (placeholder !== null) sel.innerHTML = '<option value="">— ' + esc(placeholder || 'เลือก') + ' —</option>';
+  locations.forEach(function (l) {
+    var o = document.createElement('option');
+    o.value = l.locationId; o.textContent = l.fullPath; sel.appendChild(o);
+  });
+}
+
+/* =====================================================
+   Autocomplete (ใช้ร่วมกันทุก item cell)
+   ===================================================== */
+var ac = { input: null, matches: [], active: -1, onPick: null };
+function acShow(input, matches, onPick) {
+  ac.input = input; ac.matches = matches; ac.active = -1; ac.onPick = onPick;
+  var dd = $('acDropdown');
+  if (!matches.length) { acHide(); return; }
+  dd.innerHTML = '';
+  matches.forEach(function (m, i) {
+    var stock = S.balances[m.itemId] || 0;
+    var row = el('div', 'ac-item',
+      '<span>' + esc(m.name) + '</span>' +
+      '<span class="ac-sub">' + fmtNum(stock) + ' ' + esc(m.unit) + '</span>');
+    row.addEventListener('mousedown', function (e) { e.preventDefault(); acPick(i); });
+    dd.appendChild(row);
+  });
+  var r = input.getBoundingClientRect();
+  dd.style.left = Math.max(6, r.left) + 'px';
+  dd.style.top = (r.bottom + window.scrollY + 2) + 'px';
+  dd.style.minWidth = Math.max(240, r.width) + 'px';
+  dd.classList.remove('hidden');
+}
+function acHide() { $('acDropdown').classList.add('hidden'); ac.input = null; ac.matches = []; }
+function acPick(i) {
+  if (ac.onPick && ac.matches[i]) ac.onPick(ac.matches[i]);
+  acHide();
+}
+function acMove(delta) {
+  if (!ac.matches.length) return;
+  ac.active = (ac.active + delta + ac.matches.length) % ac.matches.length;
+  var nodes = $('acDropdown').children;
+  for (var i = 0; i < nodes.length; i++) nodes[i].classList.toggle('active', i === ac.active);
+}
+document.addEventListener('click', function (e) {
+  if (!e.target.closest('#acDropdown') && e.target !== ac.input) acHide();
+});
+
+function searchItems(q) {
+  q = String(q || '').trim().toLowerCase();
+  if (!q) return [];
+  // barcode ตรงเป๊ะมาก่อน
+  var exact = S.items.filter(function (it) { return it.barcode === q || it.itemCode.toLowerCase() === q; });
+  if (exact.length) return exact;
+  return S.items.filter(function (it) {
+    return it.name.toLowerCase().indexOf(q) >= 0 ||
+           String(it.shortName || '').toLowerCase().indexOf(q) >= 0 ||
+           it.itemCode.toLowerCase().indexOf(q) >= 0;
+  }).slice(0, 8);
+}
+function findItemByText(text) {
+  var q = String(text || '').trim().toLowerCase();
+  if (!q) return null;
+  var hit = S.items.find(function (it) {
+    return it.name.toLowerCase() === q || it.itemCode.toLowerCase() === q || it.barcode === q;
+  });
+  if (hit) return hit;
+  var list = searchItems(q);
+  return list.length === 1 ? list[0] : null;
+}
+
+/* =====================================================
+   Excel-like grid engine (ใช้ทั้ง Receive และ Issue)
+   ===================================================== */
+function gridKeyNav(e) {
+  var cell = e.target;
+  if (!cell.classList.contains('cell')) return;
+  var td = cell.closest('td'), tr = cell.closest('tr');
+  if (!td || !tr) return;
+  var colIndex = td.cellIndex;
+
+  if (e.key === 'Enter' || e.key === 'ArrowDown') {
+    if (!$('acDropdown').classList.contains('hidden') && e.key === 'ArrowDown') { acMove(1); e.preventDefault(); return; }
+    if (e.key === 'Enter' && !$('acDropdown').classList.contains('hidden') && ac.active >= 0) { acPick(ac.active); e.preventDefault(); return; }
+    var next = tr.nextElementSibling;
+    if (!next && e.key === 'Enter') {
+      // Enter บนแถวสุดท้าย → เพิ่มแถวใหม่อัตโนมัติ (fast entry)
+      var tbody = tr.parentElement;
+      if (tbody.id === 'rcvBody') addRcvRow();
+      if (tbody.id === 'issBody') addIssRow();
+      next = tr.nextElementSibling;
+    }
+    if (next) focusCell(next, colIndex);
+    e.preventDefault();
+  } else if (e.key === 'ArrowUp') {
+    if (!$('acDropdown').classList.contains('hidden')) { acMove(-1); e.preventDefault(); return; }
+    var prev = tr.previousElementSibling;
+    if (prev) focusCell(prev, colIndex);
+    e.preventDefault();
+  } else if (e.key === 'Escape') {
+    acHide();
+  }
+}
+function focusCell(tr, colIndex) {
+  var td = tr.cells[colIndex];
+  if (!td) return;
+  var input = td.querySelector('.cell');
+  if (input) { input.focus(); if (input.select) input.select(); }
+}
+
+/* =====================================================
+   RECEIVE — Bulk Receiving grid
+   ===================================================== */
+function initReceiveGrid() {
+  $('rcvBody').innerHTML = '';
+  for (var i = 0; i < 3; i++) addRcvRow();
+  updateRcvSummary();
+}
+function addRcvRow() {
+  var tbody = $('rcvBody');
+  var tr = document.createElement('tr');
+  tr.innerHTML =
+    '<td class="row-no"></td>' +
+    '<td><input class="cell c-item" placeholder="พิมพ์ชื่อ / สแกน" autocomplete="off"></td>' +
+    '<td><input class="cell c-ordered" type="number" min="0" step="any" inputmode="decimal"></td>' +
+    '<td><input class="cell c-received" type="number" min="0" step="any" inputmode="decimal"></td>' +
+    '<td><input class="cell c-unit" readonly tabindex="-1"></td>' +
+    '<td><input class="cell c-lot" placeholder="auto" autocomplete="off"></td>' +
+    '<td><input class="cell c-expiry" type="date"></td>' +
+    '<td><select class="cell c-loc"><option value="">Header</option></select></td>' +
+    '<td><input class="cell c-price" type="number" min="0" step="any" inputmode="decimal"></td>' +
+    '<td><button class="row-del" tabindex="-1">✕</button></td>';
+  tbody.appendChild(tr);
+
+  var locSel = tr.querySelector('.c-loc');
+  S.locations.forEach(function (l) {
+    var o = document.createElement('option');
+    o.value = l.locationId; o.textContent = l.locationId; locSel.appendChild(o);
+  });
+
+  var itemInput = tr.querySelector('.c-item');
+  itemInput.addEventListener('input', function () {
+    tr.dataset.itemId = '';
+    acShow(itemInput, searchItems(itemInput.value), function (item) { setRcvItem(tr, item); });
+  });
+  itemInput.addEventListener('blur', function () {
+    if (!tr.dataset.itemId) {
+      var item = findItemByText(itemInput.value);
+      if (item) setRcvItem(tr, item);
+    }
+  });
+  itemInput.addEventListener('paste', function (e) { handleGridPaste(e, tr, 'rcv'); });
+  itemInput.addEventListener('keydown', function (e) {
+    // สแกนบาร์โค้ด (keyboard wedge จบด้วย Enter): match ทันที
+    if (e.key === 'Enter' && !tr.dataset.itemId) {
+      var item = findItemByText(itemInput.value);
+      if (item) { setRcvItem(tr, item); e.preventDefault(); return; }
+    }
+    gridKeyNav(e);
+  });
+  tr.querySelectorAll('.c-ordered,.c-received,.c-lot,.c-expiry,.c-price').forEach(function (inp) {
+    inp.addEventListener('keydown', gridKeyNav);
+  });
+  tr.querySelector('.c-received').addEventListener('input', updateRcvSummary);
+  tr.querySelector('.row-del').addEventListener('click', function () {
+    tr.remove(); renumberRows($('rcvBody')); updateRcvSummary();
+  });
+  renumberRows(tbody);
+  return tr;
+}
+function setRcvItem(tr, item) {
+  tr.dataset.itemId = item.itemId;
+  tr.querySelector('.c-item').value = item.name;
+  tr.querySelector('.c-unit').value = item.unit;
+  if (!tr.querySelector('.c-price').value) tr.querySelector('.c-price').value = item.lastPrice || '';
+  var locSel = tr.querySelector('.c-loc');
+  if (!locSel.value && item.defaultLocation) locSel.value = item.defaultLocation;
+  tr.classList.remove('row-error');
+  focusCell(tr, 3); // ไปช่อง Received
+}
+function renumberRows(tbody) {
+  Array.prototype.forEach.call(tbody.rows, function (tr, i) {
+    tr.cells[0].textContent = i + 1;
+  });
+}
+function updateRcvSummary() {
+  var rows = collectRcvRows(false);
+  var totalQty = 0, count = 0;
+  rows.forEach(function (r) { count++; totalQty += Number(r.receivedQty) || 0; });
+  $('rcvSummary').textContent = count + ' รายการ';
+}
+$('rcvAddRow').addEventListener('click', function () { focusCell(addRcvRow(), 1); });
+$('rcvAdd10').addEventListener('click', function () { for (var i = 0; i < 10; i++) addRcvRow(); });
+
+/* ---------- Paste จาก Excel (หลายแถว) ---------- */
+function handleGridPaste(e, startTr, mode) {
+  var text = (e.clipboardData || window.clipboardData).getData('text');
+  if (!text || (text.indexOf('\n') < 0 && text.indexOf('\t') < 0)) return; // paste ปกติ
+  e.preventDefault();
+  var lines = text.split(/\r?\n/).filter(function (l) { return l.trim(); });
+  var tr = startTr;
+  var notFound = [];
+  lines.forEach(function (line) {
+    var parts = line.split('\t').map(function (p) { return p.trim(); });
+    if (!parts[0]) return;
+    var item = findItemByText(parts[0]);
+    if (!tr) tr = (mode === 'rcv') ? addRcvRow() : addIssRow();
+    if (item) {
+      if (mode === 'rcv') {
+        setRcvItem(tr, item);
+        if (parts[1]) tr.querySelector('.c-received').value = parts[1].replace(/,/g, '');
+        if (parts[2]) tr.querySelector('.c-lot').value = parts[2];
+        if (parts[3]) tr.querySelector('.c-expiry').value = parts[3];
+      } else {
+        setIssItem(tr, item);
+        if (parts[1]) { tr.querySelector('.c-qty').value = parts[1].replace(/,/g, ''); previewIssueRow(tr); }
+      }
+    } else {
+      tr.querySelector('.c-item').value = parts[0];
+      tr.classList.add('row-error');
+      notFound.push(parts[0]);
+    }
+    tr = tr.nextElementSibling;
+  });
+  if (mode === 'rcv') updateRcvSummary(); else updateIssSummary();
+  if (notFound.length) toast('ไม่พบสินค้า: ' + notFound.join(', '), true);
+  else toast('วางข้อมูล ' + lines.length + ' แถวแล้ว');
+}
+
+/* ---------- Attachment upload ---------- */
+$('rcvFile').addEventListener('change', function () {
+  var file = this.files[0];
+  if (!file) return;
+  if (file.size > 8 * 1024 * 1024) { toast('ไฟล์ใหญ่เกิน 8MB', true); return; }
+  var reader = new FileReader();
+  $('rcvFileStatus').textContent = 'กำลัง upload…';
+  reader.onload = function () {
+    var base64 = String(reader.result).split(',')[1];
+    gs('apiUploadFile', { base64: base64, fileName: file.name, mimeType: file.type, kind: 'delivery' })
+      .then(function (res) {
+        S.rcvAttachment = res;
+        $('rcvFileStatus').textContent = '✓ ' + res.name;
+        $('rcvFileStatus').className = 'attach-status ok';
+      })
+      .catch(function (e) {
+        S.rcvAttachment = null;
+        $('rcvFileStatus').textContent = 'upload ไม่สำเร็จ: ' + e.message;
+      });
+  };
+  reader.readAsDataURL(file);
+});
+
+/* ---------- Collect + Save Receiving ---------- */
+function collectRcvRows(strict) {
+  var rows = [];
+  Array.prototype.forEach.call($('rcvBody').rows, function (tr) {
+    tr.classList.remove('row-error');
+    var msgEl = tr.querySelector('.row-error-msg'); if (msgEl) msgEl.remove();
+    var itemId = tr.dataset.itemId;
+    var received = tr.querySelector('.c-received').value;
+    var itemText = tr.querySelector('.c-item').value.trim();
+    if (!itemId && !itemText && !received) return; // แถวว่าง — ข้าม
+    rows.push({
+      tr: tr,
+      itemId: itemId || '',
+      itemText: itemText,
+      orderedQty: tr.querySelector('.c-ordered').value,
+      receivedQty: received,
+      lot: tr.querySelector('.c-lot').value.trim(),
+      expiryDate: tr.querySelector('.c-expiry').value,
+      location: tr.querySelector('.c-loc').value,
+      price: tr.querySelector('.c-price').value
+    });
+  });
+  return rows;
+}
+function markRowError(tr, message) {
+  tr.classList.add('row-error');
+  toast(message, true);
+}
+$('rcvSave').addEventListener('click', function () {
+  if (!S.employee) { toast('กรุณาตรวจสอบรหัสพนักงานก่อนบันทึก', true); window.scrollTo(0, 0); return; }
+  var vendor = $('rcvVendor').value;
+  var location = $('rcvLocation').value;
+  if (!vendor) { toast('กรุณาเลือก Vendor', true); return; }
+  if (!location) { toast('กรุณาเลือก Default Location', true); return; }
+
+  var rows = collectRcvRows(true);
+  if (!rows.length) { toast('ยังไม่มีรายการสินค้า', true); return; }
+
+  // client validation รอบแรก (server ตรวจซ้ำอีกครั้ง)
+  var hasError = false;
+  rows.forEach(function (r) {
+    if (!r.itemId) { markRowError(r.tr, 'แถว ' + r.tr.cells[0].textContent + ': ไม่พบสินค้า "' + r.itemText + '"'); hasError = true; }
+    else if (!(Number(r.receivedQty) > 0)) { markRowError(r.tr, 'แถว ' + r.tr.cells[0].textContent + ': กรอกจำนวนรับ'); hasError = true; }
+  });
+  if (hasError) return;
+
+  // Received > Ordered → เตือนก่อนบันทึก (spec ข้อ 9)
+  var overRows = rows.filter(function (r) {
+    return r.orderedQty !== '' && Number(r.receivedQty) > Number(r.orderedQty);
+  });
+  if (overRows.length) {
+    var names = overRows.map(function (r) { return r.itemText; }).join(', ');
+    if (!confirm('รับมากกว่าจำนวนสั่ง: ' + names + '\nยืนยันบันทึกหรือไม่?')) return;
+  }
+
+  var payload = {
+    employeeId: S.employee.employeeId,
+    vendor: vendor,
+    poNumber: $('rcvPo').value.trim(),
+    deliveryNote: $('rcvDeliveryNote').value.trim(),
+    defaultLocation: location,
+    expectedDate: $('rcvExpectedDate').value,
+    remark: $('rcvRemark').value.trim(),
+    attachmentUrl: S.rcvAttachment ? S.rcvAttachment.url : '',
+    attachmentFileId: S.rcvAttachment ? S.rcvAttachment.fileId : '',
+    device: S.device,
+    rows: rows.map(function (r) {
+      return {
+        itemId: r.itemId, orderedQty: r.orderedQty, receivedQty: r.receivedQty,
+        lot: r.lot, expiryDate: r.expiryDate, location: r.location, price: r.price
+      };
+    })
+  };
+
+  showLoading('กำลังบันทึกรับสินค้า ' + rows.length + ' รายการ…');
+  gs('apiSaveReceiving', payload).then(function (res) {
+    showSuccess('receive', res);
+    refreshBalances();
+  }).catch(function (e) {
+    handleSaveError(e, rows);
+  }).finally(hideLoading);
+});
+
+/* server validation error → highlight แถวที่ผิด */
+function handleSaveError(e, rows) {
+  try {
+    var parsed = JSON.parse(e.message);
+    if (parsed.validation) {
+      parsed.validation.forEach(function (v) {
+        var r = rows[v.line - 1];
+        if (r && r.tr) {
+          r.tr.classList.add('row-error');
+          var td = r.tr.cells[1];
+          var msg = el('div', 'row-error-msg', esc(v.message));
+          td.appendChild(msg);
+        }
+      });
+      toast('มี ' + parsed.validation.length + ' แถวไม่ผ่านการตรวจสอบ', true);
+      return;
+    }
+  } catch (ignored) { /* ไม่ใช่ validation error */ }
+  toast(e.message, true);
+}
+
+/* =====================================================
+   ISSUE — Bulk Issue grid + FEFO preview
+   ===================================================== */
+function initIssueGrid() {
+  $('issBody').innerHTML = '';
+  for (var i = 0; i < 3; i++) addIssRow();
+  updateIssSummary();
+}
+function addIssRow() {
+  var tbody = $('issBody');
+  var tr = document.createElement('tr');
+  tr.innerHTML =
+    '<td class="row-no"></td>' +
+    '<td><input class="cell c-item" placeholder="พิมพ์ชื่อ / สแกน" autocomplete="off"></td>' +
+    '<td class="stock-cell c-stock">–</td>' +
+    '<td><input class="cell c-qty" type="number" min="0" step="any" inputmode="decimal"></td>' +
+    '<td><input class="cell c-unit" readonly tabindex="-1"></td>' +
+    '<td class="fefo-cell c-fefo">–</td>' +
+    '<td><button class="row-del" tabindex="-1">✕</button></td>';
+  tbody.appendChild(tr);
+
+  var itemInput = tr.querySelector('.c-item');
+  itemInput.addEventListener('input', function () {
+    tr.dataset.itemId = '';
+    acShow(itemInput, searchItems(itemInput.value), function (item) { setIssItem(tr, item); });
+  });
+  itemInput.addEventListener('blur', function () {
+    if (!tr.dataset.itemId) {
+      var item = findItemByText(itemInput.value);
+      if (item) setIssItem(tr, item);
+    }
+  });
+  itemInput.addEventListener('paste', function (e) { handleGridPaste(e, tr, 'iss'); });
+  itemInput.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter' && !tr.dataset.itemId) {
+      var item = findItemByText(itemInput.value);
+      if (item) { setIssItem(tr, item); e.preventDefault(); return; }
+    }
+    gridKeyNav(e);
+  });
+  var qtyInput = tr.querySelector('.c-qty');
+  qtyInput.addEventListener('keydown', gridKeyNav);
+  qtyInput.addEventListener('input', function () {
+    updateIssSummary();
+    clearTimeout(tr._fefoTimer);
+    tr._fefoTimer = setTimeout(function () { previewIssueRow(tr); }, 450);
+  });
+  tr.querySelector('.row-del').addEventListener('click', function () {
+    tr.remove(); renumberRows($('issBody')); updateIssSummary();
+  });
+  renumberRows(tbody);
+  return tr;
+}
+function setIssItem(tr, item) {
+  tr.dataset.itemId = item.itemId;
+  tr.querySelector('.c-item').value = item.name;
+  tr.querySelector('.c-unit').value = item.unit;
+  tr.querySelector('.c-stock').textContent = fmtNum(S.balances[item.itemId] || 0) + ' ' + item.unit;
+  tr.classList.remove('row-error');
+  focusCell(tr, 3); // ไปช่องจำนวนเบิก
+}
+function previewIssueRow(tr) {
+  var itemId = tr.dataset.itemId;
+  var qty = Number(tr.querySelector('.c-qty').value);
+  var cell = tr.querySelector('.c-fefo');
+  if (!itemId || !(qty > 0)) { cell.textContent = '–'; return; }
+  cell.textContent = 'กำลังตรวจ FEFO…';
+  gs('apiPreviewIssue', [{ itemId: itemId, qty: qty }]).then(function (res) {
+    var p = res[itemId];
+    if (!p) { cell.textContent = '–'; return; }
+    var html = p.lots.map(function (l) {
+      return '<span class="fefo-lot">' + esc(l.lotNo) + ' × ' + fmtNum(l.qty) +
+        (l.expiryDate ? ' <small>(หมดอายุ ' + esc(l.expiryDate) + ')</small>' : '') + '</span>';
+    }).join('');
+    if (!p.ok) {
+      html += '<span class="fefo-lot bad">ขาด ' + fmtNum(p.shortage) + '</span>';
+      if (p.expiredQty > 0) html += '<span class="fefo-lot bad">หมดอายุค้าง ' + fmtNum(p.expiredQty) + ' (เบิกไม่ได้)</span>';
+      tr.classList.add('row-error');
+    } else {
+      tr.classList.remove('row-error');
+    }
+    cell.innerHTML = html || '–';
+  }).catch(function () { cell.textContent = '–'; });
+}
+function updateIssSummary() {
+  var count = 0;
+  Array.prototype.forEach.call($('issBody').rows, function (tr) {
+    if (tr.dataset.itemId && Number(tr.querySelector('.c-qty').value) > 0) count++;
+  });
+  $('issSummary').textContent = count + ' รายการ';
+}
+$('issAddRow').addEventListener('click', function () { focusCell(addIssRow(), 1); });
+$('issAdd10').addEventListener('click', function () { for (var i = 0; i < 10; i++) addIssRow(); });
+
+$('issSave').addEventListener('click', function () {
+  if (!S.employee) { toast('กรุณาตรวจสอบรหัสพนักงานก่อนบันทึก', true); window.scrollTo(0, 0); return; }
+  var toLoc = $('issToLocation').value;
+  if (!toLoc) { toast('กรุณาเลือกจุดใช้งาน', true); return; }
+
+  var rows = [];
+  var hasError = false;
+  Array.prototype.forEach.call($('issBody').rows, function (tr) {
+    tr.classList.remove('row-error');
+    var itemText = tr.querySelector('.c-item').value.trim();
+    var qty = tr.querySelector('.c-qty').value;
+    if (!itemText && !qty) return;
+    if (!tr.dataset.itemId) { markRowError(tr, 'แถว ' + tr.cells[0].textContent + ': ไม่พบสินค้า'); hasError = true; return; }
+    if (!(Number(qty) > 0)) { markRowError(tr, 'แถว ' + tr.cells[0].textContent + ': กรอกจำนวนเบิก'); hasError = true; return; }
+    rows.push({ tr: tr, itemId: tr.dataset.itemId, qty: qty });
+  });
+  if (hasError) return;
+  if (!rows.length) { toast('ยังไม่มีรายการสินค้า', true); return; }
+
+  var payload = {
+    employeeId: S.employee.employeeId,
+    fromLocation: $('issFromLocation').value,
+    toLocation: toLoc,
+    remark: $('issRemark').value.trim(),
+    device: S.device,
+    rows: rows.map(function (r) { return { itemId: r.itemId, qty: r.qty }; })
+  };
+  showLoading('กำลังเบิกสินค้า ' + rows.length + ' รายการ (FEFO)…');
+  gs('apiSaveIssue', payload).then(function (res) {
+    showSuccess('issue', res);
+    refreshBalances();
+  }).catch(function (e) {
+    handleSaveError(e, rows);
+  }).finally(hideLoading);
+});
+
+/* =====================================================
+   Success screen
+   ===================================================== */
+var lastSuccessMode = 'receive';
+function showSuccess(mode, res) {
+  lastSuccessMode = mode;
+  var docNo = res.receivingNo || res.issueNo;
+  var lines = (res.details || []).map(function (d) {
+    return d.line + '. ' + d.itemName + ' — ' + fmtNum(d.qty) + ' ' + d.unit +
+      (d.lot ? ' @' + d.lot : '') +
+      (d.pendingQty > 0 ? ' <b style="color:var(--orange)">(ค้างส่ง ' + fmtNum(d.pendingQty) + ')</b>' : '');
+  }).join('<br>');
+  var html =
+    '<div class="kv"><span>เลขเอกสาร</span><b>' + esc(docNo) + '</b></div>' +
+    '<div class="kv"><span>ผู้บันทึก</span><b>' + esc(res.recordedBy) + ' (' + esc(res.employeeId) + ')</b></div>' +
+    '<div class="kv"><span>วันที่ / เวลา</span><b>' + esc(res.date) + ' ' + esc(res.time) + '</b></div>' +
+    '<div class="kv"><span>จำนวนรายการ</span><b>' + res.totalItems + ' รายการ</b></div>';
+  if (res.totalAmount !== undefined) {
+    html += '<div class="kv"><span>ยอดรวม</span><b>' + fmtNum(res.totalAmount) + ' บาท</b></div>';
+  }
+  if (res.pendingCount !== undefined && res.pendingCount > 0) {
+    html += '<div class="kv"><span>รายการส่งไม่ครบ</span><b style="color:var(--orange)">' + res.pendingCount + ' รายการ → Pending Delivery</b></div>';
+  }
+  html += '<div class="success-lines">' + lines + '</div>';
+  $('successBody').innerHTML = html;
+  $('successOverlay').classList.remove('hidden');
+}
+$('successNew').addEventListener('click', function () {
+  $('successOverlay').classList.add('hidden');
+  if (lastSuccessMode === 'receive') {
+    initReceiveGrid();
+    $('rcvPo').value = ''; $('rcvDeliveryNote').value = ''; $('rcvRemark').value = '';
+    S.rcvAttachment = null; $('rcvFileStatus').textContent = ''; $('rcvFile').value = '';
+    goto('receive');
+  } else {
+    initIssueGrid(); $('issRemark').value = '';
+    goto('issue');
+  }
+});
+$('successHome').addEventListener('click', function () {
+  $('successOverlay').classList.add('hidden');
+  if (lastSuccessMode === 'receive') initReceiveGrid(); else initIssueGrid();
+  goto('home');
+});
+
+function refreshBalances() {
+  gs('apiBootstrap').then(function (boot) { S.balances = boot.balances; }).catch(function () {});
+}
+
+/* =====================================================
+   STOCK page
+   ===================================================== */
+function loadStock() {
+  $('stockList').textContent = 'กำลังโหลด…';
+  gs('apiGetStockOverview').then(function (res) {
+    S.stockRows = res.rows;
+    renderStock();
+  }).catch(function (e) { $('stockList').textContent = e.message; });
+}
+function renderStock() {
+  var q = $('stockSearch').value.trim().toLowerCase();
+  var rows = S.stockRows.filter(function (r) {
+    if (!q) return true;
+    return r.name.toLowerCase().indexOf(q) >= 0 ||
+           String(r.itemId).toLowerCase().indexOf(q) >= 0 ||
+           r.locations.join(' ').toLowerCase().indexOf(q) >= 0 ||
+           String(r.category).toLowerCase().indexOf(q) >= 0;
+  });
+  var box = $('stockList');
+  box.innerHTML = '';
+  if (!rows.length) { box.textContent = q ? 'ไม่พบสินค้า' : 'ยังไม่มี Stock — เริ่มจากรับสินค้าก่อน'; return; }
+  rows.forEach(function (r) {
+    var badges = '';
+    if (r.expiredQty > 0) badges += '<span class="badge badge-expired">หมดอายุ ' + fmtNum(r.expiredQty) + '</span> ';
+    else if (r.nearestExpiry) badges += '<span class="badge badge-warn">หมดอายุใกล้สุด ' + esc(r.nearestExpiry) + '</span> ';
+    if (r.lowStock) badges += '<span class="badge badge-low">ต้องสั่งซื้อ</span>';
+    var div = el('div', 'stock-item',
+      '<div><div class="stock-item-name">' + esc(r.name) + '</div>' +
+      '<div class="stock-item-sub">📍 ' + esc(r.locations.join(', ') || r.defaultLocation || '—') +
+      ' · ' + r.lotCount + ' Lot</div>' +
+      '<div class="stock-item-sub">' + badges + '</div></div>' +
+      '<div class="stock-item-qty">' + fmtNum(r.currentStock) + '<br><small>' + esc(r.unit) + '</small></div>');
+    div.addEventListener('click', function () { openItemModal(r); });
+    box.appendChild(div);
+  });
+}
+$('stockSearch').addEventListener('input', renderStock);
+$('stockRefresh').addEventListener('click', loadStock);
+
+function openItemModal(row) {
+  $('itemModal').classList.remove('hidden');
+  $('itemModalBody').textContent = 'กำลังโหลด…';
+  gs('apiGetItemLots', row.itemId).then(function (res) {
+    var html = '<div class="card-title">' + esc(row.name) + '</div>' +
+      '<div class="kv" style="display:flex;justify-content:space-between;padding:6px 0"><span>คงเหลือทั้งหมด</span><b>' +
+      fmtNum(row.currentStock) + ' ' + esc(row.unit) + '</b></div>' +
+      '<div class="kv" style="display:flex;justify-content:space-between;padding:6px 0"><span>เบิกได้ (ไม่รวมหมดอายุ)</span><b>' +
+      fmtNum(res.availableQty) + ' ' + esc(row.unit) + '</b></div>' +
+      '<div style="font-weight:700;color:var(--navy);margin:12px 0 6px">Lot ทั้งหมด (เรียงตาม FEFO)</div>';
+    if (!res.lots.length) html += '<div style="color:var(--muted)">ไม่มี Lot คงเหลือ</div>';
+    res.lots.forEach(function (l) {
+      var badge = l.expired
+        ? '<span class="badge badge-expired">หมดอายุแล้ว</span>'
+        : (l.daysToExpiry !== null
+          ? (l.daysToExpiry <= 3
+            ? '<span class="badge badge-warn">อีก ' + l.daysToExpiry + ' วันหมดอายุ</span>'
+            : '<span class="badge badge-ok">อีก ' + l.daysToExpiry + ' วัน</span>')
+          : '');
+      html += '<div class="txn-row"><div class="txn-main"><b>' + esc(l.lotNo) + '</b> ' + badge +
+        '<div class="txn-doc">📍 ' + esc(l.location) + (l.expiryDate ? ' · หมดอายุ ' + esc(l.expiryDate) : '') +
+        ' · จาก ' + esc(l.receivingNo) + '</div></div>' +
+        '<div class="txn-qty">' + fmtNum(l.remainingQty) + ' ' + esc(l.unit) + '</div></div>';
+    });
+    $('itemModalBody').innerHTML = html;
+  }).catch(function (e) { $('itemModalBody').textContent = e.message; });
+}
+$('itemModalClose').addEventListener('click', function () { $('itemModal').classList.add('hidden'); });
+$('itemModal').addEventListener('click', function (e) { if (e.target === this) this.classList.add('hidden'); });
+
+/* =====================================================
+   HOME page
+   ===================================================== */
+function loadHome() {
+  gs('apiGetStockOverview').then(function (res) {
+    var low = 0, expired = 0;
+    res.rows.forEach(function (r) {
+      if (r.lowStock) low++;
+      if (r.expiredQty > 0) expired++;
+    });
+    $('statTotalItems').textContent = res.rows.length;
+    $('statLowStock').textContent = low;
+    $('statExpired').textContent = expired;
+
+    var todos = [];
+    if (low > 0) todos.push('🟠 ' + low + ' รายการ Stock ต่ำ — ต้องสั่งซื้อ');
+    if (expired > 0) todos.push('🔴 ' + expired + ' รายการมีของหมดอายุค้าง — บันทึกของเสีย');
+    var nearExpiry = res.rows.filter(function (r) {
+      if (!r.nearestExpiry || r.expiredQty > 0) return false;
+      var d = Math.round((new Date(r.nearestExpiry) - new Date(res.today)) / 86400000);
+      return d >= 0 && d <= 3;
+    }).length;
+    if (nearExpiry > 0) todos.push('🟡 ' + nearExpiry + ' รายการใกล้หมดอายุใน 3 วัน — ใช้ก่อน (FEFO)');
+    if (!todos.length) todos.push('🟢 ทุกอย่างเรียบร้อย ไม่มีรายการเร่งด่วน');
+    $('homeTodoList').innerHTML = todos.map(function (t) { return '<div class="todo-item">' + t + '</div>'; }).join('');
+  }).catch(function (e) { $('homeTodoList').textContent = e.message; });
+
+  gs('apiGetTransactions', { limit: 8 }).then(function (res) {
+    renderTxnList($('homeRecent'), res.rows, 'ยังไม่มีรายการ — เริ่มจากรับสินค้า');
+  }).catch(function (e) { $('homeRecent').textContent = e.message; });
+}
+
+function renderTxnList(box, rows, emptyMsg) {
+  box.innerHTML = '';
+  if (!rows.length) { box.textContent = emptyMsg || 'ไม่พบรายการ'; return; }
+  rows.forEach(function (t) {
+    var isIn = t.qtyIn > 0;
+    box.appendChild(el('div', 'txn-row',
+      '<div class="txn-main"><b>' + esc(t.itemName) + '</b>' +
+      (t.lotNo ? ' <small style="color:var(--muted)">@' + esc(t.lotNo) + '</small>' : '') +
+      '<div class="txn-doc">' + esc(t.docNo) + ' · ' + esc(t.employeeName) + ' (' + esc(t.employeeId) + ')</div></div>' +
+      '<div><div class="txn-qty ' + (isIn ? 'in' : 'out') + '">' + (isIn ? '+' : '−') +
+      fmtNum(isIn ? t.qtyIn : t.qtyOut) + ' ' + esc(t.unit) + '</div>' +
+      '<div class="txn-meta">' + esc(t.date) + ' ' + esc(String(t.time).slice(0, 5)) + '</div></div>'));
+  });
+}
+
+/* =====================================================
+   HISTORY page
+   ===================================================== */
+$('histLoad').addEventListener('click', function () {
+  $('histList').textContent = 'กำลังค้นหา…';
+  gs('apiGetTransactions', {
+    type: $('histType').value,
+    employeeId: $('histEmployee').value.trim(),
+    itemQuery: $('histQuery').value.trim(),
+    dateFrom: $('histFrom').value,
+    dateTo: $('histTo').value,
+    limit: 100
+  }).then(function (res) {
+    renderTxnList($('histList'), res.rows, 'ไม่พบรายการตามเงื่อนไข');
+  }).catch(function (e) { $('histList').textContent = e.message; });
+});
+
+/* ---------- Start ---------- */
+init();
+</script>
