@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { db } from "@/lib/db";
 import { requireSession } from "@/lib/auth";
-import { fmtDate, fmtDateShort, mondayOf, ymd, SHIFT_LABEL } from "@/lib/format";
+import { fmtDate, fmtDateShort, mondayOf, ymd } from "@/lib/format";
+import { getConfig, workingDatesOf } from "@/lib/config";
 import PrintButton from "@/components/PrintButton";
 import { btnSecondary } from "@/components/ui";
 import type { Shift } from "@prisma/client";
@@ -13,11 +14,8 @@ export default async function MenuPlanPrintPage({ searchParams }: { searchParams
   await requireSession();
   const params = await searchParams;
   const weekStart = mondayOf(params.week ? new Date(params.week + "T00:00:00Z") : new Date());
-  const days = Array.from({ length: 6 }, (_, i) => {
-    const d = new Date(weekStart);
-    d.setUTCDate(d.getUTCDate() + i);
-    return d;
-  });
+  const cfg = await getConfig();
+  const days = workingDatesOf(weekStart, cfg.workingDays);
 
   const plan = await db.menuPlan.findFirst({
     where: { weekStart },
@@ -34,9 +32,15 @@ export default async function MenuPlanPrintPage({ searchParams }: { searchParams
 
       <div className="print-area bg-white border border-gray-200 rounded-xl p-8">
         <div className="text-center mb-6">
-          <h1 className="text-xl font-bold">ใบเมนูประจำสัปดาห์</h1>
+          <div className="text-sm font-semibold">{cfg.org.name}{cfg.org.branch ? ` — ${cfg.org.branch}` : ""}</div>
+          {(cfg.org.address || cfg.org.phone) && (
+            <div className="text-xs text-gray-500">
+              {cfg.org.address}{cfg.org.address && cfg.org.phone ? " · " : ""}{cfg.org.phone && `โทร ${cfg.org.phone}`}
+            </div>
+          )}
+          <h1 className="text-xl font-bold mt-2">ใบเมนูประจำสัปดาห์</h1>
           <p className="text-sm text-gray-600 mt-1">
-            {fmtDate(days[0])} – {fmtDate(days[5])}
+            {fmtDate(days[0])} – {fmtDate(days[days.length - 1])}
             {plan?.status === "APPROVED" && plan.approvedBy && ` · อนุมัติโดย ${plan.approvedBy.name}`}
           </p>
           {plan?.status !== "APPROVED" && (
@@ -49,7 +53,7 @@ export default async function MenuPlanPrintPage({ searchParams }: { searchParams
             <tr>
               <th className="border border-gray-400 px-3 py-2 text-left w-32">วัน</th>
               {(["MORNING", "NIGHT"] as Shift[]).map((s) => (
-                <th key={s} className="border border-gray-400 px-3 py-2 text-left">{SHIFT_LABEL[s]}</th>
+                <th key={s} className="border border-gray-400 px-3 py-2 text-left">{cfg.shifts[s].label}</th>
               ))}
             </tr>
           </thead>

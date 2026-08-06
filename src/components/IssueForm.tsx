@@ -30,6 +30,7 @@ export default function IssueForm({
   defaultLotId,
   todayMenus,
   userName,
+  shiftLabels,
 }: {
   action: (prev: ActionState, formData: FormData) => Promise<ActionState>;
   ingredientId: string;
@@ -41,6 +42,7 @@ export default function IssueForm({
   defaultLotId: string;
   todayMenus: Option[];
   userName: string;
+  shiftLabels: { morning: string; night: string };
 }) {
   const [state, formAction] = useActionState(action, null);
 
@@ -70,8 +72,8 @@ export default function IssueForm({
         <label className="text-sm">
           <span className="block text-xs text-gray-500 mb-1">กะ</span>
           <select name="shift" defaultValue={prev?.shift ?? "MORNING"} className={selectCls}>
-            <option value="MORNING">☀️ รอบเช้า</option>
-            <option value="NIGHT">🌙 รอบดึก</option>
+            <option value="MORNING">☀️ {shiftLabels.morning}</option>
+            <option value="NIGHT">🌙 {shiftLabels.night}</option>
           </select>
         </label>
       </div>

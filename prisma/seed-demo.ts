@@ -12,17 +12,30 @@ async function main() {
 
   // ── Users ──
   const pw = await bcrypt.hash("1234", 10);
-  const mkUser = (username: string, name: string, role: Role) =>
-    db.user.upsert({ where: { username }, update: {}, create: { username, passwordHash: pw, name, role } });
+  const mkUser = (
+    username: string, name: string, role: Role,
+    extra: { employeeCode?: string; nickname?: string; department?: string; phone?: string } = {}
+  ) =>
+    db.user.upsert({
+      where: { username },
+      update: {},
+      create: { username, passwordHash: pw, name, role, ...extra },
+    });
 
-  await mkUser("admin", "ผู้ดูแลระบบ", Role.ADMIN);
-  const manager = await mkUser("manager", "คุณวิชัย (ผู้จัดการ)", Role.MANAGER);
-  const supervisor = await mkUser("supervisor", "คุณสมศรี (หัวหน้างาน)", Role.SUPERVISOR);
-  const procurement = await mkUser("procurement", "คุณนภา (จัดซื้อ)", Role.PROCUREMENT);
-  const store = await mkUser("store", "คุณประยุทธ (สโตร์)", Role.STORE);
-  const staff1 = await mkUser("staff1", "คุณมาลี (พนักงานครัว)", Role.STAFF);
-  const staff2 = await mkUser("staff2", "คุณสมชาย (พนักงานครัว)", Role.STAFF);
-  await mkUser("viewer", "ผู้ชมข้อมูล", Role.VIEWER);
+  await mkUser("admin", "ผู้ดูแลระบบ", Role.ADMIN, { employeeCode: "EMP001", department: "IT" });
+  const manager = await mkUser("manager", "คุณวิชัย ใจดี", Role.MANAGER,
+    { employeeCode: "EMP002", nickname: "วิชัย", department: "บริหาร", phone: "081-000-0001" });
+  const supervisor = await mkUser("supervisor", "คุณสมศรี ตั้งใจ", Role.SUPERVISOR,
+    { employeeCode: "EMP003", nickname: "ศรี", department: "ครัวร้อน", phone: "081-000-0002" });
+  const procurement = await mkUser("procurement", "คุณนภา รอบคอบ", Role.PROCUREMENT,
+    { employeeCode: "EMP004", nickname: "นภา", department: "จัดซื้อ", phone: "081-000-0003" });
+  const store = await mkUser("store", "คุณประยุทธ ขยัน", Role.STORE,
+    { employeeCode: "EMP005", nickname: "ยุทธ", department: "คลังสินค้า", phone: "081-000-0004" });
+  const staff1 = await mkUser("staff1", "คุณมาลี ตั้งใจทำ", Role.STAFF,
+    { employeeCode: "EMP006", nickname: "ลี", department: "ครัวร้อน", phone: "081-000-0005" });
+  const staff2 = await mkUser("staff2", "คุณสมชาย ขยันดี", Role.STAFF,
+    { employeeCode: "EMP007", nickname: "ชาย", department: "ครัวเย็น", phone: "081-000-0006" });
+  await mkUser("viewer", "ผู้ชมข้อมูล", Role.VIEWER, { employeeCode: "EMP008" });
 
   // ── Units ──
   const unitDefs = [

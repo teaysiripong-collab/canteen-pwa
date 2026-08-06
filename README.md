@@ -96,10 +96,13 @@ TASK MANAGEMENT ทำงานคู่ขนานกับทุกขั้�
 /reports               รายงานที่ตอบคำถามหน้างานจริง
 /master                Ingredient / Menu / Vendor / Location / Unit / Category / User
 /master/import         นำเข้าข้อมูลหลักจาก Excel (มีโหมดตรวจสอบก่อนบันทึก)
-/settings              ผู้ใช้ · Permission Matrix · Activity Log
-  /excel-template      Excel Template Manager (แก้ Mapping ได้โดยไม่แก้โค้ด)
+/settings              พนักงาน+รหัสพนักงาน · ข้อมูลแคนทีน · รอบการทำงาน · วันทำการ · เลขที่เอกสาร
+  /permissions         ตารางสิทธิ์ของแต่ละบทบาท
+  /activity            ประวัติการใช้งาน (Audit Log)
+  /integrations        รวมการเชื่อมต่อภายนอกทั้งหมด
   /sheets              Google Sheets — ซิงก์ข้อมูลทั้งระบบ 15 แท็บ
   /drive               Google Drive — Template และไฟล์ต้นทุน
+  /excel-template      Excel Template Manager (แก้ Mapping ได้โดยไม่แก้โค้ด)
 /search?q=             Global Search
 /notifications         แจ้งเฉพาะสิ่งที่ต้อง Action
 ```
@@ -158,7 +161,8 @@ npm run build && npm start
 `db:seed` สร้างเฉพาะ **บัญชี Admin + หน่วยนับ + หมวดหมู่พื้นฐาน** เท่านั้น
 (ปฏิเสธรหัสผ่านที่สั้นกว่า 8 ตัว และไม่ยอมรันถ้าไม่กำหนดรหัสผ่าน)
 
-จากนั้นใส่ข้อมูลจริงผ่าน **Master Data → นำเข้าจาก Excel** (ข้อ 11) หรือแก้ใน **Google Sheets** (ข้อ 12)
+จากนั้น: **ตั้งค่า → พนักงาน** เพิ่มทีมงาน (ข้อ 12) และใส่ข้อมูลจริงผ่าน
+**Master Data → นำเข้าจาก Excel** (ข้อ 11) หรือแก้ใน **Google Sheets** (ข้อ 13)
 
 **Deploy บน Google Cloud:** ดู [`docs/DEPLOY_GOOGLE_CLOUD.md`](docs/DEPLOY_GOOGLE_CLOUD.md)
 — Cloud Run + Cloud SQL พร้อม backup อัตโนมัติ มี `Dockerfile` ให้แล้ว
@@ -184,9 +188,10 @@ npm run typecheck
 npm run lint
 npm run build
 
-npm start &                                             # ต้องรันแอปก่อน
-CHROMIUM_PATH=/path/to/chromium npm run test:e2e        # 51 checks (ใช้ข้อมูล demo)
-CHROMIUM_PATH=/path/to/chromium npm run test:e2e:fresh  # 24 checks (ระบบเปล่า)
+npm start &                                                # ต้องรันแอปก่อน
+CHROMIUM_PATH=/path/to/chromium npm run test:e2e           # 55 checks (ข้อมูล demo)
+CHROMIUM_PATH=/path/to/chromium npm run test:e2e:fresh     # 24 checks (ระบบเปล่า)
+CHROMIUM_PATH=/path/to/chromium npm run test:e2e:settings  # 18 checks (ตั้งค่าใช้งานจริง)
 ```
 
 * `tests/e2e.mjs` — workflow จริงทั้งหมดบนข้อมูล demo: drill-down จาก Dashboard,
@@ -196,6 +201,9 @@ CHROMIUM_PATH=/path/to/chromium npm run test:e2e:fresh  # 24 checks (ระบ�
 * `tests/e2e-fresh.mjs` — ระบบเปล่าหลัง `db:seed`: ทุกหน้าเปิดได้โดยไม่มีข้อมูลตัวอย่าง,
   Google Drive แจ้งสถานะอย่างสุภาพเมื่อยังไม่ตั้งค่า, และการนำเข้า Excel ครบวงจร
   (ตรวจสอบ → บันทึกจริง → เห็นใน Master Data → ถูกบันทึกใน Audit Log)
+* `tests/e2e-settings.mjs` — ตั้งค่าแล้วมีผลจริง: เปลี่ยนชื่อรอบ → ปฏิทินเมนูเปลี่ยนตาม,
+  ปรับวันทำการ → ปฏิทินย่อลง, กรอกข้อมูลแคนทีน → ขึ้นบนใบเมนูที่พิมพ์,
+  เพิ่มพนักงานแล้วได้รหัสอัตโนมัติ (**เปลี่ยนค่าตั้งจริง — ใช้กับฐานข้อมูลทดสอบเท่านั้น**)
 
 ---
 
@@ -246,7 +254,26 @@ Mapping เก็บเป็น JSON ใน `ExcelTemplate.mappingJson` — **�
 
 ---
 
-## 12. Google Sheets — ฐานข้อมูลที่เปิดดูได้
+## 12. ตั้งค่าระบบ (Settings)
+
+**ตั้งค่า** เป็นหน้าตั้งค่าการใช้งานจริง ไม่ใช่ค่าทางเทคนิค — ค่าที่ตั้งมีผลกับระบบทันที ไม่ต้อง deploy ใหม่
+
+| ส่วน | ตั้งค่าอะไร | มีผลที่ไหน |
+|---|---|---|
+| 👥 พนักงาน | รหัสพนักงาน ชื่อ ชื่อเล่น แผนก เบอร์โทร วันเริ่มงาน บทบาท สถานะ | ทุกที่ที่แสดงชื่อผู้ทำรายการ · เว้นรหัสว่าง = ระบบออกรหัสถัดไปให้ |
+| 🏢 ข้อมูลแคนทีน | ชื่อ สาขา ที่อยู่ เบอร์โทร เลขผู้เสียภาษี | หัวกระดาษของเอกสารที่พิมพ์และ Export |
+| 🕐 รอบการทำงาน | ชื่อรอบ เวลา และสัดส่วน BOM ของรอบที่ 2 | ทุกหน้าที่แสดงรอบ · ค่า BOM ที่ระบบเสนอเมื่อเพิ่มเมนู |
+| 📅 วันทำการ | เลือกวันจันทร์–อาทิตย์ | ปฏิทินแผนเมนู (ค่าเริ่มต้น จันทร์–เสาร์) |
+| 🔢 เลขที่เอกสาร | คำนำหน้าใบสั่งซื้อ และรหัสพนักงาน | เลขที่ PO และรหัสพนักงานที่ออกใหม่ |
+
+หน้าแยกที่เข้าจากปุ่มด้านบน: **สิทธิ์การใช้งาน** (ตารางสิทธิ์ทุกบทบาท) ·
+**ประวัติการใช้งาน** (Audit Log กรองตามผู้ใช้ได้) · **การเชื่อมต่อ** (Google Sheets/Drive/Excel)
+
+ระบบกันไม่ให้ปิดหรือลดสิทธิ์ผู้ดูแลระบบคนสุดท้าย เพื่อไม่ให้ล็อกตัวเองออกจากระบบ
+
+---
+
+## 13. Google Sheets — ฐานข้อมูลที่เปิดดูได้
 
 **ตั้งค่า → Google Sheets** (หรือ `/settings/sheets`)
 
@@ -280,7 +307,7 @@ Google Sheets API ไม่มี **transaction** และไม่มี **row
 
 ---
 
-## 13. Google Drive (ไม่บังคับ)
+## 14. Google Drive (ไม่บังคับ)
 
 **ตั้งค่า → Google Drive** (หรือ `/settings/drive`) ทำได้เมื่อองค์กรอยากให้ไฟล์ไปอยู่ใน Drive ที่ใช้กันอยู่แล้ว
 
@@ -307,7 +334,7 @@ Credential ชุดเดียวกันใช้ได้ทั้ง Googl
 
 ---
 
-## 14. Phase ถัดไป
+## 15. Phase ถัดไป
 
 Smart Assistant เป็น **Decision Support** ไม่ใช่ผู้ตัดสินใจแทนคน — BOM Learning ที่มีอยู่แล้ว
 ทำงานตามหลักนี้ (เสนอค่า แต่ต้องให้หัวหน้ายืนยันก่อนเสมอ) ส่วนที่ขยายต่อได้:

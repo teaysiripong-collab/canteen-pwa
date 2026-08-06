@@ -2,7 +2,8 @@ import Link from "next/link";
 import { db } from "@/lib/db";
 import { requireSession } from "@/lib/auth";
 import { PageHeader, Card, EmptyState, btnSecondary } from "@/components/ui";
-import { fmtNum, fmtDateTime, SHIFT_LABEL } from "@/lib/format";
+import { fmtNum, fmtDateTime } from "@/lib/format";
+import { getConfig } from "@/lib/config";
 import type { StockTxType } from "@prisma/client";
 
 export const metadata = { title: "ประวัติ Stock" };
@@ -20,6 +21,7 @@ const TX_LABEL: Record<StockTxType, { label: string; cls: string }> = {
 export default async function StockHistoryPage({ searchParams }: { searchParams: Promise<{ ing?: string; type?: string }> }) {
   await requireSession();
   const { ing, type } = await searchParams;
+  const cfg = await getConfig();
 
   const txns = await db.stockTransaction.findMany({
     where: {
@@ -81,7 +83,7 @@ export default async function StockHistoryPage({ searchParams }: { searchParams:
                     </td>
                     <td className="py-2.5 px-3 text-gray-500">{t.location.name}</td>
                     <td className="py-2.5 px-3 text-gray-400 text-xs">{t.lot?.lotCode ?? "—"}</td>
-                    <td className="py-2.5 px-3 text-gray-500">{t.user.name}{t.shift ? ` · ${SHIFT_LABEL[t.shift]}` : ""}</td>
+                    <td className="py-2.5 px-3 text-gray-500">{t.user.name}{t.shift ? ` · ${cfg.shifts[t.shift].label}` : ""}</td>
                     <td className="py-2.5 px-3 text-gray-400 text-xs">{t.note ?? "—"}</td>
                   </tr>
                 );

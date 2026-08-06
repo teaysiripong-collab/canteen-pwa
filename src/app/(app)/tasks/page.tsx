@@ -3,7 +3,8 @@ import { db } from "@/lib/db";
 import { requireSession } from "@/lib/auth";
 import { can } from "@/lib/rbac";
 import { PageHeader, Card, Section, Stat, btnPrimary } from "@/components/ui";
-import { TASK_PRIORITY, fmtDateTime, ymd, SHIFT_LABEL } from "@/lib/format";
+import { TASK_PRIORITY, fmtDateTime, ymd } from "@/lib/format";
+import { getConfig } from "@/lib/config";
 import { createTask, setTaskStatus, cancelTask } from "./actions";
 import TaskBoard, { type BoardTask } from "@/components/TaskBoard";
 import type { TaskStatus } from "@prisma/client";
@@ -24,6 +25,7 @@ export default async function TasksPage({ searchParams }: { searchParams: Promis
   const session = await requireSession();
   const canEdit = can(session.role, "tasks", "edit");
   const view = (await searchParams).view ?? "week";
+  const cfg = await getConfig();
 
   const now = new Date();
   const today = new Date(now); today.setUTCHours(0, 0, 0, 0);
@@ -136,8 +138,8 @@ export default async function TasksPage({ searchParams }: { searchParams: Promis
               <span className="block text-xs text-gray-500 mb-1">กะ</span>
               <select name="shift" defaultValue="" className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm bg-white">
                 <option value="">— ไม่ระบุ —</option>
-                <option value="MORNING">{SHIFT_LABEL.MORNING}</option>
-                <option value="NIGHT">{SHIFT_LABEL.NIGHT}</option>
+                <option value="MORNING">{cfg.shifts.MORNING.label}</option>
+                <option value="NIGHT">{cfg.shifts.NIGHT.label}</option>
               </select>
             </label>
             <label className="text-sm">

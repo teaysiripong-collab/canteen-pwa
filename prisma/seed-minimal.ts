@@ -35,7 +35,11 @@ async function main() {
     console.log(`• มีผู้ใช้ "${username}" อยู่แล้ว — ไม่เปลี่ยนรหัสผ่าน`);
   } else {
     await db.user.create({
-      data: { username, name, role: Role.ADMIN, passwordHash: await bcrypt.hash(password, 10) },
+      data: {
+        username, name, role: Role.ADMIN,
+        employeeCode: process.env.ADMIN_EMPLOYEE_CODE ?? "EMP001",
+        passwordHash: await bcrypt.hash(password, 10),
+      },
     });
     console.log(`✓ สร้างผู้ใช้ Admin: ${username}`);
   }
@@ -87,7 +91,7 @@ async function main() {
   console.log("\nระบบพร้อมใช้งานแล้ว — ขั้นต่อไป:");
   console.log("  1. เข้าสู่ระบบด้วยบัญชี Admin");
   console.log("  2. Master Data → นำเข้าจาก Excel  (ดาวน์โหลดแบบฟอร์มแล้วกรอกข้อมูลจริง)");
-  console.log("  3. ตั้งค่า → ผู้ใช้งาน  (เพิ่มบัญชีให้ทีม)\n");
+  console.log("  3. ตั้งค่า → พนักงาน  (เพิ่มพนักงานและรหัสพนักงาน)\n");
 }
 
 main()

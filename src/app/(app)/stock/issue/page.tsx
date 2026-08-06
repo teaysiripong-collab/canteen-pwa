@@ -5,6 +5,7 @@ import { getLotBalances, getStockLevels } from "@/lib/stock";
 import { PageHeader, Card, btnSecondary } from "@/components/ui";
 import IssueForm from "@/components/IssueForm";
 import { fmtNum, fmtDate } from "@/lib/format";
+import { getConfig } from "@/lib/config";
 import { issueStock } from "../actions";
 
 export const metadata = { title: "เบิกของ" };
@@ -13,6 +14,7 @@ export const dynamic = "force-dynamic";
 export default async function IssuePage({ searchParams }: { searchParams: Promise<{ ing?: string; q?: string }> }) {
   const session = await requireSession();
   const { ing, q } = await searchParams;
+  const cfg = await getConfig();
 
   // ── Step 2: form for a chosen ingredient (FEFO lot preselected) ──
   if (ing) {
@@ -72,6 +74,7 @@ export default async function IssuePage({ searchParams }: { searchParams: Promis
               label: `${e.shift === "MORNING" ? "☀️" : "🌙"} ${e.menu.name}`,
             }))}
             userName={session.name}
+            shiftLabels={{ morning: cfg.shifts.MORNING.label, night: cfg.shifts.NIGHT.label }}
           />
         </Card>
       </div>

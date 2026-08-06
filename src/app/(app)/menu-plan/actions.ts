@@ -5,6 +5,7 @@ import { db } from "@/lib/db";
 import { requireSession } from "@/lib/auth";
 import { can } from "@/lib/rbac";
 import { audit } from "@/lib/audit";
+import { getConfig } from "@/lib/config";
 import type { Shift } from "@prisma/client";
 
 async function requireEdit() {
@@ -36,7 +37,8 @@ export async function addEntry(planId: string, date: string, shift: Shift, menuI
     include: { items: true },
   });
   if (tmpl) {
-    const factor = shift === "NIGHT" ? 0.6 : 1;
+    const { nightFactor } = await getConfig();
+    const factor = shift === "NIGHT" ? nightFactor : 1;
     await db.bomLine.createMany({
       data: tmpl.items.map((it) => ({
         planEntryId: entry.id,

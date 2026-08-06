@@ -15,7 +15,8 @@
     "db:seed:demo": "tsx prisma/seed-demo.ts",
     "db:reset": "prisma db push --force-reset",
     "test:e2e:fresh": "node tests/e2e-fresh.mjs",
-    "postbuild": "node scripts/postbuild.mjs"
+    "postbuild": "node scripts/postbuild.mjs",
+    "test:e2e:settings": "node tests/e2e-settings.mjs"
   },
   "dependencies": {
     "@prisma/client": "^6.19.3",

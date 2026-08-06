@@ -259,10 +259,21 @@ async function login(user) {
 
   await page.goto(BASE + '/settings');
   const set = await page.textContent('body');
-  check('settings: permission matrix', set.includes('Permission Matrix'));
-  check('settings: activity log', set.includes('Activity Log'));
-  check('settings: audit shows old→new', set.includes('→') || set.includes('เบิก'));
+  check('settings: employee master with codes', set.includes('รหัสพนักงาน') && set.includes('ชื่อ-นามสกุล'));
+  check('settings: org info for printed documents', set.includes('ข้อมูลแคนทีน'));
+  check('settings: shift + working day config', set.includes('รอบการทำงาน') && set.includes('วันทำการ'));
   await page.screenshot({ path: `${SHOT}/15-settings.png`, fullPage: true });
+
+  await page.goto(BASE + '/settings/permissions');
+  check('settings: permission matrix page', (await page.textContent('body')).includes('ตารางสิทธิ์'));
+
+  await page.goto(BASE + '/settings/activity');
+  const act = await page.textContent('body');
+  check('settings: activity log page', act.includes('Timeline'));
+  check('settings: audit shows old→new', act.includes('→') || act.includes('เบิก'));
+
+  await page.goto(BASE + '/settings/integrations');
+  check('settings: integrations page', (await page.textContent('body')).includes('การเชื่อมต่อระบบภายนอก'));
 
   await page.goto(BASE + '/documents');
   check('documents: doc center lists', (await page.textContent('body')).includes('Document Center'));

@@ -3,7 +3,8 @@ import { db } from "@/lib/db";
 import { requireSession } from "@/lib/auth";
 import { getStockLevels } from "@/lib/stock";
 import { PageHeader, Card, Section, EmptyState } from "@/components/ui";
-import { fmtNum, fmtDate, SHIFT_LABEL } from "@/lib/format";
+import { fmtNum, fmtDate } from "@/lib/format";
+import { getConfig } from "@/lib/config";
 
 export const metadata = { title: "ค้นหา" };
 export const dynamic = "force-dynamic";
@@ -12,6 +13,7 @@ export const dynamic = "force-dynamic";
 export default async function SearchPage({ searchParams }: { searchParams: Promise<{ q?: string }> }) {
   await requireSession();
   const q = (await searchParams).q?.trim();
+  const cfg = await getConfig();
 
   if (!q) {
     return (
@@ -174,7 +176,7 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
               {bomLines.map((l) => (
                 <li key={l.id} className="py-2 flex justify-between gap-2">
                   <Link href={`/bom?entry=${l.planEntryId}`} className="hover:text-sky-700">
-                    {fmtDate(l.planEntry.date)} · {SHIFT_LABEL[l.planEntry.shift]} · {l.planEntry.menu.name}
+                    {fmtDate(l.planEntry.date)} · {cfg.shifts[l.planEntry.shift].label} · {l.planEntry.menu.name}
                   </Link>
                   <span className="whitespace-nowrap text-gray-600">{l.ingredient.name} {fmtNum(Number(l.qty))} {l.unit.code}</span>
                 </li>
@@ -205,7 +207,7 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
             <ul className="divide-y divide-gray-100 text-sm">
               {usage.map((u) => (
                 <li key={u.id} className="py-2 flex justify-between gap-2">
-                  <span>{fmtDate(u.date)} · {SHIFT_LABEL[u.shift]}{u.menu ? ` · ${u.menu.name}` : ""}</span>
+                  <span>{fmtDate(u.date)} · {cfg.shifts[u.shift].label}{u.menu ? ` · ${u.menu.name}` : ""}</span>
                   <span className="whitespace-nowrap font-medium">{u.ingredient.name} {fmtNum(Number(u.qty))} {u.unit.code}</span>
                 </li>
               ))}
@@ -219,7 +221,7 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
               {menuEntries.map((e) => (
                 <li key={e.id} className="py-2 flex justify-between">
                   <Link href={`/bom?entry=${e.id}`} className="hover:text-sky-700">{e.menu.name}</Link>
-                  <span className="text-gray-500">{fmtDate(e.date)} · {SHIFT_LABEL[e.shift]}</span>
+                  <span className="text-gray-500">{fmtDate(e.date)} · {cfg.shifts[e.shift].label}</span>
                 </li>
               ))}
             </ul>

@@ -28,9 +28,16 @@ enum Role {
 
 model User {
   id           String   @id @default(cuid())
+  /// รหัสพนักงาน — รหัสที่องค์กรใช้จริง แยกจาก username ที่ใช้ล็อกอิน
+  employeeCode String?  @unique
   username     String   @unique
   passwordHash String
   name         String
+  nickname     String?
+  department   String?
+  phone        String?
+  /// วันที่เริ่มงาน — ใช้ในรายงานบุคลากร
+  startDate    DateTime? @db.Date
   role         Role     @default(STAFF)
   active       Boolean  @default(true)
   createdAt    DateTime @default(now())

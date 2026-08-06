@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import { can } from "@/lib/rbac";
 import { mondayOf, ymd } from "@/lib/format";
+import { getConfig, workingDatesOf } from "@/lib/config";
 
 export async function GET(req: NextRequest) {
   const session = await getSession();
@@ -12,11 +13,8 @@ export async function GET(req: NextRequest) {
   }
   const week = req.nextUrl.searchParams.get("week");
   const weekStart = mondayOf(week ? new Date(week + "T00:00:00Z") : new Date());
-  const days = Array.from({ length: 6 }, (_, i) => {
-    const d = new Date(weekStart);
-    d.setUTCDate(d.getUTCDate() + i);
-    return d;
-  });
+  const cfg = await getConfig();
+  const days = workingDatesOf(weekStart, cfg.workingDays);
 
   const plan = await db.menuPlan.findFirst({
     where: { weekStart },
@@ -27,10 +25,10 @@ export async function GET(req: NextRequest) {
   const wb = new ExcelJS.Workbook();
   wb.creator = "Canteen Management System";
   const ws = wb.addWorksheet("แผนเมนู");
-  ws.getCell("A1").value = `แผนเมนูสัปดาห์ ${ymd(days[0])} ถึง ${ymd(days[5])}`;
+  ws.getCell("A1").value = `${cfg.org.name} — แผนเมนูสัปดาห์ ${ymd(days[0])} ถึง ${ymd(days[days.length - 1])}`;
   ws.getCell("A1").font = { bold: true, size: 14 };
 
-  ["วัน", "รอบเช้า", "รอบดึก"].forEach((h, i) => {
+  ["วัน", cfg.shifts.MORNING.label, cfg.shifts.NIGHT.label].forEach((h, i) => {
     const cell = ws.getCell(3, i + 1);
     cell.value = h;
     cell.font = { bold: true };

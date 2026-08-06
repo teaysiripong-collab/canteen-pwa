@@ -3,7 +3,8 @@ import { db } from "@/lib/db";
 import { requireSession } from "@/lib/auth";
 import { can } from "@/lib/rbac";
 import { PageHeader, Card, Section, EmptyState, btnSecondary, btnPrimary } from "@/components/ui";
-import { fmtNum, fmtDate, fmtDateShort, mondayOf, ymd, SHIFT_LABEL } from "@/lib/format";
+import { fmtNum, fmtDate, fmtDateShort, mondayOf, ymd } from "@/lib/format";
+import { getConfig } from "@/lib/config";
 import { updateBomLine, deleteBomLine, addBomLine, applySuggestedBom } from "./actions";
 
 export const metadata = { title: "BOM วัตถุดิบ" };
@@ -15,6 +16,7 @@ export default async function BomPage({ searchParams }: {
   const session = await requireSession();
   const editable = can(session.role, "bom", "edit");
   const { entry, from, to } = await searchParams;
+  const cfg = await getConfig();
 
   // ── Mode 1: edit BOM of a single plan entry (menu on a date+shift) ──
   if (entry) {
@@ -33,7 +35,7 @@ export default async function BomPage({ searchParams }: {
       <>
         <PageHeader
           title={`BOM: ${planEntry.menu.name}`}
-          subtitle={`${fmtDate(planEntry.date)} · ${SHIFT_LABEL[planEntry.shift]}${locked ? " · 🔒 แผนอนุมัติแล้ว" : ""}`}
+          subtitle={`${fmtDate(planEntry.date)} · ${cfg.shifts[planEntry.shift].label}${locked ? " · 🔒 แผนอนุมัติแล้ว" : ""}`}
           actions={<Link href="/bom" className={btnSecondary}>← BOM รวม</Link>}
         />
         <Card className="p-4 max-w-2xl">
@@ -178,8 +180,8 @@ export default async function BomPage({ searchParams }: {
               <tr className="text-left text-gray-500 border-b border-gray-200 bg-gray-50">
                 <th className="py-2.5 px-3">วัตถุดิบ</th>
                 <th className="py-2.5 px-3">Vendor หลัก</th>
-                <th className="py-2.5 px-3 text-right">☀️ เช้า</th>
-                <th className="py-2.5 px-3 text-right">🌙 ดึก</th>
+                <th className="py-2.5 px-3 text-right">☀️ {cfg.shifts.MORNING.label}</th>
+                <th className="py-2.5 px-3 text-right">🌙 {cfg.shifts.NIGHT.label}</th>
                 <th className="py-2.5 px-3 text-right font-semibold">รวม</th>
                 <th className="py-2.5 px-3">หน่วย</th>
               </tr>

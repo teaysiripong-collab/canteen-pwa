@@ -3,7 +3,8 @@ import { db } from "@/lib/db";
 import { requireSession } from "@/lib/auth";
 import { getStockLevels, getExpiryAlerts } from "@/lib/stock";
 import { PageHeader, Stat, Section, Badge, EmptyState } from "@/components/ui";
-import { SHIFT_LABEL, fmtNum, fmtBaht, fmtDate, mondayOf, ymd } from "@/lib/format";
+import { fmtNum, fmtBaht, fmtDate, mondayOf, ymd } from "@/lib/format";
+import { getConfig } from "@/lib/config";
 
 export const metadata = { title: "Dashboard" };
 export const dynamic = "force-dynamic";
@@ -13,6 +14,7 @@ export default async function DashboardPage() {
   const today = new Date();
   today.setUTCHours(0, 0, 0, 0);
   const weekStart = mondayOf(today);
+  const cfg = await getConfig();
 
   const [todayEntries, tasks, pos, stockLevels, expiry, weekBom] = await Promise.all([
     db.menuPlanEntry.findMany({
@@ -96,7 +98,7 @@ export default async function DashboardPage() {
       {/* เมนูวันนี้ */}
       <div className="grid md:grid-cols-2 gap-4 mb-4">
         {([["MORNING", morning], ["NIGHT", night]] as const).map(([shift, entries]) => (
-          <Section key={shift} title={`🍚 เมนู${SHIFT_LABEL[shift]}`} action={<Link href="/menu-plan" className="text-xs text-sky-700 font-medium">แผนเมนู →</Link>}>
+          <Section key={shift} title={`🍚 เมนู${cfg.shifts[shift].label}`} action={<Link href="/menu-plan" className="text-xs text-sky-700 font-medium">แผนเมนู →</Link>}>
             {entries.length === 0 ? (
               <EmptyState text="ยังไม่มีเมนูที่อนุมัติสำหรับวันนี้" />
             ) : (

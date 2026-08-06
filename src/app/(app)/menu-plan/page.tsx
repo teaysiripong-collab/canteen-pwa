@@ -3,7 +3,8 @@ import { db } from "@/lib/db";
 import { requireSession } from "@/lib/auth";
 import { can } from "@/lib/rbac";
 import { PageHeader, Card, Badge, btnPrimary, btnSecondary } from "@/components/ui";
-import { fmtDateShort, mondayOf, ymd, SHIFT_LABEL, PLAN_STATUS } from "@/lib/format";
+import { fmtDateShort, mondayOf, ymd, PLAN_STATUS } from "@/lib/format";
+import { getConfig, workingDatesOf } from "@/lib/config";
 import { createPlan, addEntry, removeEntry, copyLastWeek, submitPlan, approvePlan, reopenPlan } from "./actions";
 import type { Shift } from "@prisma/client";
 
@@ -18,11 +19,8 @@ export default async function MenuPlanPage({ searchParams }: { searchParams: Pro
   const params = await searchParams;
   const base = params.week ? new Date(params.week + "T00:00:00Z") : new Date();
   const weekStart = mondayOf(base);
-  const days = Array.from({ length: 6 }, (_, i) => {
-    const d = new Date(weekStart);
-    d.setUTCDate(d.getUTCDate() + i);
-    return d;
-  });
+  const cfg = await getConfig();
+  const days = workingDatesOf(weekStart, cfg.workingDays);
   const prevWeek = new Date(weekStart); prevWeek.setUTCDate(prevWeek.getUTCDate() - 7);
   const nextWeek = new Date(weekStart); nextWeek.setUTCDate(nextWeek.getUTCDate() + 7);
 
@@ -43,7 +41,7 @@ export default async function MenuPlanPage({ searchParams }: { searchParams: Pro
     <>
       <PageHeader
         title="แผนเมนูรายสัปดาห์"
-        subtitle={`สัปดาห์ ${fmtDateShort(days[0])} – ${fmtDateShort(days[5])} (จันทร์–เสาร์)`}
+        subtitle={`สัปดาห์ ${fmtDateShort(days[0])} – ${fmtDateShort(days[days.length - 1])} (${cfg.workingDays.length} วันทำการ)`}
         actions={
           <>
             <Link href={`/menu-plan?week=${ymd(prevWeek)}`} className={btnSecondary}>← สัปดาห์ก่อน</Link>
@@ -105,7 +103,7 @@ export default async function MenuPlanPage({ searchParams }: { searchParams: Pro
               return (
                 <div key={shift} className="mb-3">
                   <div className={`text-xs font-medium mb-1 ${shift === "MORNING" ? "text-amber-600" : "text-indigo-600"}`}>
-                    {shift === "MORNING" ? "☀️" : "🌙"} {SHIFT_LABEL[shift]}
+                    {shift === "MORNING" ? "☀️" : "🌙"} {cfg.shifts[shift].label}
                   </div>
                   <ul className="space-y-1">
                     {entries.map((e) => (
@@ -133,7 +131,7 @@ export default async function MenuPlanPage({ searchParams }: { searchParams: Pro
       </div>
 
       <p className="text-xs text-gray-400 mt-4">
-        💡 เมื่อเพิ่มเมนู ระบบดึง BOM มาตรฐานให้อัตโนมัติ (รอบดึกเริ่มต้นที่ 60% ของรอบเช้า) — แก้ไขปริมาณจริงได้ที่หน้า <Link href="/bom" className="text-sky-700">BOM</Link>
+        💡 เมื่อเพิ่มเมนู ระบบดึง BOM มาตรฐานให้อัตโนมัติ ({cfg.shifts.NIGHT.label}เริ่มต้นที่ {Math.round(cfg.nightFactor * 100)}% ของ{cfg.shifts.MORNING.label}) — แก้ไขปริมาณจริงได้ที่หน้า <Link href="/bom" className="text-sky-700">BOM</Link>
       </p>
     </>
   );

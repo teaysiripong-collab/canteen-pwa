@@ -7,6 +7,7 @@ import { requireSession } from "@/lib/auth";
 import { can } from "@/lib/rbac";
 import { audit } from "@/lib/audit";
 import { getStockLevels } from "@/lib/stock";
+import { getConfig } from "@/lib/config";
 import type { PoStatus } from "@prisma/client";
 
 async function requireEdit() {
@@ -16,10 +17,11 @@ async function requireEdit() {
 }
 
 async function nextPoCode(): Promise<string> {
+  const { poPrefix } = await getConfig();
   const today = new Date();
   const ymd = today.toISOString().slice(0, 10).replace(/-/g, "");
-  const count = await db.purchaseOrder.count({ where: { code: { startsWith: `PO-${ymd}` } } });
-  return `PO-${ymd}-${String(count + 1).padStart(3, "0")}`;
+  const count = await db.purchaseOrder.count({ where: { code: { startsWith: `${poPrefix}-${ymd}` } } });
+  return `${poPrefix}-${ymd}-${String(count + 1).padStart(3, "0")}`;
 }
 
 /** Generate draft POs from BOM for a date range, grouped by default vendor. */
