@@ -1,0 +1,37 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Noto Sans Thai", "Sarabun", ui-sans-serif, system-ui, -apple-system, sans-serif;
+}
+
+html {
+  font-family: var(--font-sans);
+}
+
+/* Print: clean A4, black & white friendly */
+@media print {
+  .no-print {
+    display: none !important;
+  }
+  body {
+    background: white !important;
+  }
+  .print-area {
+    box-shadow: none !important;
+    border: none !important;
+  }
+}
+
+/* Big touch targets for shop-floor use */
+button,
+a.btn,
+input,
+select,
+textarea {
+  min-height: 2.5rem;
+}
+
+input[type="checkbox"],
+input[type="radio"] {
+  min-height: auto;
+}

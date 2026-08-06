@@ -1,0 +1,526 @@
+// Canteen Management System — Database Schema
+// PostgreSQL (relational). Design principles:
+//  - Recipe (how to cook) and BOM (planned quantities) are SEPARATE models.
+//  - Stock is a transaction ledger, SEPARATE from BOM. Stock never auto-deducts BOM.
+//  - Planned (BOM) vs Actual (UsageRecord) are stored separately for BOM learning.
+//  - Every important mutation writes an AuditLog row.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ───────────────────────── Users & Access ─────────────────────────
+
+enum Role {
+  ADMIN
+  MANAGER
+  SUPERVISOR
+  PROCUREMENT
+  STORE
+  STAFF
+  VIEWER
+}
+
+model User {
+  id           String   @id @default(cuid())
+  username     String   @unique
+  passwordHash String
+  name         String
+  role         Role     @default(STAFF)
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+
+  auditLogs      AuditLog[]
+  tasksAssigned  Task[]         @relation("TaskAssignee")
+  tasksCreated   Task[]         @relation("TaskCreator")
+  notifications  Notification[]
+  stockTxns      StockTransaction[]
+  usageRecords   UsageRecord[]
+  plansCreated   MenuPlan[]     @relation("PlanCreator")
+  plansApproved  MenuPlan[]     @relation("PlanApprover")
+  purchaseOrders PurchaseOrder[]
+  recipesEdited  Recipe[]
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  entity    String // e.g. "BomLine", "PurchaseOrder"
+  entityId  String
+  action    String // CREATE | UPDATE | DELETE | STATUS | OVERRIDE
+  field     String?
+  oldValue  String?
+  newValue  String?
+  detail    String?
+  createdAt DateTime @default(now())
+
+  @@index([entity, entityId])
+  @@index([createdAt])
+}
+
+// ───────────────────────── Master Data ─────────────────────────
+
+model Unit {
+  id   String @id @default(cuid())
+  code String @unique // kg, g, ขวด, ลัง
+  name String
+
+  ingredientsStock    Ingredient[] @relation("StockUnit")
+  ingredientsPurchase Ingredient[] @relation("PurchaseUnit")
+  bomLines            BomLine[]
+  bomTemplateItems    BomTemplateItem[]
+  recipeIngredients   RecipeIngredient[]
+  poItems             PurchaseOrderItem[]
+  stockTxns           StockTransaction[]
+  usageRecords        UsageRecord[]
+}
+
+model Category {
+  id   String @id @default(cuid())
+  type String // INGREDIENT | MENU
+  name String
+
+  ingredients Ingredient[]
+  menus       Menu[]
+
+  @@unique([type, name])
+}
+
+model Location {
+  id       String     @id @default(cuid())
+  code     String     @unique
+  name     String
+  parentId String?
+  parent   Location?  @relation("LocationTree", fields: [parentId], references: [id])
+  children Location[] @relation("LocationTree")
+  active   Boolean    @default(true)
+
+  ingredients Ingredient[]
+  stockTxns   StockTransaction[]
+  tasks       Task[]
+}
+
+model Vendor {
+  id           String  @id @default(cuid())
+  code         String  @unique
+  name         String
+  contactName  String?
+  phone        String?
+  email        String?
+  minOrder     Decimal? @db.Decimal(12, 2)
+  leadTimeDays Int      @default(1)
+  deliveryDays String? // e.g. "จ,พ,ศ"
+  active       Boolean  @default(true)
+
+  ingredients    Ingredient[]
+  purchaseOrders PurchaseOrder[]
+  lots           Lot[]
+}
+
+model Ingredient {
+  id               String    @id @default(cuid())
+  code             String    @unique
+  name             String
+  categoryId       String?
+  category         Category? @relation(fields: [categoryId], references: [id])
+  stockUnitId      String
+  stockUnit        Unit      @relation("StockUnit", fields: [stockUnitId], references: [id])
+  purchaseUnitId   String?
+  purchaseUnit     Unit?     @relation("PurchaseUnit", fields: [purchaseUnitId], references: [id])
+  conversionFactor Decimal   @default(1) @db.Decimal(12, 4) // 1 purchase unit = X stock units
+  defaultVendorId  String?
+  defaultVendor    Vendor?   @relation(fields: [defaultVendorId], references: [id])
+  storageId        String?
+  storage          Location? @relation(fields: [storageId], references: [id])
+  minStock         Decimal   @default(0) @db.Decimal(12, 3)
+  lastPrice        Decimal?  @db.Decimal(12, 2) // per purchase unit, filled by procurement
+  imageUrl         String?
+  active           Boolean   @default(true)
+
+  bomLines          BomLine[]
+  bomTemplateItems  BomTemplateItem[]
+  recipeIngredients RecipeIngredient[]
+  poItems           PurchaseOrderItem[]
+  lots              Lot[]
+  stockTxns         StockTransaction[]
+  usageRecords      UsageRecord[]
+
+  @@index([name])
+}
+
+model Menu {
+  id         String    @id @default(cuid())
+  code       String    @unique
+  name       String
+  categoryId String?
+  category   Category? @relation(fields: [categoryId], references: [id])
+  imageUrl   String?
+  favorite   Boolean   @default(false)
+  active     Boolean   @default(true)
+
+  recipes      Recipe[]
+  bomTemplates BomTemplate[]
+  planEntries  MenuPlanEntry[]
+  usageRecords UsageRecord[]
+
+  @@index([name])
+}
+
+// ───────────────────────── Recipe (how to cook) ─────────────────────────
+
+model Recipe {
+  id            String   @id @default(cuid())
+  menuId        String
+  menu          Menu     @relation(fields: [menuId], references: [id])
+  version       Int      @default(1)
+  isCurrent     Boolean  @default(true)
+  yieldNote     String? // เช่น "สำหรับ 100 ที่"
+  timeMinutes   Int?
+  controlPoints String? // จุดควบคุมสำคัญ
+  notes         String?
+  updatedById   String?
+  updatedBy     User?    @relation(fields: [updatedById], references: [id])
+  updatedAt     DateTime @updatedAt
+  createdAt     DateTime @default(now())
+
+  ingredients RecipeIngredient[]
+  steps       RecipeStep[]
+
+  @@index([menuId, isCurrent])
+}
+
+model RecipeIngredient {
+  id           String     @id @default(cuid())
+  recipeId     String
+  recipe       Recipe     @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+  ingredientId String
+  ingredient   Ingredient @relation(fields: [ingredientId], references: [id])
+  qty          Decimal    @db.Decimal(12, 3)
+  unitId       String
+  unit         Unit       @relation(fields: [unitId], references: [id])
+  prepNote     String? // วิธีเตรียม เช่น "สับละเอียด"
+  sortOrder    Int        @default(0)
+}
+
+model RecipeStep {
+  id          String  @id @default(cuid())
+  recipeId    String
+  recipe      Recipe  @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+  stepNo      Int
+  instruction String
+  imageUrl    String?
+}
+
+// ───────────────────────── BOM (planned quantities) ─────────────────────────
+
+// Standard BOM per menu (master template, versioned). Pulled in when planning.
+model BomTemplate {
+  id        String   @id @default(cuid())
+  menuId    String
+  menu      Menu     @relation(fields: [menuId], references: [id])
+  version   Int      @default(1)
+  isCurrent Boolean  @default(true)
+  note      String?
+  createdAt DateTime @default(now())
+
+  items BomTemplateItem[]
+
+  @@index([menuId, isCurrent])
+}
+
+model BomTemplateItem {
+  id           String      @id @default(cuid())
+  templateId   String
+  template     BomTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  ingredientId String
+  ingredient   Ingredient  @relation(fields: [ingredientId], references: [id])
+  qty          Decimal     @db.Decimal(12, 3) // ปริมาณมาตรฐานต่อรอบ
+  unitId       String
+  unit         Unit        @relation(fields: [unitId], references: [id])
+}
+
+// ───────────────────────── Menu Planning ─────────────────────────
+
+enum PlanStatus {
+  DRAFT
+  SUBMITTED
+  APPROVED
+}
+
+enum Shift {
+  MORNING // รอบเช้า
+  NIGHT // รอบดึก
+}
+
+model MenuPlan {
+  id           String     @id @default(cuid())
+  weekStart    DateTime   @db.Date // Monday
+  status       PlanStatus @default(DRAFT)
+  version      Int        @default(1)
+  note         String?
+  createdById  String
+  createdBy    User       @relation("PlanCreator", fields: [createdById], references: [id])
+  approvedById String?
+  approvedBy   User?      @relation("PlanApprover", fields: [approvedById], references: [id])
+  approvedAt   DateTime?
+  submittedAt  DateTime?
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  entries MenuPlanEntry[]
+
+  @@unique([weekStart, version])
+}
+
+model MenuPlanEntry {
+  id        String   @id @default(cuid())
+  planId    String
+  plan      MenuPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+  date      DateTime @db.Date
+  shift     Shift
+  menuId    String
+  menu      Menu     @relation(fields: [menuId], references: [id])
+  note      String?
+  sortOrder Int      @default(0)
+
+  bomLines BomLine[]
+
+  @@index([date, shift])
+}
+
+// BOM lines: planned ingredient quantities for a specific menu on a date+shift.
+// NEVER auto-deducted by stock. Stock is shown as reference only during purchasing.
+model BomLine {
+  id           String        @id @default(cuid())
+  planEntryId  String
+  planEntry    MenuPlanEntry @relation(fields: [planEntryId], references: [id], onDelete: Cascade)
+  ingredientId String
+  ingredient   Ingredient    @relation(fields: [ingredientId], references: [id])
+  qty          Decimal       @db.Decimal(12, 3)
+  unitId       String
+  unit         Unit          @relation(fields: [unitId], references: [id])
+
+  @@index([ingredientId])
+}
+
+// Actual usage — recorded separately from plan, for BOM learning + reports.
+model UsageRecord {
+  id           String     @id @default(cuid())
+  date         DateTime   @db.Date
+  shift        Shift
+  menuId       String?
+  menu         Menu?      @relation(fields: [menuId], references: [id])
+  ingredientId String
+  ingredient   Ingredient @relation(fields: [ingredientId], references: [id])
+  qty          Decimal    @db.Decimal(12, 3)
+  unitId       String
+  unit         Unit       @relation(fields: [unitId], references: [id])
+  recordedById String
+  recordedBy   User       @relation(fields: [recordedById], references: [id])
+  createdAt    DateTime   @default(now())
+
+  @@index([ingredientId, date])
+}
+
+// ───────────────────────── Purchasing ─────────────────────────
+
+enum PoStatus {
+  DRAFT
+  REVIEWED
+  APPROVED
+  ORDERED
+  PARTIAL // ส่งไม่ครบ
+  RECEIVED
+  COMPLETED
+  CANCELLED
+}
+
+model PurchaseOrder {
+  id          String    @id @default(cuid())
+  code        String    @unique // PO-YYYYMMDD-XXX
+  vendorId    String
+  vendor      Vendor    @relation(fields: [vendorId], references: [id])
+  status      PoStatus  @default(DRAFT)
+  periodStart DateTime? @db.Date // BOM range this PO was planned from
+  periodEnd   DateTime? @db.Date
+  orderDate   DateTime?
+  expectedAt  DateTime?
+  note        String?
+  overrideReason String? // เหตุผลกรณี Supervisor override validation
+  createdById String
+  createdBy   User      @relation(fields: [createdById], references: [id])
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  items PurchaseOrderItem[]
+
+  @@index([status])
+}
+
+model PurchaseOrderItem {
+  id           String        @id @default(cuid())
+  poId         String
+  po           PurchaseOrder @relation(fields: [poId], references: [id], onDelete: Cascade)
+  ingredientId String
+  ingredient   Ingredient    @relation(fields: [ingredientId], references: [id])
+  bomQty       Decimal       @default(0) @db.Decimal(12, 3) // ตามแผน BOM
+  stockQty     Decimal       @default(0) @db.Decimal(12, 3) // snapshot stock ณ ตอนวางแผน (อ้างอิงเท่านั้น)
+  suggestedQty Decimal       @default(0) @db.Decimal(12, 3)
+  orderQty     Decimal       @default(0) @db.Decimal(12, 3) // คนตัดสินใจเอง
+  receivedQty  Decimal       @default(0) @db.Decimal(12, 3)
+  unitId       String
+  unit         Unit          @relation(fields: [unitId], references: [id])
+  price        Decimal?      @db.Decimal(12, 2) // ราคาต่อหน่วย (Procurement กรอก)
+  note         String?
+
+  @@index([ingredientId])
+}
+
+// ───────────────────────── Inventory / Stock ─────────────────────────
+
+model Lot {
+  id           String     @id @default(cuid())
+  ingredientId String
+  ingredient   Ingredient @relation(fields: [ingredientId], references: [id])
+  lotCode      String
+  expiryDate   DateTime?  @db.Date
+  receivedAt   DateTime   @default(now())
+  vendorId     String?
+  vendor       Vendor?    @relation(fields: [vendorId], references: [id])
+
+  stockTxns StockTransaction[]
+
+  @@index([ingredientId, expiryDate])
+}
+
+enum StockTxType {
+  RECEIVE
+  ISSUE
+  TRANSFER_IN
+  TRANSFER_OUT
+  ADJUST
+  COUNT
+}
+
+// Ledger: current stock = SUM(qty) grouped by ingredient/location/lot.
+model StockTransaction {
+  id           String      @id @default(cuid())
+  type         StockTxType
+  ingredientId String
+  ingredient   Ingredient  @relation(fields: [ingredientId], references: [id])
+  lotId        String?
+  lot          Lot?        @relation(fields: [lotId], references: [id])
+  locationId   String
+  location     Location    @relation(fields: [locationId], references: [id])
+  qty          Decimal     @db.Decimal(12, 3) // + เข้า, - ออก
+  unitId       String
+  unit         Unit        @relation(fields: [unitId], references: [id])
+  refType      String? // PO | PLAN_ENTRY | MENU | TASK
+  refId        String?
+  shift        Shift?
+  note         String?
+  imageUrl     String?
+  userId       String
+  user         User        @relation(fields: [userId], references: [id])
+  createdAt    DateTime    @default(now())
+
+  @@index([ingredientId, locationId])
+  @@index([createdAt])
+}
+
+// ───────────────────────── Tasks ─────────────────────────
+
+enum TaskStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum TaskPriority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
+model Task {
+  id          String       @id @default(cuid())
+  title       String
+  description String?
+  date        DateTime?    @db.Date
+  shift       Shift?
+  locationId  String?
+  location    Location?    @relation(fields: [locationId], references: [id])
+  assigneeId  String?
+  assignee    User?        @relation("TaskAssignee", fields: [assigneeId], references: [id])
+  createdById String
+  createdBy   User         @relation("TaskCreator", fields: [createdById], references: [id])
+  priority    TaskPriority @default(NORMAL)
+  status      TaskStatus   @default(NOT_STARTED)
+  dueAt       DateTime?
+  remark      String?
+  completedAt DateTime?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  @@index([assigneeId, status])
+  @@index([dueAt])
+}
+
+// ───────────────────────── Notifications ─────────────────────────
+
+model Notification {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id])
+  type      String // TASK_NEW | TASK_DUE | PO_INCOMPLETE | STOCK_LOW | EXPIRY | MENU_APPROVAL | ...
+  title     String
+  message   String?
+  link      String?
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId, readAt])
+}
+
+// ───────────────────────── Cost / Excel Templates ─────────────────────────
+
+model ExcelTemplate {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  // JSON mapping: which system field goes to which Excel column, editable by Admin
+  // e.g. [{"field":"menuName","column":"B"},{"field":"ingredientName","column":"C"},...]
+  mappingJson String
+  headerRow   Int      @default(1)
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  costFiles CostFile[]
+}
+
+enum CostFileStatus {
+  GENERATED // ระบบสร้างไฟล์แล้ว
+  PRICING // รอจัดซื้อกรอกราคา
+  COMPLETED
+}
+
+model CostFile {
+  id          String         @id @default(cuid())
+  templateId  String
+  template    ExcelTemplate  @relation(fields: [templateId], references: [id])
+  name        String
+  periodStart DateTime       @db.Date
+  periodEnd   DateTime       @db.Date
+  status      CostFileStatus @default(GENERATED)
+  note        String?
+  createdAt   DateTime       @default(now())
+}

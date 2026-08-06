@@ -1,3 +1,218 @@
-# canteen-pwa
+# Canteen Management System
 
-เริ่มต้นโปรเจกต์ใหม่
+ระบบศูนย์กลางบริหารงานแคนทีน — วางแผนเมนู → สูตรอาหาร → BOM → วางแผนสั่งซื้อ → สั่งซื้อ → Stock → เบิกใช้ → ต้นทุน → งานที่มอบหมาย → รายงาน
+
+เป็น Web App แบบ PWA ใช้ได้ทั้ง Desktop / Tablet / Mobile ภาษาไทยเป็นหลัก
+
+---
+
+## 1. หลักการออกแบบ (Design Principle)
+
+แต่ละแนวคิดเป็น **คนละเรื่อง** และเก็บแยกกันในฐานข้อมูล เพื่อให้แก้ไขที่หนึ่งแล้วไม่กระทบทั้งระบบ
+
+| แนวคิด | ความหมาย | ตารางหลัก |
+|---|---|---|
+| Menu | สิ่งที่จะทำ | `Menu`, `MenuPlan`, `MenuPlanEntry` |
+| Recipe | วิธีทำอาหาร | `Recipe`, `RecipeIngredient`, `RecipeStep` |
+| BOM | สิ่งที่วางแผนว่าจะใช้ | `BomTemplate`, `BomTemplateItem`, `BomLine` |
+| Purchase | สิ่งที่ตัดสินใจว่าจะสั่ง | `PurchaseOrder`, `PurchaseOrderItem` |
+| Stock | สิ่งที่มีอยู่จริง | `StockTransaction`, `Lot` |
+| Actual Usage | สิ่งที่ใช้จริง | `UsageRecord` |
+| Cost | ต้นทุนที่เกิดขึ้น | `ExcelTemplate`, `CostFile` |
+| Task | สิ่งที่ต้องมีคนรับผิดชอบ | `Task` |
+
+**กติกาสำคัญ 3 ข้อ**
+
+1. **BOM แยกจาก Stock เด็ดขาด** — BOM ทำล่วงหน้าเป็นสัปดาห์/เดือนได้ ส่วน Stock คือยอดจริง ณ ปัจจุบัน
+   ระบบ **ไม่หัก Stock ออกจาก BOM อัตโนมัติ** — Stock แสดงเป็น "ข้อมูลประกอบ" ตอนสั่งซื้อเท่านั้น
+   (`PurchaseOrderItem.stockQty` เป็น snapshot อ้างอิง ไม่ใช่ตัวคำนวณบังคับ)
+2. **Recipe แยกจาก BOM** — Recipe คือวิธีทำ, BOM คือปริมาณสำหรับวางแผน สูตรหนึ่งมี BOM ได้หลาย Version
+3. **Planned แยกจาก Actual** — `BomLine` (แผน) กับ `UsageRecord` (ใช้จริง) เก็บคนละตาราง เพื่อทำ BOM Learning
+
+---
+
+## 2. Workflow หลัก
+
+```
+MENU PLANNING (แยกรอบเช้า/ดึก)
+   ↓  ระบบดึง BOM มาตรฐานให้อัตโนมัติ
+BOM  →  BOM REVIEW
+   ↓
+PURCHASE PLANNING (รวมตามช่วงวันที่ → Group ตาม Vendor → ตรวจรายการตกหล่น)
+   ↓
+CONFIRM ORDER  →  RECEIVE  →  STOCK  →  ISSUE  →  ACTUAL USAGE
+   ↓
+COST / EXCEL  →  REPORT & ANALYTICS
+
+TASK MANAGEMENT ทำงานคู่ขนานกับทุกขั้นตอน
+```
+
+**Enter Once — Use Everywhere:** เลือกเมนูครั้งเดียว ระบบเสนอ BOM ให้เอง → BOM ไหลไปเป็นแผนสั่งซื้อ →
+ราคาที่จัดซื้อกรอกใน PO ถูกเก็บกลับเข้า `Ingredient.lastPrice` แล้วใช้ประเมิน Cost ต่อทันที
+ตอนเบิกของ ถ้าระบุเมนู ระบบบันทึก Actual Usage ให้เอง ไม่ต้องพิมพ์ซ้ำ
+
+---
+
+## 3. Role & Permission Matrix
+
+`view` = ดูอย่างเดียว · `edit` = สร้าง/แก้ไข · `approve` = อนุมัติ · `admin` = จัดการทั้งหมด
+เมนูที่ไม่มีสิทธิ์ **จะไม่แสดงในแถบนำทางเลย** (ดูตารางเต็มได้ที่หน้า ตั้งค่า)
+
+| โมดูล | Admin | Manager | Supervisor | Procurement | Store | Staff | Viewer |
+|---|---|---|---|---|---|---|---|
+| Dashboard | view | view | view | view | view | view | view |
+| แผนเมนู | admin | approve | edit | view | view | view | view |
+| คลังสูตรอาหาร | admin | view | edit | view | view | view | view |
+| BOM | admin | approve | edit | view | view | — | view |
+| จัดซื้อ | admin | approve | edit | edit | view | — | view |
+| Stock | admin | view | view | view | edit | edit | view |
+| ต้นทุน | admin | approve | view | edit | — | — | view |
+| งานที่มอบหมาย | admin | edit | edit | edit | edit | edit | view |
+| เอกสาร / รายงาน | admin | view | view | view | view | — | view |
+| Master Data | admin | view | view | view | — | — | — |
+| ตั้งค่า | admin | — | — | — | — | — | — |
+
+ทุกการแก้ไขข้อมูลสำคัญบันทึกใน `AuditLog`: ใครแก้ · แก้อะไร · จากค่าเดิมอะไร · เป็นค่าใหม่อะไร · เมื่อไหร่
+
+---
+
+## 4. Information Architecture
+
+```
+/                      Canteen Command Center (drill down ได้ทุกตัวเลข)
+/menu-plan             ปฏิทินเมนู จ.–ส. แยกรอบเช้า/ดึก · Draft → ส่งตรวจ → Approved
+  /print               ใบเมนู A4 สำหรับใช้หน้างาน
+/recipes               คลังสูตร (ค้นหา) → /recipes/[id] → QR → /recipes/menu/[menuId] (เปิดสูตรล่าสุดเสมอ)
+/bom                   รวม BOM ตามช่วงวันที่ · แยกเช้า/ดึก/รวม · BOM Learning
+  ?entry=<id>          แก้ BOM รายเมนู-รายรอบ
+/purchase              รายการใบสั่งซื้อ (กรองตามสถานะ)
+  /plan                วางแผนสั่งซื้อจาก BOM → Group ตาม Vendor
+  /[id]                ตาราง BOM/Stock/แนะนำ/สั่งจริง · Validation · รับของ
+/stock                 ยอดคงเหลือ + ของอยู่ที่ไหน
+  /issue /receive /transfer /adjust /history /expiry
+/cost                  ต้นทุนตามแผน vs ใช้จริง · สร้าง Excel Working File
+/tasks                 Kanban (ลาก-วางได้) · Today/Tomorrow/Week/Overdue/My Tasks
+/documents             Document Center รวมเอกสารทุกประเภท
+/reports               รายงานที่ตอบคำถามหน้างานจริง
+/master                Ingredient / Menu / Vendor / Location / Unit / Category / User
+/settings              ผู้ใช้ · Permission Matrix · Activity Log
+  /excel-template      Excel Template Manager (แก้ Mapping ได้โดยไม่แก้โค้ด)
+/search?q=             Global Search
+/notifications         แจ้งเฉพาะสิ่งที่ต้อง Action
+```
+
+---
+
+## 5. Validation & Error Handling
+
+**Purchase** — ตรวจก่อน Confirm Order แต่ **ไม่ Block**: Supervisor override ได้พร้อมระบุเหตุผล (เก็บใน `overrideReason` + Audit Log)
+- วัตถุดิบจาก BOM ที่ยังไม่ได้สั่ง (บอกชื่อรายการที่ขาด)
+- สั่งน้อยกว่า / มากกว่า BOM · จำนวนเป็น 0 · Vendor ยังไม่กำหนด
+
+**Stock** — เบิกเกินยอดคงเหลือของ Location นั้นจะถูกปฏิเสธพร้อมบอกว่า *ของอยู่ที่ไหน*
+(กันเลือก Location ผิด) หากของจริงมีแต่ระบบยังไม่ตรง ติ๊ก "ยืนยันเบิกเกินยอด" เพื่อบันทึกได้ และถูกบันทึกเป็น `OVERRIDE` ใน Audit Log
+ปรับ Stock (`Adjustment`) **ต้องระบุเหตุผลเสมอ**
+
+ข้อความ validation ถูกส่งกลับเป็น state (ไม่ใช่ throw) เพื่อให้แสดงถึงผู้ใช้ได้จริงบน production
+และค่าที่กรอกไว้จะถูกคืนกลับฟอร์ม — กรอกใหม่ไม่หาย
+
+---
+
+## 6. Data Safety
+
+- **Soft delete** — Master data ใช้ `active = false` ไม่ลบจริง
+- **ไม่ลบ Transaction** — Stock ใช้ระบบบัญชีเดินสะพัด (ledger) การแก้ยอดคือการเพิ่มรายการปรับ ไม่ใช่ลบของเดิม
+- **Audit Log** ทุกการแก้ไขสำคัญ · **Activity Log** ดูย้อนหลังได้ที่หน้าตั้งค่า
+- **PWA + Service Worker** — API ไม่ถูก cache (ข้อมูลไม่ค้าง), หน้าเว็บมี offline fallback
+- **Backup**: `pg_dump -Fc canteen > backup.dump`
+
+---
+
+## 7. Tech Stack
+
+- **Next.js 15** (App Router, Server Actions) + **React 19** + **TypeScript**
+- **PostgreSQL** + **Prisma** (Foreign Key, Index, Transaction, `Decimal` สำหรับปริมาณ/ราคา)
+- **Tailwind CSS 4** — Modern/Japanese Corporate, minimal, ปุ่มใหญ่, mobile-first
+- **jose** (JWT session, httpOnly cookie) + **bcryptjs** · RBAC ใน `src/lib/rbac.ts`
+- **ExcelJS** (Import/Export) · **qrcode** (QR สูตรอาหาร) · PDF ผ่าน Print A4 (`@media print`)
+
+---
+
+## 8. เริ่มต้นใช้งาน
+
+```bash
+npm install
+cp .env.example .env          # แก้ DATABASE_URL และ AUTH_SECRET
+npm run db:push               # สร้างตารางตาม schema
+npm run db:seed               # ข้อมูลตัวอย่าง (เมนู สูตร BOM Vendor Stock งาน)
+npm run dev                   # http://localhost:3000
+```
+
+Production:
+
+```bash
+npm run build && npm start
+```
+
+### ผู้ใช้ตัวอย่าง (รหัสผ่าน `1234` ทั้งหมด — เปลี่ยนก่อนใช้งานจริง)
+
+| Username | บทบาท |
+|---|---|
+| `admin` | ผู้ดูแลระบบ |
+| `manager` | ผู้จัดการ |
+| `supervisor` | หัวหน้างาน |
+| `procurement` | จัดซื้อ |
+| `store` | สโตร์/คลัง |
+| `staff1`, `staff2` | พนักงาน |
+| `viewer` | ผู้ชม |
+
+---
+
+## 9. ทดสอบ
+
+```bash
+npm run typecheck
+npm run lint
+npm run build
+
+npm start &                                        # ต้องรันแอปก่อน
+CHROMIUM_PATH=/path/to/chromium npm run test:e2e   # 51 checks
+```
+
+`tests/e2e.mjs` ทดสอบ workflow จริงทั้งหมด: drill-down จาก Dashboard, การอนุมัติแผนเมนู,
+BOM แยกกะ + BOM Learning, สูตรอาหารบนมือถือ, เบิกของแบบ FEFO (รวมกรณีเบิกเกินยอด),
+วางแผนสั่งซื้อ + Validation, Kanban งาน, Cost + Export Excel, รายงาน, Global Search
+และสิทธิ์การเข้าถึงของทุก Role
+
+---
+
+## 10. Excel Cost Workflow
+
+องค์กรมี Excel Template เดิมอยู่แล้ว ระบบจึง **ไม่บังคับให้เลิกใช้ Excel**
+
+```
+Admin กำหนด Mapping (field → column)  ที่ /settings/excel-template
+   ↓
+ระบบเติมข้อมูล Menu + BOM ลงคอลัมน์ตามที่กำหนด และเว้นช่องราคาให้จัดซื้อ (ไฮไลต์สีเหลือง)
+   ↓
+จัดซื้อกรอกราคา → สูตรใน Excel คำนวณ Cost ตามรูปแบบเดิม
+```
+
+Mapping เก็บเป็น JSON ใน `ExcelTemplate.mappingJson` — **เปลี่ยน Template ได้โดยไม่ต้องแก้ Source Code**
+
+```json
+[
+  { "field": "menuName", "column": "C", "label": "เมนู" },
+  { "field": "qty",      "column": "E", "label": "ปริมาณ (BOM)" },
+  { "field": "price",    "column": "G", "label": "ราคา/หน่วย" },
+  { "field": "amount",   "column": "H", "label": "รวมเงิน", "formula": "E*G" }
+]
+```
+
+---
+
+## 11. Phase ถัดไป
+
+Smart Assistant เป็น **Decision Support** ไม่ใช่ผู้ตัดสินใจแทนคน — BOM Learning ที่มีอยู่แล้ว
+ทำงานตามหลักนี้ (เสนอค่า แต่ต้องให้หัวหน้ายืนยันก่อนเสมอ) ส่วนที่ขยายต่อได้:
+Forecast ปริมาณ · ตรวจจับจำนวนผิดปกติ · แนะนำเมนูจากวัตถุดิบค้าง Stock · รองรับหลายภาษา · เพิ่มรอบเวลานอกเหนือเช้า/ดึก
