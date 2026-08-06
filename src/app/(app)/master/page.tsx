@@ -45,7 +45,14 @@ export default async function MasterPage({ searchParams }: { searchParams: Promi
 
   return (
     <>
-      <PageHeader title="Master Data" subtitle="ข้อมูลหลักของระบบ — แก้ที่นี่แล้วทุกโมดูลใช้ค่าใหม่ทันที ไม่มีการ Hardcode ใน Source Code" />
+      <PageHeader title="Master Data"
+        subtitle="ข้อมูลหลักของระบบ — แก้ที่นี่แล้วทุกโมดูลใช้ค่าใหม่ทันที ไม่มีการ Hardcode ใน Source Code"
+        actions={isAdmin ? (
+          <>
+            <Link href="/master/import" className={btnPrimary}>📥 นำเข้าจาก Excel</Link>
+            <a href="/api/import/template" className={btnSecondary}>⬇ แบบฟอร์มนำเข้า</a>
+          </>
+        ) : undefined} />
 
       <div className="flex flex-wrap gap-2 mb-4">
         {TABS.map((t) => (

@@ -140,31 +140,35 @@ TASK MANAGEMENT ทำงานคู่ขนานกับทุกขั้�
 
 ## 8. เริ่มต้นใช้งาน
 
+### ใช้งานจริง — ระบบเปล่า ไม่มีข้อมูลตัวอย่างปน
+
 ```bash
 npm install
-cp .env.example .env          # แก้ DATABASE_URL และ AUTH_SECRET
-npm run db:push               # สร้างตารางตาม schema
-npm run db:seed               # ข้อมูลตัวอย่าง (เมนู สูตร BOM Vendor Stock งาน)
-npm run dev                   # http://localhost:3000
-```
-
-Production:
-
-```bash
+cp .env.example .env                 # แก้ DATABASE_URL และ AUTH_SECRET
+npm run db:push                      # สร้างตารางตาม schema
+ADMIN_PASSWORD="รหัสผ่านที่ปลอดภัย" npm run db:seed
 npm run build && npm start
 ```
 
-### ผู้ใช้ตัวอย่าง (รหัสผ่าน `1234` ทั้งหมด — เปลี่ยนก่อนใช้งานจริง)
+`db:seed` สร้างเฉพาะ **บัญชี Admin + หน่วยนับ + หมวดหมู่พื้นฐาน** เท่านั้น
+(ปฏิเสธรหัสผ่านที่สั้นกว่า 8 ตัว และไม่ยอมรันถ้าไม่กำหนดรหัสผ่าน)
 
-| Username | บทบาท |
-|---|---|
-| `admin` | ผู้ดูแลระบบ |
-| `manager` | ผู้จัดการ |
-| `supervisor` | หัวหน้างาน |
-| `procurement` | จัดซื้อ |
-| `store` | สโตร์/คลัง |
-| `staff1`, `staff2` | พนักงาน |
-| `viewer` | ผู้ชม |
+จากนั้นใส่ข้อมูลจริงผ่าน **Master Data → นำเข้าจาก Excel** (ดูข้อ 12)
+
+**Deploy บน Google Cloud:** ดู [`docs/DEPLOY_GOOGLE_CLOUD.md`](docs/DEPLOY_GOOGLE_CLOUD.md)
+— Cloud Run + Cloud SQL พร้อม backup อัตโนมัติ มี `Dockerfile` ให้แล้ว
+
+### ทดลองดูระบบพร้อมข้อมูลตัวอย่าง
+
+```bash
+npm run db:seed:demo        # เมนู สูตร BOM Vendor Stock งาน (ข้อมูลสมมติ)
+npm run dev
+```
+
+ผู้ใช้ตัวอย่างรหัสผ่าน `1234` ทั้งหมด: `admin` `manager` `supervisor` `procurement`
+`store` `staff1` `staff2` `viewer`
+
+> ⚠️ `db:seed:demo` มีไว้สำหรับทดลอง/ทดสอบเท่านั้น **ห้ามรันบนฐานข้อมูลจริง**
 
 ---
 
@@ -175,14 +179,18 @@ npm run typecheck
 npm run lint
 npm run build
 
-npm start &                                        # ต้องรันแอปก่อน
-CHROMIUM_PATH=/path/to/chromium npm run test:e2e   # 51 checks
+npm start &                                             # ต้องรันแอปก่อน
+CHROMIUM_PATH=/path/to/chromium npm run test:e2e        # 51 checks (ใช้ข้อมูล demo)
+CHROMIUM_PATH=/path/to/chromium npm run test:e2e:fresh  # 24 checks (ระบบเปล่า)
 ```
 
-`tests/e2e.mjs` ทดสอบ workflow จริงทั้งหมด: drill-down จาก Dashboard, การอนุมัติแผนเมนู,
-BOM แยกกะ + BOM Learning, สูตรอาหารบนมือถือ, เบิกของแบบ FEFO (รวมกรณีเบิกเกินยอด),
-วางแผนสั่งซื้อ + Validation, Kanban งาน, Cost + Export Excel, รายงาน, Global Search
-และสิทธิ์การเข้าถึงของทุก Role
+* `tests/e2e.mjs` — workflow จริงทั้งหมดบนข้อมูล demo: drill-down จาก Dashboard,
+  อนุมัติแผนเมนู, BOM แยกกะ + BOM Learning, สูตรอาหารบนมือถือ, เบิกของแบบ FEFO
+  (รวมกรณีเบิกเกินยอด), วางแผนสั่งซื้อ + Validation, Kanban งาน, Cost + Export Excel,
+  รายงาน, Global Search และสิทธิ์ของทุก Role
+* `tests/e2e-fresh.mjs` — ระบบเปล่าหลัง `db:seed`: ทุกหน้าเปิดได้โดยไม่มีข้อมูลตัวอย่าง,
+  Google Drive แจ้งสถานะอย่างสุภาพเมื่อยังไม่ตั้งค่า, และการนำเข้า Excel ครบวงจร
+  (ตรวจสอบ → บันทึกจริง → เห็นใน Master Data → ถูกบันทึกใน Audit Log)
 
 ---
 
@@ -211,7 +219,53 @@ Mapping เก็บเป็น JSON ใน `ExcelTemplate.mappingJson` — **�
 
 ---
 
-## 11. Phase ถัดไป
+## 11. นำเข้าข้อมูลจริง (Master Data Import)
+
+ไม่ต้องพิมพ์วัตถุดิบทีละรายการ — กรอกลงแบบฟอร์ม Excel แล้วอัปโหลดครั้งเดียว
+
+**Master Data → นำเข้าจาก Excel** (หรือ `/master/import`)
+
+1. กด **ดาวน์โหลดแบบฟอร์ม** จะได้ไฟล์ที่มีชีตและหัวตารางครบพร้อมคำอธิบาย
+2. กรอกข้อมูลจริง — ชีตไหนยังไม่มีข้อมูล ข้ามไปก่อนได้
+3. อัปโหลดโดยติ๊ก **"ตรวจสอบอย่างเดียว"** เพื่อดูผลก่อน
+4. ถ้าไม่มีปัญหา เอาเครื่องหมายออกแล้วนำเข้าจริง
+
+ชีตที่รองรับ (นำเข้าตามลำดับนี้เพราะข้อมูลอ้างอิงกัน):
+
+`หน่วยนับ` → `หมวดหมู่` → `ผู้ขาย` → `สถานที่จัดเก็บ` → `วัตถุดิบ` → `เมนู` → `BOM มาตรฐาน`
+
+* **รหัสซ้ำ = อัปเดตของเดิม** ไม่สร้างซ้ำ — อัปโหลดไฟล์เดิมซ้ำได้อย่างปลอดภัย
+* **มีแถวผิด = ไม่บันทึกทั้งไฟล์** (ทั้งหมดหรือไม่ทำเลย) พร้อมบอกว่าแถวไหนผิดเพราะอะไร
+* นำเข้าจากไฟล์ในเครื่อง หรือเลือกไฟล์จาก Google Drive ก็ได้
+* ทุกการนำเข้าถูกบันทึกใน Activity Log
+
+---
+
+## 12. Google Drive (ไม่บังคับ)
+
+**ตั้งค่า → Google Drive** (หรือ `/settings/drive`) ทำได้เมื่อองค์กรอยากให้ไฟล์ไปอยู่ใน Drive ที่ใช้กันอยู่แล้ว
+
+* อ่าน **Excel Template เดิม** จากโฟลเดอร์ Drive แล้ว**เดา Mapping จากหัวตารางให้อัตโนมัติ**
+  (ไม่ต้องพิมพ์ Mapping เองตั้งแต่ต้น — ตรวจและแก้ทีหลังได้)
+* ส่ง **Cost Working File** ขึ้นโฟลเดอร์ Drive อัตโนมัติ ฝ่ายจัดซื้อกรอกราคาได้จาก Drive โดยตรง
+* นำเข้าข้อมูลหลักจากไฟล์ที่อยู่บน Drive
+
+การตั้งค่า (ทำครั้งเดียว):
+
+1. Google Cloud Console → เปิดใช้ **Google Drive API** → สร้าง **Service Account**
+2. ใส่ JSON key ใน `GOOGLE_SERVICE_ACCOUNT_KEY`
+   (บน Cloud Run ผูก Service Account กับ service ได้เลย ไม่ต้องใช้ key)
+3. ใน Drive **แชร์โฟลเดอร์ให้อีเมลของ Service Account (สิทธิ์ Editor)**
+4. วาง Folder ID ในหน้าตั้งค่า แล้วกด **ทดสอบการเชื่อมต่อ**
+
+> ระบบขอสิทธิ์เฉพาะ `drive.file` — เข้าถึงได้เฉพาะไฟล์ที่ระบบสร้างเองและโฟลเดอร์ที่คุณแชร์ให้
+> **ไม่เห็น Google Drive ทั้งหมดของคุณ**
+>
+> ถ้าไม่ตั้งค่า ระบบทำงานได้ครบทุกอย่างตามปกติ เพียงแต่ใช้ปุ่มดาวน์โหลด/อัปโหลดเองแทน
+
+---
+
+## 13. Phase ถัดไป
 
 Smart Assistant เป็น **Decision Support** ไม่ใช่ผู้ตัดสินใจแทนคน — BOM Learning ที่มีอยู่แล้ว
 ทำงานตามหลักนี้ (เสนอค่า แต่ต้องให้หัวหน้ายืนยันก่อนเสมอ) ส่วนที่ขยายต่อได้:

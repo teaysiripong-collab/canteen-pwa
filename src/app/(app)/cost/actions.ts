@@ -5,6 +5,10 @@ import { db } from "@/lib/db";
 import { requireSession } from "@/lib/auth";
 import { can } from "@/lib/rbac";
 import { audit } from "@/lib/audit";
+import { buildCostRows, generateCostWorkbook, parseMapping } from "@/lib/excel";
+import { costFolderId, driveStatus, uploadXlsx } from "@/lib/drive";
+import { SETTING_KEYS, getSetting } from "@/lib/settings";
+import { ymd } from "@/lib/format";
 import type { CostFileStatus } from "@prisma/client";
 
 export async function createCostFile(formData: FormData) {
@@ -34,6 +38,52 @@ export async function createCostFile(formData: FormData) {
     })),
   });
   await audit({ userId: s.userId, entity: "CostFile", entityId: file.id, action: "CREATE", detail: `สร้าง Cost Working File: ${file.name}` });
+
+  // Push the working file straight to the shared Drive folder when configured,
+  // so procurement finds it where they already work instead of re-uploading it.
+  if ((await getSetting(SETTING_KEYS.DRIVE_AUTO_UPLOAD)) === "1") {
+    await uploadCostFileToDrive(file.id);
+  }
+  revalidatePath("/cost");
+}
+
+/** Generate the workbook for a CostFile and place it in the Drive cost folder. */
+export async function uploadCostFileToDrive(fileId: string) {
+  const s = await requireSession();
+  if (!can(s.role, "cost", "edit")) throw new Error("FORBIDDEN");
+
+  const file = await db.costFile.findUniqueOrThrow({
+    where: { id: fileId },
+    include: { template: true },
+  });
+  const status = await driveStatus();
+  const folder = await costFolderId();
+  if (!status.configured || !folder) {
+    await db.costFile.update({ where: { id: fileId }, data: { note: "ยังไม่ได้ตั้งค่า Google Drive — ดาวน์โหลดไฟล์จากระบบแทน" } });
+    revalidatePath("/cost");
+    return;
+  }
+
+  const rows = await buildCostRows(file.periodStart, file.periodEnd);
+  const buf = await generateCostWorkbook({
+    templateName: file.template.name,
+    mapping: parseMapping(file.template.mappingJson),
+    headerRow: file.template.headerRow,
+    rows,
+    periodLabel: `${ymd(file.periodStart)} ถึง ${ymd(file.periodEnd)}`,
+  });
+
+  const name = `${file.name}.xlsx`;
+  const { id, link } = await uploadXlsx({ folderId: folder, name, data: buf, replaceExisting: true });
+
+  await db.costFile.update({
+    where: { id: fileId },
+    data: { driveFileId: id, driveLink: link, uploadedAt: new Date(), note: null },
+  });
+  await audit({
+    userId: s.userId, entity: "CostFile", entityId: fileId, action: "UPDATE",
+    detail: `อัปโหลดขึ้น Google Drive: ${name}`,
+  });
   revalidatePath("/cost");
 }
 

@@ -4,7 +4,8 @@ import { requireSession } from "@/lib/auth";
 import { can } from "@/lib/rbac";
 import { PageHeader, Card, Section, Stat, Badge, EmptyState, btnPrimary, btnSecondary } from "@/components/ui";
 import { fmtBaht, fmtNum, fmtDate, ymd, mondayOf } from "@/lib/format";
-import { createCostFile, setCostFileStatus } from "./actions";
+import { createCostFile, setCostFileStatus, uploadCostFileToDrive } from "./actions";
+import { driveStatus, costFolderId } from "@/lib/drive";
 
 export const metadata = { title: "ต้นทุน" };
 export const dynamic = "force-dynamic";
@@ -38,6 +39,10 @@ export default async function CostPage({ searchParams }: { searchParams: Promise
     db.excelTemplate.findMany({ where: { active: true }, orderBy: { name: "asc" } }),
     db.costFile.findMany({ include: { template: true }, orderBy: { createdAt: "desc" }, take: 20 }),
   ]);
+
+  const drive = await driveStatus();
+  const driveFolder = await costFolderId();
+  const driveReady = drive.configured && !!driveFolder;
 
   const unitPrice = (ing: { lastPrice: unknown; conversionFactor: unknown }) =>
     ing.lastPrice ? Number(ing.lastPrice) / Number(ing.conversionFactor) : 0;
@@ -138,6 +143,14 @@ export default async function CostPage({ searchParams }: { searchParams: Promise
           ระบบเติมข้อมูล Menu + BOM ลงในคอลัมน์ตามที่ Admin กำหนดไว้ แล้วเว้นช่องราคาให้ฝ่ายจัดซื้อกรอก —
           ไม่ต้อง Copy/Paste ด้วยมือ และไม่ต้องเปลี่ยนรูปแบบเอกสารเดิม
         </p>
+        <div className={`rounded-lg text-sm px-4 py-2.5 mb-3 border ${driveReady ? "bg-green-50 border-green-300 text-green-800" : "bg-gray-50 border-gray-200 text-gray-600"}`}>
+          {driveReady
+            ? "🟢 เชื่อม Google Drive แล้ว — ไฟล์ต้นทุนถูกส่งเข้าโฟลเดอร์ที่ตั้งไว้ ฝ่ายจัดซื้อเปิดกรอกราคาได้จาก Drive โดยตรง"
+            : "🔵 ยังไม่ได้เชื่อม Google Drive — ใช้ปุ่มดาวน์โหลด Excel ได้ตามปกติ" }
+          {session.role === "ADMIN" && !driveReady && (
+            <Link href="/settings/drive" className="ml-2 underline font-medium">ตั้งค่า Drive →</Link>
+          )}
+        </div>
 
         {editable && templates.length > 0 && (
           <form action={createCostFile} className="flex flex-wrap items-end gap-2 mb-4 pb-4 border-b border-gray-100">
@@ -188,6 +201,15 @@ export default async function CostPage({ searchParams }: { searchParams: Promise
                     <td className="py-2.5 text-right whitespace-nowrap">
                       <a href={`/api/export/cost?template=${f.templateId}&from=${ymd(f.periodStart)}&to=${ymd(f.periodEnd)}`}
                         className="text-sky-700 text-xs font-medium">⬇ Excel</a>
+                      {f.driveLink ? (
+                        <a href={f.driveLink} target="_blank" rel="noreferrer" className="text-green-700 text-xs font-medium ml-2">
+                          📁 เปิดใน Drive ↗
+                        </a>
+                      ) : editable && driveReady ? (
+                        <form action={uploadCostFileToDrive.bind(null, f.id)} className="inline-block ml-2">
+                          <button className="text-sky-700 text-xs font-medium" style={{ minHeight: "auto" }}>📤 ส่งขึ้น Drive</button>
+                        </form>
+                      ) : null}
                       {editable && f.status === "PRICING" && (
                         <form action={setCostFileStatus.bind(null, f.id, "COMPLETED")} className="inline-block ml-2">
                           <button className="text-green-700 text-xs font-medium" style={{ minHeight: "auto" }}>✓ ปิดงาน</button>

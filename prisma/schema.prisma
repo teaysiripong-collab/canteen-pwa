@@ -492,10 +492,20 @@ model Notification {
 
 // ───────────────────────── Cost / Excel Templates ─────────────────────────
 
+/// Runtime configuration editable by Admin (Google Drive folder ids, etc.)
+/// so changing where files live never requires a redeploy.
+model SystemSetting {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt
+}
+
 model ExcelTemplate {
   id          String   @id @default(cuid())
   name        String
   description String?
+  /// Google Drive file id this template was imported from (if any)
+  driveFileId String?
   // JSON mapping: which system field goes to which Excel column, editable by Admin
   // e.g. [{"field":"menuName","column":"B"},{"field":"ingredientName","column":"C"},...]
   mappingJson String
@@ -522,5 +532,9 @@ model CostFile {
   periodEnd   DateTime       @db.Date
   status      CostFileStatus @default(GENERATED)
   note        String?
+  /// Set once the generated workbook has been pushed to Google Drive
+  driveFileId String?
+  driveLink   String?
+  uploadedAt  DateTime?
   createdAt   DateTime       @default(now())
 }

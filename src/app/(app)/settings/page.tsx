@@ -29,7 +29,13 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
   return (
     <>
       <PageHeader title="ตั้งค่าระบบ" subtitle="ผู้ใช้งาน สิทธิ์ Excel Template และประวัติการแก้ไขข้อมูล"
-        actions={<Link href="/settings/excel-template" className={btnSecondary}>📗 Excel Template Manager</Link>} />
+        actions={
+          <>
+            <Link href="/settings/drive" className={btnSecondary}>📁 Google Drive</Link>
+            <Link href="/settings/excel-template" className={btnSecondary}>📗 Excel Template Manager</Link>
+            <Link href="/master/import" className={btnSecondary}>📥 นำเข้าข้อมูลหลัก</Link>
+          </>
+        } />
 
       {/* Users */}
       <div className="mb-4">
