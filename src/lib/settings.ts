@@ -6,6 +6,10 @@ export const SETTING_KEYS = {
   DRIVE_TEMPLATE_FOLDER: "drive.templateFolderId",
   DRIVE_DOCS_FOLDER: "drive.docsFolderId",
   DRIVE_AUTO_UPLOAD: "drive.autoUploadCost",
+  SHEETS_SPREADSHEET_ID: "sheets.spreadsheetId",
+  SHEETS_LAST_PUSH: "sheets.lastPush",
+  SHEETS_LAST_PULL: "sheets.lastPull",
+  SHEETS_AUTO_PUSH: "sheets.autoPush",
 } as const;
 
 export async function getSetting(key: string, fallback = ""): Promise<string> {

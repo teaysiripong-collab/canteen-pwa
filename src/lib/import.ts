@@ -151,25 +151,27 @@ function readSheet(ws: ExcelJS.Worksheet, columns: ColumnSpec[]): { rows: Record
   return { rows, rowNumbers };
 }
 
-/**
- * Parse + import. With dryRun the database is left untouched but every row is
- * still validated, so the user sees exactly what would happen before committing.
- */
-export async function importWorkbook(buffer: Buffer, dryRun: boolean): Promise<ImportReport> {
-  const wb = new ExcelJS.Workbook();
-  await wb.xlsx.load(buffer as unknown as ArrayBuffer);
+/** Rows already extracted from a source (Excel file, Google Sheet, ...). */
+export type SheetRows = { rows: Record<string, string>[]; rowNumbers: number[] };
+export type ParsedSheets = Partial<Record<SheetKey, SheetRows>>;
 
+/**
+ * Validate + apply parsed rows. Source-agnostic so an Excel upload and a Google
+ * Sheets pull go through exactly the same rules. With dryRun the database is
+ * left untouched but every row is still checked.
+ */
+export async function applyImport(parsed: ParsedSheets, dryRun: boolean): Promise<ImportReport> {
   const report: ImportReport = { created: {}, updated: {}, issues: [], skippedSheets: [], dryRun };
   const bump = (bucket: Record<string, number>, key: string) => (bucket[key] = (bucket[key] ?? 0) + 1);
 
   const run = async (tx: typeof db) => {
     for (const sheet of SHEETS) {
-      const ws = wb.getWorksheet(sheet.sheetName);
-      if (!ws) {
+      const parsedSheet = parsed[sheet.key];
+      if (!parsedSheet) {
         report.skippedSheets.push(sheet.sheetName);
         continue;
       }
-      const { rows, rowNumbers } = readSheet(ws, sheet.columns);
+      const { rows, rowNumbers } = parsedSheet;
 
       for (let i = 0; i < rows.length; i++) {
         const r = rows[i];
@@ -411,6 +413,50 @@ export async function importWorkbook(buffer: Buffer, dryRun: boolean): Promise<I
   }
 
   return report;
+}
+
+/** Parse an uploaded .xlsx and import it. */
+export async function importWorkbook(buffer: Buffer, dryRun: boolean): Promise<ImportReport> {
+  const wb = new ExcelJS.Workbook();
+  await wb.xlsx.load(buffer as unknown as ArrayBuffer);
+
+  const parsed: ParsedSheets = {};
+  for (const sheet of SHEETS) {
+    const ws = wb.getWorksheet(sheet.sheetName);
+    if (ws) parsed[sheet.key] = readSheet(ws, sheet.columns);
+  }
+  return applyImport(parsed, dryRun);
+}
+
+/**
+ * Turn a raw Google Sheets value grid (row 1 = headers) into the same shape the
+ * Excel path produces, matching columns by header text.
+ */
+export function rowsFromGrid(grid: string[][], columns: ColumnSpec[]): SheetRows {
+  const header = grid[0] ?? [];
+  const colByKey = new Map<string, number>();
+  header.forEach((cell, idx) => {
+    const text = String(cell ?? "").trim().toLowerCase();
+    const spec = columns.find((c) => c.header.toLowerCase() === text || c.key.toLowerCase() === text);
+    if (spec && !colByKey.has(spec.key)) colByKey.set(spec.key, idx);
+  });
+
+  const rows: Record<string, string>[] = [];
+  const rowNumbers: number[] = [];
+  for (let r = 1; r < grid.length; r++) {
+    const obj: Record<string, string> = {};
+    let any = false;
+    for (const [key, idx] of colByKey) {
+      const val = String(grid[r]?.[idx] ?? "").trim();
+      obj[key] = val;
+      if (val) any = true;
+    }
+    if (any) {
+      rows.push(obj);
+      rowNumbers.push(r + 1); // 1-based, matching what the user sees in Sheets
+    }
+  }
+  return { rows, rowNumbers };
 }
 
 class ROLLBACK extends Error {

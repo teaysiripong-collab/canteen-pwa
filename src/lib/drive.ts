@@ -18,7 +18,10 @@ import { SETTING_KEYS, getSetting } from "./settings";
  * working and simply reports that the integration is off.
  */
 
-const SCOPES = ["https://www.googleapis.com/auth/drive.file"];
+export const SCOPES = [
+  "https://www.googleapis.com/auth/drive.file",
+  "https://www.googleapis.com/auth/spreadsheets",
+];
 
 export type DriveStatus =
   | { configured: false; reason: string }
@@ -40,6 +43,10 @@ function readCredentials(): { client_email: string; private_key: string } | null
   } catch {
     return null;
   }
+}
+
+export async function getGoogleAuth() {
+  return getAuth();
 }
 
 async function getAuth() {

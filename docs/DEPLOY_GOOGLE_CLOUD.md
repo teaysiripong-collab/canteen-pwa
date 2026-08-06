@@ -22,7 +22,8 @@ gcloud services enable \
   artifactregistry.googleapis.com \
   cloudbuild.googleapis.com \
   secretmanager.googleapis.com \
-  drive.googleapis.com
+  drive.googleapis.com \
+  sheets.googleapis.com
 ```
 
 ตั้งค่าตัวแปรที่จะใช้ซ้ำตลอดคู่มือ
@@ -160,6 +161,16 @@ Cloud Run ใช้ Service Account ที่ผูกไว้แล้วโ�
 4. เข้าเว็บ → **ตั้งค่า → Google Drive** → วาง Folder ID → กด **ทดสอบการเชื่อมต่อ**
 
 ถ้าใช้ **Shared Drive** ให้เพิ่ม Service Account เป็นสมาชิกของ Shared Drive นั้นแทน
+
+### เชื่อม Google Sheets (ใช้ Service Account ตัวเดียวกัน)
+
+เข้าเว็บ → **ตั้งค่า → Google Sheets** → กด **"สร้างไฟล์ใหม่ให้เลย"**
+ระบบจะสร้าง Spreadsheet ใส่ครบ 15 แท็บ พร้อมข้อมูลปัจจุบัน และผูกให้อัตโนมัติ
+
+หรือถ้ามีไฟล์อยู่แล้ว ให้แชร์ไฟล์นั้นให้ Service Account (สิทธิ์ Editor) แล้ววาง URL ลงไป
+
+> ไฟล์ที่ระบบสร้างจะเป็นของ Service Account — อย่าลืม**แชร์ต่อให้ทีมของคุณ**
+> เพื่อให้เปิดดูได้ (Service Account ไม่มีหน้า Drive ให้เข้าเอง)
 
 > ระบบขอสิทธิ์เฉพาะขอบเขต `drive.file` — เห็นได้เฉพาะไฟล์ที่ระบบสร้างเอง
 > และโฟลเดอร์ที่คุณแชร์ให้เท่านั้น **ไม่เห็น Google Drive ทั้งหมดของคุณ**

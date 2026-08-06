@@ -95,8 +95,11 @@ TASK MANAGEMENT ทำงานคู่ขนานกับทุกขั้�
 /documents             Document Center รวมเอกสารทุกประเภท
 /reports               รายงานที่ตอบคำถามหน้างานจริง
 /master                Ingredient / Menu / Vendor / Location / Unit / Category / User
+/master/import         นำเข้าข้อมูลหลักจาก Excel (มีโหมดตรวจสอบก่อนบันทึก)
 /settings              ผู้ใช้ · Permission Matrix · Activity Log
   /excel-template      Excel Template Manager (แก้ Mapping ได้โดยไม่แก้โค้ด)
+  /sheets              Google Sheets — ซิงก์ข้อมูลทั้งระบบ 15 แท็บ
+  /drive               Google Drive — Template และไฟล์ต้นทุน
 /search?q=             Global Search
 /notifications         แจ้งเฉพาะสิ่งที่ต้อง Action
 ```
@@ -135,6 +138,8 @@ TASK MANAGEMENT ทำงานคู่ขนานกับทุกขั้�
 - **Tailwind CSS 4** — Modern/Japanese Corporate, minimal, ปุ่มใหญ่, mobile-first
 - **jose** (JWT session, httpOnly cookie) + **bcryptjs** · RBAC ใน `src/lib/rbac.ts`
 - **ExcelJS** (Import/Export) · **qrcode** (QR สูตรอาหาร) · PDF ผ่าน Print A4 (`@media print`)
+- **googleapis** — Google Sheets (ซิงก์ข้อมูล) และ Google Drive (Template/ไฟล์ต้นทุน)
+- Build เป็น **standalone** (`npm start` = `node .next/standalone/server.js`) พร้อมลง Docker/Cloud Run
 
 ---
 
@@ -153,7 +158,7 @@ npm run build && npm start
 `db:seed` สร้างเฉพาะ **บัญชี Admin + หน่วยนับ + หมวดหมู่พื้นฐาน** เท่านั้น
 (ปฏิเสธรหัสผ่านที่สั้นกว่า 8 ตัว และไม่ยอมรันถ้าไม่กำหนดรหัสผ่าน)
 
-จากนั้นใส่ข้อมูลจริงผ่าน **Master Data → นำเข้าจาก Excel** (ดูข้อ 12)
+จากนั้นใส่ข้อมูลจริงผ่าน **Master Data → นำเข้าจาก Excel** (ข้อ 11) หรือแก้ใน **Google Sheets** (ข้อ 12)
 
 **Deploy บน Google Cloud:** ดู [`docs/DEPLOY_GOOGLE_CLOUD.md`](docs/DEPLOY_GOOGLE_CLOUD.md)
 — Cloud Run + Cloud SQL พร้อม backup อัตโนมัติ มี `Dockerfile` ให้แล้ว
@@ -241,7 +246,41 @@ Mapping เก็บเป็น JSON ใน `ExcelTemplate.mappingJson` — **�
 
 ---
 
-## 12. Google Drive (ไม่บังคับ)
+## 12. Google Sheets — ฐานข้อมูลที่เปิดดูได้
+
+**ตั้งค่า → Google Sheets** (หรือ `/settings/sheets`)
+
+ข้อมูลทั้งระบบถูกเขียนลง Google Sheets ของคุณ **15 แท็บ** เปิดดู กรอง ทำ Pivot ทำกราฟ
+และแชร์ได้เหมือนชีตทั่วไป กด **"สร้างไฟล์ใหม่ให้เลย"** ระบบจะสร้างไฟล์ ใส่ทุกแท็บ
+พร้อมข้อมูลปัจจุบัน และผูกให้อัตโนมัติ
+
+**แท็บที่แก้ใน Sheets ได้ (ข้อมูลหลัก)** — แก้แล้วกด "ดึงข้อมูลเข้าระบบ"
+
+`หน่วยนับ` `หมวดหมู่` `ผู้ขาย` `สถานที่จัดเก็บ` `วัตถุดิบ` `เมนู` `BOM มาตรฐาน`
+
+ผ่านการตรวจสอบด้วยกฎเดียวกับการนำเข้า Excel — มีโหมดตรวจสอบก่อนบันทึก,
+รหัสซ้ำ = อัปเดตของเดิม, แถวผิด = ไม่บันทึกทั้งหมด และรายงานเป็น **ชื่อแท็บ + เลขแถวตรงกับที่เห็นใน Sheets**
+
+**แท็บที่ระบบเขียนให้ (อ่านอย่างเดียว)**
+
+`แผนเมนู` `BOM รายวัน` `ใบสั่งซื้อ` `Stock คงเหลือ` `ประวัติ Stock` `การใช้จริง` `งานที่มอบหมาย` `Audit Log`
+
+### ทำไมยอด Stock ถึงบันทึกผ่านระบบ ไม่ใช่พิมพ์ใน Sheets
+
+Google Sheets API ไม่มี **transaction** และไม่มี **row lock** ถ้าพนักงาน 2 คนกดเบิกของ
+พร้อมกันตอนรอบเช้า การเขียนของคนหลังจะทับของคนแรก — ยอดที่หายไปจะไม่มีใครรู้
+เพราะไม่มี error ขึ้นเลย (last-write-wins)
+
+ระบบจึงบันทึกรายการ เบิก/รับ/โอน/ปรับ ลง PostgreSQL ที่รับประกันว่าทุกธุรกรรมไม่ชนกัน
+แล้ว**สะท้อนผลขึ้น Sheets ให้เห็นครบทุกแถว** — คุณยังเปิด Sheets แล้วเห็นยอดจริง
+ประวัติการเบิก และ Audit Log ได้ทั้งหมด
+
+ส่วนข้อมูลหลักแก้ใน Sheets ได้เต็มที่ เพราะไม่ใช่ข้อมูลที่หลายคนแก้พร้อมกันตลอดเวลา
+และมีการตรวจสอบก่อนบันทึกทุกครั้ง
+
+---
+
+## 13. Google Drive (ไม่บังคับ)
 
 **ตั้งค่า → Google Drive** (หรือ `/settings/drive`) ทำได้เมื่อองค์กรอยากให้ไฟล์ไปอยู่ใน Drive ที่ใช้กันอยู่แล้ว
 
@@ -255,8 +294,11 @@ Mapping เก็บเป็น JSON ใน `ExcelTemplate.mappingJson` — **�
 1. Google Cloud Console → เปิดใช้ **Google Drive API** → สร้าง **Service Account**
 2. ใส่ JSON key ใน `GOOGLE_SERVICE_ACCOUNT_KEY`
    (บน Cloud Run ผูก Service Account กับ service ได้เลย ไม่ต้องใช้ key)
-3. ใน Drive **แชร์โฟลเดอร์ให้อีเมลของ Service Account (สิทธิ์ Editor)**
+3. ใน Drive **แชร์โฟลเดอร์ (หรือไฟล์ Google Sheets) ให้อีเมลของ Service Account สิทธิ์ Editor**
 4. วาง Folder ID ในหน้าตั้งค่า แล้วกด **ทดสอบการเชื่อมต่อ**
+
+Credential ชุดเดียวกันใช้ได้ทั้ง Google Drive และ Google Sheets
+(ขอ scope `drive.file` + `spreadsheets`)
 
 > ระบบขอสิทธิ์เฉพาะ `drive.file` — เข้าถึงได้เฉพาะไฟล์ที่ระบบสร้างเองและโฟลเดอร์ที่คุณแชร์ให้
 > **ไม่เห็น Google Drive ทั้งหมดของคุณ**
@@ -265,7 +307,7 @@ Mapping เก็บเป็น JSON ใน `ExcelTemplate.mappingJson` — **�
 
 ---
 
-## 13. Phase ถัดไป
+## 14. Phase ถัดไป
 
 Smart Assistant เป็น **Decision Support** ไม่ใช่ผู้ตัดสินใจแทนคน — BOM Learning ที่มีอยู่แล้ว
 ทำงานตามหลักนี้ (เสนอค่า แต่ต้องให้หัวหน้ายืนยันก่อนเสมอ) ส่วนที่ขยายต่อได้:
