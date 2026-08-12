@@ -75,6 +75,13 @@ npm run db:seed                # ใส่ข้อมูลตัวอย่�
 npm run dev                    # http://localhost:3000
 ```
 
+ตรวจว่าระบบพร้อมใช้งานด้วย health check — คืน `503` เมื่อฐานข้อมูลตอบไม่ได้ ใช้เป็น probe ตอน deploy ได้เลย
+
+```bash
+curl http://localhost:3000/api/health
+# {"status":"ok","database":"up","latencyMs":2,"timestamp":"..."}
+```
+
 ### Environment variables
 
 | ตัวแปร | จำเป็น | คำอธิบาย |
@@ -94,10 +101,12 @@ npm run dev                    # http://localhost:3000
 
 | อีเมล | Role |
 | --- | --- |
-| `admin@canteen.local` | Admin |
-| `supervisor@canteen.local` | Supervisor |
-| `leader@canteen.local` | Leader |
-| `frontline@canteen.local` | Frontline |
+| `admin@canteen.local` | ADMIN — ผู้ดูแลระบบ |
+| `manager@canteen.local` | MANAGER — ผู้จัดการโรงอาหาร |
+| `store@canteen.local` | STORE — พนักงานคลัง |
+| `staff@canteen.local` | STAFF — พนักงานหน้างาน |
+
+`npm run db:seed` รันซ้ำได้และ **converge** — บัญชีตัวอย่างเก่า (`@canteen.local`) ที่ไม่อยู่ในรายการนี้ และ role/meal period ที่ถูกถอดออกจาก catalogue จะถูกลบทิ้ง
 
 ### คำสั่งที่ใช้บ่อย
 
@@ -106,7 +115,8 @@ npm run dev          # dev server
 npm run build        # production build
 npm run lint         # ESLint
 npm run typecheck    # tsc --noEmit
-npm run test         # Vitest
+npm run test         # Vitest (unit — ไม่ต้องมีฐานข้อมูล)
+npm run test:integration  # Vitest (integration — ต้องมี DATABASE_URL + seed แล้ว)
 npm run db:generate  # สร้าง migration ใหม่จาก schema
 npm run db:migrate   # รัน migration
 npm run db:seed      # seed ข้อมูล development (รันซ้ำได้ ไม่สร้างข้อมูลซ้ำ)
@@ -145,10 +155,12 @@ Role เป็นเพียง "ชุดของ permission" — ระบ�
 
 | Role | ทำอะไรได้ |
 | --- | --- |
-| **Frontline** | ดูข้อมูลหลัก/สต๊อก, รับของ, เบิกของ, โอนของ |
-| **Leader** | + ปรับปรุงสต๊อก, แก้จำนวนตอนเบิก, ตรวจนับ, ดูรายงาน |
-| **Supervisor** | + จัดการวัตถุดิบ/เมนู/BOM, PO และการอนุมัติ, ดูต้นทุน, override FEFO |
-| **Admin** | ทุกสิทธิ์ รวมถึงจัดการผู้ใช้และการตั้งค่า |
+| **STAFF** (พนักงานหน้างาน) | ดูข้อมูลหลัก/สต๊อก, รับของ, เบิกของ, โอนของ |
+| **STORE** (พนักงานคลัง) | + ปรับปรุงสต๊อก, แก้จำนวนตอนเบิก, ตรวจนับ, ดูใบสั่งซื้อ, ดูรายงาน |
+| **MANAGER** (ผู้จัดการโรงอาหาร) | + จัดการวัตถุดิบ/เมนู/BOM, PO และการอนุมัติ, ดูต้นทุน, override FEFO |
+| **ADMIN** (ผู้ดูแลระบบ) | ทุกสิทธิ์ รวมถึงจัดการผู้ใช้และการตั้งค่า |
+
+`user.manage` เป็นสิทธิ์ของ ADMIN เท่านั้น — หน้า `/users` ตรวจสิทธิ์ที่ฝั่ง server ก่อน render และ service ตรวจซ้ำก่อนเขียนทุกครั้ง
 
 ทุก service ที่เขียนข้อมูลเรียก `requirePermission(PERMISSIONS.X)` ก่อนเสมอ ถ้าไม่มีสิทธิ์จะได้ `AppError("FORBIDDEN")` → หน้าจอแสดง "คุณไม่มีสิทธิ์ทำรายการนี้"
 
@@ -180,7 +192,7 @@ inventory_lots           ← ลอตที่รับเข้ามา พ�
 3. ตัดยอดทีละลอตจนครบจำนวนที่ขอ — ไม่ตัดเกินยอดที่ลอตมี
 4. ถ้าของไม่พอ จะคืนค่า `shortfallBaseQty` ให้ผู้เรียกปฏิเสธรายการ (ไม่ปล่อยให้ติดลบ)
 
-Supervisor ที่มีสิทธิ์ `fefo.override` เลือกลอตเองได้ และระบบจะบันทึก `stock_issue_items.fefo_overridden` พร้อม audit log
+MANAGER ที่มีสิทธิ์ `fefo.override` เลือกลอตเองได้ และระบบจะบันทึก `stock_issue_items.fefo_overridden` พร้อม audit log
 
 ## 8. Unit conversion
 
@@ -211,20 +223,35 @@ Recipe รองรับ version — `menu_plan_items.recipe_version_id` ผู
 
 Meal period, จำนวนวันแจ้งเตือนหมดอายุ และ prefix เลขที่เอกสาร เก็บใน `meal_periods` / `app_settings` — ไม่ hardcode
 
+Seed ใส่ meal period ไว้สองกะตามที่โรงอาหารวางแผนจริง คือ `DAY` (เช้า) และ `NIGHT` (ดึก) ซึ่งเป็นสองฝั่งของสัญกรณ์ BOM `30+20` ใน Phase 7 — เพิ่ม/แก้ไขได้จากตาราง ไม่มีการ hardcode ใน code
+
 ---
 
 ## 10. Testing
 
+เทสแบ่งเป็นสองชั้น
+
 ```bash
-npm run test
+npm run test              # unit — hermetic ไม่ต้องต่อฐานข้อมูล (72 tests)
+npm run test:integration  # integration — เขียนจริงลง Postgres (12 tests)
 ```
 
-ครอบคลุม business logic ที่ implement แล้วใน Phase 1 (44 tests):
+**Unit** — business logic ล้วน
 
 - `quantity.test.ts` — เลขทศนิยมไม่เพี้ยน, บวก/ลบ/คูณ/หาร, การเปรียบเทียบ
 - `units.test.ts` — การแปลงหน่วยทั้งทางตรง ทางกลับ ต่อกันหลายชั้น และ override รายสินค้า
 - `fefo.test.ts` — ลำดับ FEFO, การตัดข้ามลอต, การรายงานของไม่พอ (กันสต๊อกติดลบ), การจัดกลุ่มวันหมดอายุ
 - `permissions.test.ts` — สิทธิ์ของแต่ละ role และการรวมสิทธิ์เมื่อมีหลาย role
+- `form-data.test.ts` — การอ่าน checkbox ที่ไม่ถูกติ๊ก และฟิลด์ที่ส่งหลายค่า (บทบาท)
+- `schemas/common.test.ts` — `booleanFlagSchema` และฟิลด์ตัวเลขที่เว้นว่างต้องเป็น NULL ไม่ใช่ 0
+- `schemas/master-data.test.ts` — validation ของ Item / SupplierItem / User
+
+**Integration** — เขียนจริงผ่าน service + transaction + audit log (stub เฉพาะ session เพราะสิทธิ์มาจาก cookie ของ request)
+
+- `user-service.integration.test.ts` — สร้าง/แก้ผู้ใช้, เปลี่ยนบทบาทแล้วบันทึกเป็น `PERMISSION_CHANGE`, อีเมลซ้ำ, ปิดใช้งานแทนการลบ, กันแอดมินถอดสิทธิ์/ปิดบัญชีตัวเอง
+- `supplier-item-service.integration.test.ts` — MOQ / pack size / lead time, `last_price_at` ขยับเฉพาะตอนราคาเปลี่ยน, ผู้ขายหลักมีได้รายเดียวต่อวัตถุดิบ, ปิดใช้งานแทนการลบ
+
+ต้อง `npm run db:migrate && npm run db:seed` ก่อนรัน integration — เทสจะเก็บกวาดข้อมูลของตัวเองหลังรันเสร็จ
 
 เทสของ Receiving / Issue / Transfer / Partial Receiving / Cost calculation จะเพิ่มพร้อมกับโมดูลใน Phase 3–5
 
@@ -245,7 +272,7 @@ npm run test
 
 | Phase | ขอบเขต | สถานะ |
 | --- | --- | --- |
-| 1 | Foundation: schema, migration, seed, auth, roles, app shell, Item/Location/Supplier master, audit log | ✅ เสร็จ |
+| 1 | Foundation: schema, migration, seed, auth, roles, app shell, Item/Location/Supplier master, audit log, health check, จัดการผู้ใช้, Supplier item mapping | ✅ เสร็จ |
 | 2 | Menu master, Menu planner, Recipe/BOM + version, BOM cost preview | ⏳ |
 | 3 | Inventory lot, ledger, รับ/เบิก/โอน, FEFO, สต๊อกคงเหลือ, แจ้งเตือนหมดอายุ | ⏳ |
 | 4 | Supplier item, PO, รับของตาม PO, partial receiving, PO status | ⏳ |

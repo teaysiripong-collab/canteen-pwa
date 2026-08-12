@@ -8,6 +8,13 @@
       "when": 1786555981029,
       "tag": "0000_init",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1786575799839,
+      "tag": "0001_clear_fantastic_four",
+      "breakpoints": true
     }
   ]
 }

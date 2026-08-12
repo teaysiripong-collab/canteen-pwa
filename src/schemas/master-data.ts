@@ -1,8 +1,12 @@
 import { z } from "zod";
 import {
+  booleanFlagSchema,
   codeSchema,
   nameThSchema,
   nonNegativeQtySchema,
+  optionalDayCountSchema,
+  optionalNonNegativeQtySchema,
+  optionalPositiveQtySchema,
   optionalTextSchema,
   optionalUuidSchema,
   positiveQtySchema,
@@ -25,8 +29,8 @@ export const locationInputSchema = z.object({
   nameTh: nameThSchema,
   nameEn: optionalTextSchema,
   kind: z.enum(locationKinds).default("STORE"),
-  holdsStock: z.coerce.boolean().default(true),
-  isActive: z.coerce.boolean().default(true),
+  holdsStock: booleanFlagSchema.default(true),
+  isActive: booleanFlagSchema.default(true),
   note: optionalTextSchema,
 });
 
@@ -56,7 +60,7 @@ export const supplierInputSchema = z.object({
   leadTimeDays: z.coerce.number().int().min(0, "ต้องไม่ติดลบ").max(365, "มากเกินไป").default(1),
   paymentTerm: optionalTextSchema,
   remark: optionalTextSchema,
-  isActive: z.coerce.boolean().default(true),
+  isActive: booleanFlagSchema.default(true),
 });
 
 export type SupplierInput = z.infer<typeof supplierInputSchema>;
@@ -76,15 +80,10 @@ export const itemInputSchema = z
     defaultLocationId: optionalUuidSchema,
     minimumStock: nonNegativeQtySchema.default(0),
     reorderPoint: nonNegativeQtySchema.default(0),
-    shelfLifeDays: z.coerce
-      .number()
-      .int()
-      .min(0, "ต้องไม่ติดลบ")
-      .max(3650, "มากเกินไป")
-      .optional()
-      .or(z.literal("").transform(() => undefined)),
+    safetyStock: nonNegativeQtySchema.default(0),
+    shelfLifeDays: optionalDayCountSchema,
     barcode: optionalTextSchema,
-    isActive: z.coerce.boolean().default(true),
+    isActive: booleanFlagSchema.default(true),
     note: optionalTextSchema,
     aliases: z
       .string()
@@ -104,3 +103,26 @@ export const itemInputSchema = z
   });
 
 export type ItemInput = z.infer<typeof itemInputSchema>;
+
+/* ------------------------------------------------------------- supplier item */
+
+/**
+ * The supplier-specific way to buy an item: which pack it comes in, how many base
+ * units that pack holds, and the ordering constraints the purchase planner must respect.
+ */
+export const supplierItemInputSchema = z.object({
+  supplierId: uuidSchema,
+  itemId: uuidSchema,
+  supplierItemCode: optionalTextSchema,
+  supplierItemName: optionalTextSchema,
+  purchaseUnitId: optionalUuidSchema,
+  purchaseConversion: optionalPositiveQtySchema,
+  moq: nonNegativeQtySchema.default(0),
+  packSize: optionalPositiveQtySchema,
+  leadTimeDays: optionalDayCountSchema,
+  lastPrice: optionalNonNegativeQtySchema,
+  isPreferred: booleanFlagSchema.default(false),
+  isActive: booleanFlagSchema.default(true),
+});
+
+export type SupplierItemInput = z.infer<typeof supplierItemInputSchema>;

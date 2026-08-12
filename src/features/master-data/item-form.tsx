@@ -29,6 +29,7 @@ export type ItemFormValues = {
   defaultLocationId?: string | null;
   minimumStock?: string;
   reorderPoint?: string;
+  safetyStock?: string;
   shelfLifeDays?: number | null;
   barcode?: string | null;
   isActive?: boolean;
@@ -182,7 +183,21 @@ export function ItemForm({
               <NumberInput id="reorderPoint" name="reorderPoint" min={0} defaultValue={values.reorderPoint ?? "0"} />
             </Field>
 
-            <Field label="อายุการเก็บ (วัน)" htmlFor="shelfLifeDays" errors={errors?.shelfLifeDays}>
+            <Field
+              label="สต๊อกสำรอง (Safety Stock)"
+              htmlFor="safetyStock"
+              errors={errors?.safetyStock}
+              hint="กันไว้เผื่อฉุกเฉิน ระบบจะบวกเพิ่มตอนคำนวณจำนวนสั่งซื้อ"
+            >
+              <NumberInput id="safetyStock" name="safetyStock" min={0} defaultValue={values.safetyStock ?? "0"} />
+            </Field>
+
+            <Field
+              label="อายุการเก็บ (วัน)"
+              htmlFor="shelfLifeDays"
+              errors={errors?.shelfLifeDays}
+              hint="เว้นว่างได้ถ้าไม่กำหนด"
+            >
               <NumberInput
                 id="shelfLifeDays"
                 name="shelfLifeDays"

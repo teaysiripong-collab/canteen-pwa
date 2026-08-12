@@ -82,15 +82,16 @@ export const PERMISSION_MODULES: Record<PermissionCode, string> = Object.fromEnt
 ) as Record<PermissionCode, string>;
 
 export const ROLES = {
-  FRONTLINE: "FRONTLINE",
-  LEADER: "LEADER",
-  SUPERVISOR: "SUPERVISOR",
+  STAFF: "STAFF",
+  STORE: "STORE",
+  MANAGER: "MANAGER",
   ADMIN: "ADMIN",
 } as const;
 
 export type RoleCode = (typeof ROLES)[keyof typeof ROLES];
 
-const FRONTLINE_PERMISSIONS: PermissionCode[] = [
+/** Frontline kitchen staff: they move stock, they never maintain master data. */
+const STAFF_PERMISSIONS: PermissionCode[] = [
   PERMISSIONS.ITEM_VIEW,
   PERMISSIONS.LOCATION_VIEW,
   PERMISSIONS.SUPPLIER_VIEW,
@@ -102,8 +103,9 @@ const FRONTLINE_PERMISSIONS: PermissionCode[] = [
   PERMISSIONS.TRANSFER_CREATE,
 ];
 
-const LEADER_PERMISSIONS: PermissionCode[] = [
-  ...FRONTLINE_PERMISSIONS,
+/** Store keepers own the stockroom: adjustments, counts and the purchasing paperwork they receive against. */
+const STORE_PERMISSIONS: PermissionCode[] = [
+  ...STAFF_PERMISSIONS,
   PERMISSIONS.ISSUE_ADJUST_QTY,
   PERMISSIONS.ADJUSTMENT_CREATE,
   PERMISSIONS.STOCK_COUNT_CREATE,
@@ -111,8 +113,9 @@ const LEADER_PERMISSIONS: PermissionCode[] = [
   PERMISSIONS.REPORT_VIEW,
 ];
 
-const SUPERVISOR_PERMISSIONS: PermissionCode[] = [
-  ...LEADER_PERMISSIONS,
+/** Managers plan and approve: master data, menus, BOM, purchasing and cost. */
+const MANAGER_PERMISSIONS: PermissionCode[] = [
+  ...STORE_PERMISSIONS,
   PERMISSIONS.ITEM_MANAGE,
   PERMISSIONS.LOCATION_MANAGE,
   PERMISSIONS.SUPPLIER_MANAGE,
@@ -129,25 +132,31 @@ const SUPERVISOR_PERMISSIONS: PermissionCode[] = [
 const ADMIN_PERMISSIONS: PermissionCode[] = Object.values(PERMISSIONS);
 
 export const ROLE_PERMISSIONS: Record<RoleCode, PermissionCode[]> = {
-  [ROLES.FRONTLINE]: FRONTLINE_PERMISSIONS,
-  [ROLES.LEADER]: LEADER_PERMISSIONS,
-  [ROLES.SUPERVISOR]: SUPERVISOR_PERMISSIONS,
+  [ROLES.STAFF]: STAFF_PERMISSIONS,
+  [ROLES.STORE]: STORE_PERMISSIONS,
+  [ROLES.MANAGER]: MANAGER_PERMISSIONS,
   [ROLES.ADMIN]: ADMIN_PERMISSIONS,
 };
 
 export const ROLE_LABELS_TH: Record<RoleCode, string> = {
-  [ROLES.FRONTLINE]: "พนักงานหน้างาน",
-  [ROLES.LEADER]: "หัวหน้าชุด",
-  [ROLES.SUPERVISOR]: "หัวหน้าแผนก",
+  [ROLES.STAFF]: "พนักงานหน้างาน",
+  [ROLES.STORE]: "พนักงานคลัง",
+  [ROLES.MANAGER]: "ผู้จัดการโรงอาหาร",
   [ROLES.ADMIN]: "ผู้ดูแลระบบ",
 };
 
 export const ROLE_RANKS: Record<RoleCode, number> = {
-  [ROLES.FRONTLINE]: 10,
-  [ROLES.LEADER]: 20,
-  [ROLES.SUPERVISOR]: 30,
+  [ROLES.STAFF]: 10,
+  [ROLES.STORE]: 20,
+  [ROLES.MANAGER]: 30,
   [ROLES.ADMIN]: 40,
 };
+
+export const ROLE_CODES = Object.values(ROLES);
+
+export function isRoleCode(value: string): value is RoleCode {
+  return (ROLE_CODES as readonly string[]).includes(value);
+}
 
 export function hasPermission(
   granted: readonly string[],

@@ -41,6 +41,7 @@ export default async function EditItemPage({ params }: { params: Promise<{ id: s
           defaultLocationId: item.defaultLocationId,
           minimumStock: item.minimumStock,
           reorderPoint: item.reorderPoint,
+          safetyStock: item.safetyStock,
           shelfLifeDays: item.shelfLifeDays,
           barcode: item.barcode,
           isActive: item.isActive,

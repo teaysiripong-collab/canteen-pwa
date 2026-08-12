@@ -6,6 +6,7 @@ import {
   integer,
   pgTable,
   text,
+  timestamp,
   unique,
   uniqueIndex,
   uuid,
@@ -100,6 +101,8 @@ export const items = pgTable(
     }),
     minimumStock: quantity("minimum_stock").notNull().default("0"),
     reorderPoint: quantity("reorder_point").notNull().default("0"),
+    /** Buffer the purchase planner keeps on hand on top of the planned requirement. */
+    safetyStock: quantity("safety_stock").notNull().default("0"),
     shelfLifeDays: integer("shelf_life_days"),
     /** Reserved for the future barcode/QR scanner; unused in V1. */
     barcode: text("barcode"),
@@ -114,6 +117,7 @@ export const items = pgTable(
     check("items_purchase_conversion_positive", sql`${t.purchaseConversion} > 0`),
     check("items_minimum_stock_non_negative", sql`${t.minimumStock} >= 0`),
     check("items_reorder_point_non_negative", sql`${t.reorderPoint} >= 0`),
+    check("items_safety_stock_non_negative", sql`${t.safetyStock} >= 0`),
   ],
 );
 
@@ -179,7 +183,14 @@ export const supplierItems = pgTable(
     }),
     /** Base units per supplier purchase unit; falls back to items.purchaseConversion when null. */
     purchaseConversion: quantity("purchase_conversion"),
+    /** Minimum order quantity, expressed in the supplier's purchase unit. */
+    moq: quantity("moq").notNull().default("0"),
+    /** Order quantities are rounded up to a multiple of this pack size when set. */
+    packSize: quantity("pack_size"),
+    /** Overrides suppliers.leadTimeDays for this item when the supplier is slower on it. */
+    leadTimeDays: integer("lead_time_days"),
     lastPrice: money("last_price"),
+    lastPriceAt: timestamp("last_price_at", { withTimezone: true }),
     isPreferred: boolean("is_preferred").notNull().default(false),
     isActive: boolean("is_active").notNull().default(true),
     ...timestamps,
@@ -187,5 +198,16 @@ export const supplierItems = pgTable(
   (t) => [
     uniqueIndex("supplier_items_supplier_item_key").on(t.supplierId, t.itemId),
     index("supplier_items_item_idx").on(t.itemId),
+    check("supplier_items_moq_non_negative", sql`${t.moq} >= 0`),
+    check("supplier_items_pack_size_positive", sql`${t.packSize} is null or ${t.packSize} > 0`),
+    check(
+      "supplier_items_lead_time_non_negative",
+      sql`${t.leadTimeDays} is null or ${t.leadTimeDays} >= 0`,
+    ),
+    check(
+      "supplier_items_conversion_positive",
+      sql`${t.purchaseConversion} is null or ${t.purchaseConversion} > 0`,
+    ),
+    check("supplier_items_last_price_non_negative", sql`${t.lastPrice} is null or ${t.lastPrice} >= 0`),
   ],
 );

@@ -29,6 +29,43 @@ export const positiveQtySchema = z.coerce
   .positive("ต้องมากกว่า 0")
   .max(99_999_999, "ตัวเลขมากเกินไป");
 
+/**
+ * Checkbox flag. `z.coerce.boolean()` cannot be used here: it is just `Boolean(value)`,
+ * so the string "false" would come back as `true` and nothing could ever be switched off.
+ */
+export const booleanFlagSchema = z.preprocess((value) => {
+  if (typeof value === "boolean") return value;
+  if (typeof value === "string") return value === "true" || value === "on" || value === "1";
+  return value;
+}, z.boolean({ invalid_type_error: "ค่าไม่ถูกต้อง" }));
+
+/**
+ * An empty <input type="number"> posts "", which `z.coerce.number()` would turn into 0.
+ * "Not filled in" must stay undefined so the column ends up NULL instead of a real zero.
+ */
+const emptyToUndefined = (value: unknown) =>
+  value === "" || value === null ? undefined : value;
+
+export const optionalNonNegativeQtySchema = z.preprocess(
+  emptyToUndefined,
+  nonNegativeQtySchema.optional(),
+);
+
+export const optionalPositiveQtySchema = z.preprocess(
+  emptyToUndefined,
+  positiveQtySchema.optional(),
+);
+
+export const optionalDayCountSchema = z.preprocess(
+  emptyToUndefined,
+  z.coerce
+    .number({ invalid_type_error: "กรุณากรอกตัวเลข" })
+    .int("ต้องเป็นจำนวนเต็ม")
+    .min(0, "ต้องไม่ติดลบ")
+    .max(3650, "มากเกินไป")
+    .optional(),
+);
+
 export const optionalUuidSchema = z
   .union([uuidSchema, z.literal("")])
   .optional()

@@ -18,7 +18,11 @@ export const menuCategories = pgTable(
   (t) => [uniqueIndex("menu_categories_org_code_key").on(t.organizationId, t.code)],
 );
 
-/** Meal periods are configurable master data (06:00 / 10:00 / 21:00 / 01:30 are seed values only). */
+/**
+ * Meal periods are configurable master data. The seed ships the two shifts the canteen
+ * plans against — DAY (เช้า) and NIGHT (ดึก) — which are the two halves of the "30+20"
+ * BOM notation. Nothing in the code hardcodes these codes.
+ */
 export const mealPeriods = pgTable(
   "meal_periods",
   {

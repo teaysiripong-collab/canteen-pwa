@@ -65,7 +65,7 @@ export const SIDEBAR_GROUPS: NavGroup[] = [
     label: "ระบบ",
     items: [
       { label: "รายงาน", href: "/reports", permission: PERMISSIONS.REPORT_VIEW, phase: 5 },
-      { label: "ผู้ใช้งาน", href: "/users", permission: PERMISSIONS.USER_MANAGE, phase: 2 },
+      { label: "ผู้ใช้งาน", href: "/users", permission: PERMISSIONS.USER_MANAGE },
       { label: "Audit Log", href: "/audit-log", permission: PERMISSIONS.AUDIT_VIEW },
       { label: "ตั้งค่า", href: "/settings", permission: PERMISSIONS.SETTINGS_MANAGE, phase: 2 },
     ],

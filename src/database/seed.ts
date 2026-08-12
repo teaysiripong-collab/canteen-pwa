@@ -1,5 +1,5 @@
 import { config } from "dotenv";
-import { eq } from "drizzle-orm";
+import { and, eq, inArray, like, notInArray } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import {
@@ -178,16 +178,16 @@ async function seedItems(
   const b16 = locations.get("B16")!;
 
   const rows = [
-    { code: "MEAT-001", nameTh: "หมูหั่นบาง", category: "MEAT", supplier: "BETAGRO", reorder: "15", min: "5", shelfLife: 3, aliases: ["หมูสไลซ์"] },
-    { code: "MEAT-002", nameTh: "หมูบด", category: "MEAT", supplier: "BETAGRO", reorder: "15", min: "5", shelfLife: 3, aliases: [] },
-    { code: "MEAT-003", nameTh: "ไก่หั่นบาง", category: "MEAT", supplier: "BETAGRO", reorder: "20", min: "8", shelfLife: 3, aliases: ["ไก่สไลซ์"] },
-    { code: "MEAT-004", nameTh: "ไก่บด", category: "MEAT", supplier: "BETAGRO", reorder: "40", min: "15", shelfLife: 3, aliases: ["ไก่สับละเอียด"] },
-    { code: "MEAT-005", nameTh: "ไก่ตัวสับ", category: "MEAT", supplier: "BETAGRO", reorder: "20", min: "8", shelfLife: 3, aliases: ["ไก่สับ"] },
-    { code: "MEAT-006", nameTh: "ไก่ BLK", category: "MEAT", supplier: "BETAGRO", reorder: "15", min: "5", shelfLife: 3, aliases: [] },
-    { code: "VEG-001", nameTh: "กะหล่ำปลี", category: "VEG", supplier: "PUANGPLOY", reorder: "20", min: "8", shelfLife: 7, aliases: [] },
-    { code: "VEG-002", nameTh: "แตงกวา", category: "VEG", supplier: "PUANGPLOY", reorder: "15", min: "5", shelfLife: 5, aliases: [] },
-    { code: "VEG-003", nameTh: "ถั่วฝักยาว", category: "VEG", supplier: "PUANGPLOY", reorder: "10", min: "4", shelfLife: 4, aliases: [] },
-    { code: "VEG-004", nameTh: "มะเขือพวง", category: "VEG", supplier: "PUANGPLOY", reorder: "5", min: "2", shelfLife: 4, aliases: [] },
+    { code: "MEAT-001", nameTh: "หมูหั่นบาง", category: "MEAT", supplier: "BETAGRO", reorder: "15", min: "5", safety: "5", shelfLife: 3, aliases: ["หมูสไลซ์"] },
+    { code: "MEAT-002", nameTh: "หมูบด", category: "MEAT", supplier: "BETAGRO", reorder: "15", min: "5", safety: "5", shelfLife: 3, aliases: [] },
+    { code: "MEAT-003", nameTh: "ไก่หั่นบาง", category: "MEAT", supplier: "BETAGRO", reorder: "20", min: "8", safety: "8", shelfLife: 3, aliases: ["ไก่สไลซ์"] },
+    { code: "MEAT-004", nameTh: "ไก่บด", category: "MEAT", supplier: "BETAGRO", reorder: "40", min: "15", safety: "15", shelfLife: 3, aliases: ["ไก่สับละเอียด"] },
+    { code: "MEAT-005", nameTh: "ไก่ตัวสับ", category: "MEAT", supplier: "BETAGRO", reorder: "20", min: "8", safety: "8", shelfLife: 3, aliases: ["ไก่สับ"] },
+    { code: "MEAT-006", nameTh: "ไก่ BLK", category: "MEAT", supplier: "BETAGRO", reorder: "15", min: "5", safety: "5", shelfLife: 3, aliases: [] },
+    { code: "VEG-001", nameTh: "กะหล่ำปลี", category: "VEG", supplier: "PUANGPLOY", reorder: "20", min: "8", safety: "6", shelfLife: 7, aliases: [] },
+    { code: "VEG-002", nameTh: "แตงกวา", category: "VEG", supplier: "PUANGPLOY", reorder: "15", min: "5", safety: "4", shelfLife: 5, aliases: [] },
+    { code: "VEG-003", nameTh: "ถั่วฝักยาว", category: "VEG", supplier: "PUANGPLOY", reorder: "10", min: "4", safety: "3", shelfLife: 4, aliases: [] },
+    { code: "VEG-004", nameTh: "มะเขือพวง", category: "VEG", supplier: "PUANGPLOY", reorder: "5", min: "2", safety: "2", shelfLife: 4, aliases: [] },
   ];
 
   const result = new Map<string, string>();
@@ -207,11 +207,17 @@ async function seedItems(
         defaultLocationId: b16,
         minimumStock: row.min,
         reorderPoint: row.reorder,
+        safetyStock: row.safety,
         shelfLifeDays: row.shelfLife,
       })
       .onConflictDoUpdate({
         target: [schema.items.organizationId, schema.items.code],
-        set: { nameTh: row.nameTh, reorderPoint: row.reorder, updatedAt: new Date() },
+        set: {
+          nameTh: row.nameTh,
+          reorderPoint: row.reorder,
+          safetyStock: row.safety,
+          updatedAt: new Date(),
+        },
       })
       .returning();
 
@@ -240,16 +246,79 @@ async function seedItems(
       defaultLocationId: b16,
       minimumStock: "300",
       reorderPoint: "900",
+      safetyStock: "300",
       shelfLifeDays: 14,
     })
     .onConflictDoUpdate({
       target: [schema.items.organizationId, schema.items.code],
-      set: { nameTh: "ไข่ไก่", updatedAt: new Date() },
+      set: { nameTh: "ไข่ไก่", safetyStock: "300", updatedAt: new Date() },
     })
     .returning();
 
   result.set("EGG-001", egg!.id);
   return result;
+}
+
+/**
+ * Supplier-specific purchasing terms. These drive the Phase 12 purchase planner, which
+ * rounds an order up to the pack size and never orders below the MOQ.
+ */
+async function seedSupplierItems(
+  db: Db,
+  units: Map<string, string>,
+  suppliers: Map<string, string>,
+  items: Map<string, string>,
+) {
+  const kg = units.get("KG")!;
+  const pang = units.get("PANG")!;
+
+  const rows = [
+    { item: "MEAT-001", supplier: "BETAGRO", unit: kg, conversion: "1", moq: "5", packSize: "5", price: "182.0000" },
+    { item: "MEAT-002", supplier: "BETAGRO", unit: kg, conversion: "1", moq: "5", packSize: "5", price: "165.0000" },
+    { item: "MEAT-003", supplier: "BETAGRO", unit: kg, conversion: "1", moq: "5", packSize: "5", price: "96.0000" },
+    { item: "MEAT-004", supplier: "BETAGRO", unit: kg, conversion: "1", moq: "10", packSize: "5", price: "88.5000" },
+    { item: "MEAT-005", supplier: "BETAGRO", unit: kg, conversion: "1", moq: "5", packSize: "5", price: "75.0000" },
+    { item: "MEAT-006", supplier: "BETAGRO", unit: kg, conversion: "1", moq: "5", packSize: "5", price: "92.0000" },
+    { item: "VEG-001", supplier: "PUANGPLOY", unit: kg, conversion: "1", moq: "3", packSize: null, price: "25.0000" },
+    { item: "VEG-002", supplier: "PUANGPLOY", unit: kg, conversion: "1", moq: "3", packSize: null, price: "32.0000" },
+    { item: "VEG-003", supplier: "PUANGPLOY", unit: kg, conversion: "1", moq: "2", packSize: null, price: "45.0000" },
+    { item: "VEG-004", supplier: "PUANGPLOY", unit: kg, conversion: "1", moq: "2", packSize: null, price: "68.0000" },
+    // 1 แผง = 30 ฟอง, so the conversion is expressed in the base unit (ฟอง).
+    { item: "EGG-001", supplier: "MAKRO", unit: pang, conversion: "30", moq: "5", packSize: "1", price: "128.0000" },
+  ];
+
+  let count = 0;
+  for (const row of rows) {
+    await db
+      .insert(schema.supplierItems)
+      .values({
+        supplierId: suppliers.get(row.supplier)!,
+        itemId: items.get(row.item)!,
+        purchaseUnitId: row.unit,
+        purchaseConversion: row.conversion,
+        moq: row.moq,
+        packSize: row.packSize,
+        lastPrice: row.price,
+        lastPriceAt: new Date(),
+        isPreferred: true,
+      })
+      .onConflictDoUpdate({
+        target: [schema.supplierItems.supplierId, schema.supplierItems.itemId],
+        set: {
+          purchaseUnitId: row.unit,
+          purchaseConversion: row.conversion,
+          moq: row.moq,
+          packSize: row.packSize,
+          lastPrice: row.price,
+          isPreferred: true,
+          isActive: true,
+          updatedAt: new Date(),
+        },
+      });
+    count += 1;
+  }
+
+  return count;
 }
 
 async function seedRolesAndPermissions(db: Db) {
@@ -269,6 +338,24 @@ async function seedRolesAndPermissions(db: Db) {
       })
       .returning();
     permissionIds.set(code, permission!.id);
+  }
+
+  // Drop system roles that are no longer in the catalogue (e.g. the pre-roadmap
+  // FRONTLINE/LEADER/SUPERVISOR set) so a re-seed converges instead of accumulating.
+  const staleRoles = await db
+    .select({ id: schema.roles.id })
+    .from(schema.roles)
+    .where(
+      and(
+        eq(schema.roles.isSystem, true),
+        notInArray(schema.roles.code, Object.values(ROLES) as string[]),
+      ),
+    );
+
+  if (staleRoles.length > 0) {
+    const staleIds = staleRoles.map((role) => role.id);
+    await db.delete(schema.userRoles).where(inArray(schema.userRoles.roleId, staleIds));
+    await db.delete(schema.roles).where(inArray(schema.roles.id, staleIds));
   }
 
   const roleIds = new Map<RoleCode, string>();
@@ -312,10 +399,22 @@ async function seedUsers(
 ) {
   const rows = [
     { email: "admin@canteen.local", fullName: "ผู้ดูแลระบบ", role: ROLES.ADMIN, location: "B16" },
-    { email: "supervisor@canteen.local", fullName: "หัวหน้าแผนกโรงอาหาร", role: ROLES.SUPERVISOR, location: "B16" },
-    { email: "leader@canteen.local", fullName: "หัวหน้าชุดครัว", role: ROLES.LEADER, location: "B16" },
-    { email: "frontline@canteen.local", fullName: "พนักงานหน้างาน", role: ROLES.FRONTLINE, location: "B1" },
+    { email: "manager@canteen.local", fullName: "ผู้จัดการโรงอาหาร", role: ROLES.MANAGER, location: "B16" },
+    { email: "store@canteen.local", fullName: "พนักงานคลัง B16", role: ROLES.STORE, location: "B16" },
+    { email: "staff@canteen.local", fullName: "พนักงานหน้างาน B1", role: ROLES.STAFF, location: "B1" },
   ];
+
+  // Only the seeded demo accounts (@canteen.local) are pruned; real users are never touched.
+  await db.delete(schema.users).where(
+    and(
+      eq(schema.users.organizationId, organizationId),
+      like(schema.users.email, "%@canteen.local"),
+      notInArray(
+        schema.users.email,
+        rows.map((row) => row.email),
+      ),
+    ),
+  );
 
   for (const row of rows) {
     const [user] = await db
@@ -332,20 +431,29 @@ async function seedUsers(
       })
       .returning();
 
-    await db
-      .insert(schema.userRoles)
-      .values({ userId: user!.id, roleId: roleIds.get(row.role)! })
-      .onConflictDoNothing();
+    // Rebuild the assignment so a demo account that changed role does not keep the old one.
+    await db.delete(schema.userRoles).where(eq(schema.userRoles.userId, user!.id));
+    await db.insert(schema.userRoles).values({ userId: user!.id, roleId: roleIds.get(row.role)! });
   }
 }
 
 async function seedMealPeriodsAndMenus(db: Db, organizationId: string) {
+  // DAY/NIGHT are the two shifts the canteen actually plans and cooks against; they are
+  // what the BOM "30+20" notation splits into. Meal periods stay editable master data.
   const mealPeriods = [
-    { code: "M0600", nameTh: "มื้อ 06:00", startTime: "06:00", sortOrder: 1 },
-    { code: "M1000", nameTh: "มื้อ 10:00", startTime: "10:00", sortOrder: 2 },
-    { code: "M2100", nameTh: "มื้อ 21:00", startTime: "21:00", sortOrder: 3 },
-    { code: "M0130", nameTh: "มื้อ 01:30", startTime: "01:30", sortOrder: 4 },
+    { code: "DAY", nameTh: "เช้า", startTime: "06:00", sortOrder: 1 },
+    { code: "NIGHT", nameTh: "ดึก", startTime: "21:00", sortOrder: 2 },
   ];
+
+  await db.delete(schema.mealPeriods).where(
+    and(
+      eq(schema.mealPeriods.organizationId, organizationId),
+      notInArray(
+        schema.mealPeriods.code,
+        mealPeriods.map((row) => row.code),
+      ),
+    ),
+  );
 
   for (const row of mealPeriods) {
     await db
@@ -353,7 +461,12 @@ async function seedMealPeriodsAndMenus(db: Db, organizationId: string) {
       .values({ organizationId, ...row })
       .onConflictDoUpdate({
         target: [schema.mealPeriods.organizationId, schema.mealPeriods.code],
-        set: { nameTh: row.nameTh, startTime: row.startTime, updatedAt: new Date() },
+        set: {
+          nameTh: row.nameTh,
+          startTime: row.startTime,
+          sortOrder: row.sortOrder,
+          updatedAt: new Date(),
+        },
       });
   }
 
@@ -429,6 +542,7 @@ async function main() {
   const categories = await seedCategories(db, organization.id);
   const suppliers = await seedSuppliers(db, organization.id);
   const items = await seedItems(db, organization.id, units, categories, suppliers, locations);
+  const supplierItemCount = await seedSupplierItems(db, units, suppliers, items);
   const roleIds = await seedRolesAndPermissions(db);
   await seedUsers(db, organization.id, roleIds, locations);
   await seedMealPeriodsAndMenus(db, organization.id);
@@ -440,7 +554,7 @@ async function main() {
     .where(eq(schema.users.organizationId, organization.id));
 
   console.log(
-    `Seed complete: ${locations.size} locations, ${items.size} items, ${suppliers.size} suppliers, ${seededUsers.length} users.`,
+    `Seed complete: ${locations.size} locations, ${items.size} items, ${suppliers.size} suppliers, ${supplierItemCount} supplier items, ${seededUsers.length} users.`,
   );
   console.log(`Sign in with: ${seededUsers.map((user) => user.email).join(", ")}`);
 

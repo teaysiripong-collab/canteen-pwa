@@ -5,6 +5,7 @@ import {
   itemCategories,
   items,
   locations,
+  supplierItems,
   suppliers,
   units,
 } from "@/database/schema";
@@ -165,6 +166,45 @@ export async function replaceItemAliases(
   }
 }
 
+/* -------------------------------------------------------- supplier ↔ item map */
+
+export async function listSupplierItems(organizationId: string, supplierId: string) {
+  return db
+    .select({
+      id: supplierItems.id,
+      itemId: supplierItems.itemId,
+      itemCode: items.code,
+      itemNameTh: items.nameTh,
+      baseUnitCode: units.code,
+      supplierItemCode: supplierItems.supplierItemCode,
+      supplierItemName: supplierItems.supplierItemName,
+      purchaseConversion: supplierItems.purchaseConversion,
+      moq: supplierItems.moq,
+      packSize: supplierItems.packSize,
+      leadTimeDays: supplierItems.leadTimeDays,
+      lastPrice: supplierItems.lastPrice,
+      lastPriceAt: supplierItems.lastPriceAt,
+      isPreferred: supplierItems.isPreferred,
+      isActive: supplierItems.isActive,
+    })
+    .from(supplierItems)
+    .innerJoin(items, eq(items.id, supplierItems.itemId))
+    .leftJoin(units, eq(units.id, items.baseUnitId))
+    .where(and(eq(supplierItems.supplierId, supplierId), eq(items.organizationId, organizationId)))
+    .orderBy(asc(items.code));
+}
+
+export async function getSupplierItemById(organizationId: string, id: string) {
+  const [row] = await db
+    .select({ mapping: supplierItems })
+    .from(supplierItems)
+    .innerJoin(items, eq(items.id, supplierItems.itemId))
+    .where(and(eq(supplierItems.id, id), eq(items.organizationId, organizationId)))
+    .limit(1);
+
+  return row?.mapping ?? null;
+}
+
 /* -------------------------------------------------------------- form options */
 
 export async function getMasterDataOptions(organizationId: string) {
@@ -188,6 +228,21 @@ export async function getMasterDataOptions(organizationId: string) {
   ]);
 
   return { units: unitOptions, categories: categoryOptions, suppliers: supplierOptions, locations: locationOptions };
+}
+
+/** Lightweight item list for pickers (supplier mappings, BOM lines in later phases). */
+export async function listItemOptions(organizationId: string) {
+  return db
+    .select({
+      id: items.id,
+      code: items.code,
+      nameTh: items.nameTh,
+      baseUnitCode: units.code,
+    })
+    .from(items)
+    .leftJoin(units, eq(units.id, items.baseUnitId))
+    .where(and(eq(items.organizationId, organizationId), eq(items.isActive, true)))
+    .orderBy(asc(items.code));
 }
 
 export async function countMasterData(organizationId: string) {

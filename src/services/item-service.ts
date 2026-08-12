@@ -22,6 +22,7 @@ function toRow(input: ItemInput) {
     defaultLocationId: input.defaultLocationId,
     minimumStock: toNumericString(input.minimumStock),
     reorderPoint: toNumericString(input.reorderPoint),
+    safetyStock: toNumericString(input.safetyStock),
     shelfLifeDays: typeof input.shelfLifeDays === "number" ? input.shelfLifeDays : null,
     barcode: input.barcode ?? null,
     isActive: input.isActive,

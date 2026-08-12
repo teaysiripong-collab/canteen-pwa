@@ -1,45 +1,22 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { ZodError } from "zod";
 import { AppError, actionSuccess, toActionError, type ActionResult } from "@/lib/errors";
+import { idOf, parseFormData } from "@/lib/form-data";
 import {
   itemInputSchema,
   locationInputSchema,
   supplierInputSchema,
+  supplierItemInputSchema,
 } from "@/schemas/master-data";
 import { createItem, setItemActive, updateItem } from "@/services/item-service";
 import { createLocation, setLocationActive, updateLocation } from "@/services/location-service";
+import {
+  createSupplierItem,
+  setSupplierItemActive,
+  updateSupplierItem,
+} from "@/services/supplier-item-service";
 import { createSupplier, setSupplierActive, updateSupplier } from "@/services/supplier-service";
-
-/** Zod issues become field errors the form renders in Thai next to the offending input. */
-function toValidationError(error: ZodError): AppError {
-  const fieldErrors: Record<string, string[]> = {};
-  for (const issue of error.issues) {
-    const key = issue.path.join(".") || "form";
-    (fieldErrors[key] ??= []).push(issue.message);
-  }
-  return new AppError("VALIDATION", "ข้อมูลไม่ถูกต้อง กรุณาตรวจสอบอีกครั้ง", { fieldErrors });
-}
-
-function parse<T>(schema: { parse: (value: unknown) => T }, formData: FormData): T {
-  const raw = Object.fromEntries(formData.entries());
-  // Unchecked checkboxes are absent from FormData; normalise them to false.
-  for (const key of ["isActive", "holdsStock"]) {
-    if (key in raw) raw[key] = raw[key] === "on" || raw[key] === "true" ? "true" : "false";
-  }
-  try {
-    return schema.parse(raw);
-  } catch (error) {
-    if (error instanceof ZodError) throw toValidationError(error);
-    throw error;
-  }
-}
-
-function idOf(formData: FormData): string | null {
-  const id = formData.get("id");
-  return typeof id === "string" && id.length > 0 ? id : null;
-}
 
 /* ----------------------------------------------------------------- locations */
 
@@ -48,7 +25,9 @@ export async function saveLocationAction(
   formData: FormData,
 ): Promise<ActionResult<{ id: string }>> {
   try {
-    const input = parse(locationInputSchema, formData);
+    const input = parseFormData(locationInputSchema, formData, {
+      checkboxes: ["holdsStock", "isActive"],
+    });
     const id = idOf(formData);
     const saved = id ? await updateLocation(id, input) : await createLocation(input);
 
@@ -81,7 +60,7 @@ export async function saveSupplierAction(
   formData: FormData,
 ): Promise<ActionResult<{ id: string }>> {
   try {
-    const input = parse(supplierInputSchema, formData);
+    const input = parseFormData(supplierInputSchema, formData, { checkboxes: ["isActive"] });
     const id = idOf(formData);
     const saved = id ? await updateSupplier(id, input) : await createSupplier(input);
 
@@ -114,7 +93,7 @@ export async function saveItemAction(
   formData: FormData,
 ): Promise<ActionResult<{ id: string }>> {
   try {
-    const input = parse(itemInputSchema, formData);
+    const input = parseFormData(itemInputSchema, formData, { checkboxes: ["isActive"] });
     const id = idOf(formData);
     const saved = id ? await updateItem(id, input) : await createItem(input);
 
@@ -134,6 +113,42 @@ export async function setItemActiveAction(
     if (!id) throw new AppError("VALIDATION");
     await setItemActive(id, formData.get("isActive") === "true");
     revalidatePath("/items");
+    return actionSuccess();
+  } catch (error) {
+    return toActionError(error);
+  }
+}
+
+/* --------------------------------------------------------- supplier ↔ item map */
+
+export async function saveSupplierItemAction(
+  _previous: ActionResult<{ id: string }> | undefined,
+  formData: FormData,
+): Promise<ActionResult<{ id: string }>> {
+  try {
+    const input = parseFormData(supplierItemInputSchema, formData, {
+      checkboxes: ["isPreferred", "isActive"],
+    });
+    const id = idOf(formData);
+    const saved = id ? await updateSupplierItem(id, input) : await createSupplierItem(input);
+
+    revalidatePath(`/suppliers/${input.supplierId}`);
+    revalidatePath("/items");
+    return actionSuccess({ id: saved.id });
+  } catch (error) {
+    return toActionError(error);
+  }
+}
+
+export async function setSupplierItemActiveAction(
+  _previous: ActionResult | undefined,
+  formData: FormData,
+): Promise<ActionResult> {
+  try {
+    const id = idOf(formData);
+    if (!id) throw new AppError("VALIDATION");
+    const updated = await setSupplierItemActive(id, formData.get("isActive") === "true");
+    revalidatePath(`/suppliers/${updated.supplierId}`);
     return actionSuccess();
   } catch (error) {
     return toActionError(error);
