@@ -45,6 +45,8 @@ export const receivingLineSchema = z
     rejectedQty: nonNegativeQtySchema.default(0),
     /** Price per receipt unit, the way it is printed on the invoice. */
     unitPrice: optionalNonNegativeQtySchema,
+    /** Set when this line fulfils a purchase order line. */
+    purchaseOrderItemId: optionalUuidSchema.optional(),
     lineStatus: z.enum(receiptLineStatuses).default("ACCEPTED"),
     lotNumber: optionalTextSchema,
     manufactureDate: isoDateSchema,
@@ -73,7 +75,7 @@ export const receivingInputSchema = z.object({
   idempotencyKey: z.string().trim().min(8, "รหัสอ้างอิงไม่ถูกต้อง").max(120),
   supplierId: uuidSchema,
   locationId: uuidSchema,
-  /** Reserved for phase 10; receiving against a PO is not built yet. */
+  /** Set when receiving against a purchase order; its lines carry purchaseOrderItemId. */
   purchaseOrderId: optionalUuidSchema.optional(),
   supplierDocNumber: optionalTextSchema,
   note: optionalTextSchema,

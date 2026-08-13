@@ -323,7 +323,36 @@ BOM คือหัวใจของการเบิกและการค�
 - `issue.adjust_qty` — แก้จำนวนให้ต่างจากสูตรได้ (ถ้าไม่มีสิทธิ์ ช่องกรอกจะถูกล็อก และเซิร์ฟเวอร์ปฏิเสธซ้ำอีกชั้น)
 - `fefo.override` — เลือกลอตเอง ถ้าการเลือกนั้น **ข้ามลอตที่ควรใช้ก่อนจริงๆ** จะถูกตั้งค่า `fefo_overridden` บนบรรทัดและบันทึก audit `OVERRIDE_FEFO`
 
-## 13. Unit conversion
+## 13. Purchase Order + partial receiving
+
+ใบสั่งซื้อเก็บ **ordered / received / remaining** ต่อบรรทัด และ **สถานะคำนวณจากตัวเลขเหล่านั้น** ไม่ใช่ให้คนที่รับของคนสุดท้ายเป็นคนตั้ง
+
+- ยังไม่ได้รับอะไรเลย → คงสถานะ workflow เดิม (DRAFT / PENDING / APPROVED / SENT)
+- รับไปบางส่วน → `PARTIALLY_RECEIVED`
+- ทุกบรรทัดรับครบหรือเกิน → `RECEIVED`
+- ส่งเกินก็ถือว่าครบ (ของเกินเป็นข้อเท็จจริงของการส่ง ไม่ใช่เหตุให้ใบค้างตลอดไป) และ remaining ไม่ติดลบ
+
+ตัวอย่างตาม roadmap: สั่ง 100 → รับ 70 → เหลือ 30 สถานะ `PARTIALLY_RECEIVED` → รับอีก 30 → `RECEIVED`
+
+### Workflow และสิทธิ์
+
+`DRAFT → PENDING → APPROVED → SENT` ข้ามขั้นไม่ได้ และ **อนุมัติต้องใช้ `po.approve` แยกจาก `po.manage`** คนสร้างใบจึงอนุมัติเองไม่ได้ถ้าไม่มีสิทธิ์อนุมัติ
+
+- แก้ไขได้เฉพาะตอน DRAFT / PENDING — เมื่อบอกผู้ขายไปแล้วก็แก้ไม่ได้
+- ยกเลิกไม่ได้ถ้ารับของไปแล้วบางส่วน
+- สถานะ `PARTIALLY_RECEIVED` / `RECEIVED` ตั้งด้วยมือไม่ได้ มาจากการรับของเท่านั้น
+
+> ชื่อสถานะในฐานข้อมูลใช้ชุดเดิมจากสเปกแรก (`PENDING` / `PARTIALLY_RECEIVED` / `RECEIVED`) ซึ่งคือสถานะเดียวกับที่ roadmap เรียกว่า SUBMITTED / PARTIAL / COMPLETED
+
+### รับของตามใบสั่งซื้อ
+
+จากหน้าใบสั่งซื้อกด "รับสินค้าตามใบสั่งซื้อนี้" ฟอร์มรับของจะ **เติมจำนวนที่ยังค้างให้อัตโนมัติ** พร้อมแสดง สั่ง / รับแล้ว / เหลือ ต่อบรรทัด การบันทึกจะอัปเดตยอดรับและสถานะใบสั่งซื้อ **ใน transaction เดียวกับที่ตัดสต๊อก** ใบสั่งซื้อจึงไม่มีทางบอกว่า RECEIVED โดยที่ของยังไม่เข้าสต๊อก และของที่ปฏิเสธหน้างานจะไม่ถูกนับเข้ายอดรับ
+
+### เทียบราคากับครั้งก่อน
+
+ฟอร์มสร้างใบสั่งซื้อเติมหน่วยสั่งซื้อ ขั้นต่ำ (MOQ) ขนาดแพ็ก และราคาล่าสุดจาก supplier item ให้ พร้อมแสดง **% ที่ต่างจากราคาครั้งก่อน** เพื่อให้เห็นราคาที่กระโดดก่อนอนุมัติ ไม่ใช่ตอนใบแจ้งหนี้มาถึง
+
+## 14. Unit conversion
 
 `src/lib/units.ts` แปลงหน่วยผ่าน graph ของกฎการแปลง จึงรองรับการแปลงต่อกันหลายชั้น
 
@@ -333,7 +362,7 @@ BOM คือหัวใจของการเบิกและการค�
 
 ---
 
-## 14. Database tables (42 ตาราง)
+## 15. Database tables (42 ตาราง)
 
 | กลุ่ม | ตาราง |
 | --- | --- |
@@ -360,13 +389,13 @@ Seed ใส่ meal period ไว้สองกะตามที่โรง�
 
 ---
 
-## 15. Testing
+## 16. Testing
 
 เทสแบ่งเป็นสองชั้น
 
 ```bash
 npm run test              # unit — hermetic ไม่ต้องต่อฐานข้อมูล (100 tests)
-npm run test:integration  # integration — เขียนจริงลง Postgres (105 tests)
+npm run test:integration  # integration — เขียนจริงลง Postgres (122 tests)
 ```
 
 **Unit** — business logic ล้วน
@@ -388,6 +417,7 @@ npm run test:integration  # integration — เขียนจริงลง Po
 
 **Integration** — เขียนจริงผ่าน service + transaction + audit log (stub เฉพาะ session เพราะสิทธิ์มาจาก cookie ของ request)
 
+- `purchase-order-service.integration.test.ts` — สั่ง 100 รับ 70 เหลือ 30 สถานะ PARTIALLY_RECEIVED, รับครบแล้วเป็น RECEIVED, ส่งเกินถือว่าครบและ remaining ไม่ติดลบ, รับซ้ำหลังครบไม่ได้, รับก่อนอนุมัติไม่ได้, ยกเลิกหลังรับบางส่วนไม่ได้, ของที่ปฏิเสธไม่ถูกนับเข้ายอดรับ, แปลงหน่วยสั่งซื้อ, workflow ข้ามขั้นไม่ได้, `po.approve` แยกจาก `po.manage` และการเทียบราคา
 - `issue-service.integration.test.ts` — Gate 9: standard 30 / actual 32 → +2 kg (+6.67%), ดึงสูตรตามมื้อที่เลือก, คูณตามจำนวนครั้ง, FEFO เลือกลอตหมดอายุก่อน, ต้นทุนถัวเฉลี่ยของลอตที่ใช้, เบิกเกินถูกปฏิเสธ, กดซ้ำไม่เบิกซ้ำ, เบิกทั่วไปไม่มีสูตร, และสิทธิ์ทั้งสามชั้น (create / adjust_qty / fefo.override)
 - `menu-plan-service.integration.test.ts` — ตรึงเวอร์ชันสูตรตอนวางแผน, เมนูไม่มีสูตรวางแผนไม่ได้, ร่างไม่นับเป็นความต้องการจนกว่าจะยืนยัน, หยิบเฉพาะครึ่งของมื้อ (เช้า 30 ไม่ใช่ 50), แยกเช้า/ดึกแล้วรวมเป็น 50, คูณตามจำนวนครั้งที่ทำ, รวมหลายเมนูพร้อม drill-down, แผนที่ยกเลิกหยุดนับ, คัดลอกเมื่อวาน/จากมื้ออื่น และเทมเพลต
 - `bom-service.integration.test.ts` — Gate 7: ไก่บด `30+20` แตกเป็น เช้า 30 / ดึก 20 / รวม 50, ยอดรวมตรงกับผลรวมรายมื้อ, สูตรที่เผยแพร่แล้วแก้ไม่ได้, v2 คัดลอกจาก v1 แล้ว v1 ไม่เปลี่ยน, การแตกมื้อถูกคัดลอกไปด้วย, เผยแพร่สูตรเปล่าไม่ได้ และการตรวจสิทธิ์
@@ -404,7 +434,7 @@ npm run test:integration  # integration — เขียนจริงลง Po
 
 ---
 
-## 16. Deployment (Vercel)
+## 17. Deployment (Vercel)
 
 1. สร้างโปรเจกต์ Supabase แล้วคัดลอก connection string (แนะนำ session pooler port 5432)
 2. Import repository เข้า Vercel
@@ -415,7 +445,7 @@ npm run test:integration  # integration — เขียนจริงลง Po
 
 ---
 
-## 17. Roadmap
+## 18. Roadmap
 
 | Phase | ขอบเขต | สถานะ |
 | --- | --- | --- |
@@ -427,7 +457,8 @@ npm run test:integration  # integration — เขียนจริงลง Po
 | 7 | Menu master + BOM แบบมีเวอร์ชัน, สัญกรณ์ `30+20` (เช้า/ดึก), ประวัติสูตรคงที่ | ✅ เสร็จ |
 | 8 | Daily Menu Plan: สถานะแผน, ตรึงเวอร์ชันสูตร, รวมความต้องการวัตถุดิบแยกเช้า/ดึก, คัดลอก, เทมเพลต | ✅ เสร็จ |
 | 9 | เบิกของตาม BOM: ดึงสูตรตามมื้อ, FEFO, standard vs actual + variance, ต้นทุนถัวเฉลี่ย, FEFO override | ✅ เสร็จ |
-| 10 | Purchase Order + partial receiving | ⏳ |
+| 10 | Purchase Order: workflow + อนุมัติ, partial receiving, สถานะอัตโนมัติ, เทียบราคา, รับของตาม PO | ✅ เสร็จ |
+| 11 | Weighted average cost + ต้นทุนย้อนหลัง | ⏳ |
 | 4 | Supplier item, PO, รับของตาม PO, partial receiving, PO status | ⏳ |
 | 5 | ต้นทุนรายวัน/รายเดือน/ต่อเมนู, ประวัติราคา, รายงาน + export | ⏳ |
 | 6 | Management dashboard, alerts, projected stock, purchase recommendation, Google Sheets sync | ⏳ |

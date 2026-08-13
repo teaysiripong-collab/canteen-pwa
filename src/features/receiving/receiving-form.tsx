@@ -14,10 +14,31 @@ import type { ReceivingFormData } from "@/repositories/receiving-repository";
 import { RECEIPT_LINE_STATUS_LABELS_TH, receiptLineStatuses } from "@/schemas/receiving";
 import { submitReceivingAction } from "./actions";
 
+export type ReceivingPurchaseOrder = {
+  id: string;
+  poNumber: string;
+  supplierId: string;
+  deliverToLocationId: string;
+  lines: Array<{
+    id: string;
+    itemId: string;
+    itemCode: string;
+    itemNameTh: string;
+    orderedBaseQty: string;
+    receivedBaseQty: string;
+    remainingBaseQty: string;
+    unitPrice: string;
+  }>;
+};
+
 type LineState = {
   key: string;
   itemId: string;
   itemLabel: string;
+  /** Set when this line fulfils a purchase order line. */
+  purchaseOrderItemId?: string;
+  orderedBaseQty?: string;
+  receivedBaseQty?: string;
   receivedQty: string;
   receiptUnitId: string;
   conversionToBase: string;
@@ -31,22 +52,66 @@ type LineState = {
 export function ReceivingForm({
   data,
   defaultLocationId,
+  purchaseOrder,
 }: {
   data: ReceivingFormData;
   defaultLocationId: string | null;
+  /** When present, the form starts as "receive what this order is still waiting for". */
+  purchaseOrder?: ReceivingPurchaseOrder;
 }) {
   const router = useRouter();
 
   // Fixed for the life of the form, so a double tap or a retry cannot receive twice.
   const [idempotencyKey] = React.useState(() => `gr:${crypto.randomUUID()}`);
-  const [supplierId, setSupplierId] = React.useState("");
-  const [locationId, setLocationId] = React.useState(defaultLocationId ?? "");
+  const [supplierId, setSupplierId] = React.useState(purchaseOrder?.supplierId ?? "");
+  const [locationId, setLocationId] = React.useState(
+    purchaseOrder?.deliverToLocationId ?? defaultLocationId ?? "",
+  );
   const [supplierDocNumber, setSupplierDocNumber] = React.useState("");
   const [note, setNote] = React.useState("");
   const [lines, setLines] = React.useState<LineState[]>([]);
   const [error, setError] = React.useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = React.useState<Record<string, string[]>>({});
   const [pending, startTransition] = React.useTransition();
+
+  // Start from what the order is still waiting for, so the common case is "confirm".
+  const prefilled = React.useRef(false);
+  React.useEffect(() => {
+    if (!purchaseOrder || prefilled.current || data.items.length === 0) return;
+    prefilled.current = true;
+
+    setLines(
+      purchaseOrder.lines
+        .filter((line) => Number(line.remainingBaseQty) > 0)
+        .map((line) => {
+          const item = data.items.find((row) => row.id === line.itemId);
+          const mapping = data.supplierItems.find(
+            (row) => row.itemId === line.itemId && row.supplierId === purchaseOrder.supplierId,
+          );
+          const conversion = Number(
+            mapping?.purchaseConversion ?? item?.purchaseConversion ?? "1",
+          );
+
+          return {
+            key: crypto.randomUUID(),
+            itemId: line.itemId,
+            itemLabel: `${line.itemNameTh} (${line.itemCode})`,
+            purchaseOrderItemId: line.id,
+            orderedBaseQty: line.orderedBaseQty,
+            receivedBaseQty: line.receivedBaseQty,
+            // The outstanding quantity is in base units; the form works in receipt units.
+            receivedQty: String(Number(line.remainingBaseQty) / (conversion || 1)),
+            receiptUnitId: mapping?.purchaseUnitId ?? item?.purchaseUnitId ?? "",
+            conversionToBase: String(conversion || 1),
+            rejectedQty: "0",
+            unitPrice: String(Number(line.unitPrice)),
+            lineStatus: "ACCEPTED" as const,
+            expiryDate: item?.shelfLifeDays ? addDays(todayIso(), item.shelfLifeDays) : "",
+            hasProblem: false,
+          };
+        }),
+    );
+  }, [purchaseOrder, data.items, data.supplierItems]);
 
   const unitById = React.useMemo(
     () => new Map(data.units.map((unit) => [unit.id, unit])),
@@ -113,7 +178,7 @@ export function ReceivingForm({
 
   // Re-apply supplier terms when the supplier changes, so prices and packs stay right.
   React.useEffect(() => {
-    if (!supplierId) return;
+    if (!supplierId || purchaseOrder) return;
     setLines((current) =>
       current.map((line) => {
         const terms = termsFor(line.itemId, supplierId);
@@ -125,7 +190,7 @@ export function ReceivingForm({
         };
       }),
     );
-  }, [supplierId, termsFor]);
+  }, [supplierId, termsFor, purchaseOrder]);
 
   const totalValue = lines.reduce((sum, line) => {
     const qty = Number(line.receivedQty) - Number(line.rejectedQty || 0);
@@ -143,9 +208,11 @@ export function ReceivingForm({
         supplierId,
         locationId,
         supplierDocNumber: supplierDocNumber || undefined,
+        purchaseOrderId: purchaseOrder?.id,
         note: note || undefined,
         lines: lines.map((line) => ({
           itemId: line.itemId,
+          purchaseOrderItemId: line.purchaseOrderItemId,
           receivedQty: line.receivedQty,
           receiptUnitId: line.receiptUnitId,
           conversionToBase: line.conversionToBase,
@@ -259,7 +326,21 @@ export function ReceivingForm({
           <Card key={line.key}>
             <CardContent className="flex flex-col gap-3">
               <div className="flex items-start justify-between gap-2">
-                <p className="font-medium text-ink">{line.itemLabel}</p>
+                <div className="min-w-0">
+                  <p className="font-medium text-ink">{line.itemLabel}</p>
+                  {line.orderedBaseQty ? (
+                    <p className="text-xs text-ink-subtle">
+                      สั่ง {formatQty(line.orderedBaseQty)} · รับแล้ว{" "}
+                      {formatQty(line.receivedBaseQty ?? "0")} · เหลือ{" "}
+                      {formatQty(
+                        Math.max(
+                          Number(line.orderedBaseQty) - Number(line.receivedBaseQty ?? 0),
+                          0,
+                        ),
+                      )}
+                    </p>
+                  ) : null}
+                </div>
                 <Button
                   type="button"
                   variant="ghost"

@@ -19,6 +19,7 @@ import { writeAuditLog } from "./audit-service";
 import { nextDocumentNumber, retryOnDuplicateNumber } from "./document-number-service";
 import { createLot } from "./inventory-lot-service";
 import { postMovementAs, type MovementLine } from "./inventory-ledger-service";
+import { applyReceiptToPurchaseOrder } from "./purchase-order-service";
 
 export type ReceivingResult = {
   receiptId: string;
@@ -89,6 +90,18 @@ async function assertReferences(tx: DbExecutor, organizationId: string, input: R
 export async function createGoodsReceipt(input: ReceivingInput): Promise<ReceivingResult> {
   const user = await requirePermission(PERMISSIONS.RECEIVE_CREATE);
 
+  // The action layer validates this too, but the service must not depend on being called
+  // through it: a refusal larger than the delivery would otherwise book a negative
+  // accepted quantity and quietly receive nothing.
+  for (const line of input.lines) {
+    if (compareQty(line.receivedQty, "0") <= 0) {
+      throw new AppError("VALIDATION", "จำนวนที่รับต้องมากกว่า 0");
+    }
+    if (compareQty(line.rejectedQty, line.receivedQty) > 0) {
+      throw new AppError("VALIDATION", "จำนวนที่ปฏิเสธมากกว่าจำนวนที่ส่งมา");
+    }
+  }
+
   // A replayed submission must not create a second receipt for the same delivery.
   const existing = await findReceiptByIdempotencyKey(user.organizationId, input.idempotencyKey);
   if (existing) return existing;
@@ -119,6 +132,7 @@ export async function createGoodsReceipt(input: ReceivingInput): Promise<Receivi
         .returning();
 
       const movementLines: MovementLine[] = [];
+      const poReceipts: Array<{ purchaseOrderItemId: string; baseQty: string }> = [];
 
       for (const line of input.lines) {
         const converted = convertLine(line);
@@ -174,6 +188,24 @@ export async function createGoodsReceipt(input: ReceivingInput): Promise<Receivi
         if (line.unitPrice !== undefined) {
           await rememberPurchasePrice(tx, input.supplierId, line.itemId, line.unitPrice);
         }
+
+        if (entersStock && line.purchaseOrderItemId) {
+          poReceipts.push({
+            purchaseOrderItemId: line.purchaseOrderItemId,
+            baseQty: converted.acceptedBaseQty,
+          });
+        }
+      }
+
+      // Booking against the order in the same transaction keeps the PO status honest:
+      // it can never say RECEIVED without the stock behind it, or vice versa.
+      if (input.purchaseOrderId && poReceipts.length > 0) {
+        await applyReceiptToPurchaseOrder(
+          tx,
+          user.organizationId,
+          input.purchaseOrderId,
+          poReceipts,
+        );
       }
 
       // Sharing the transaction is what keeps the document and the ledger in step.
