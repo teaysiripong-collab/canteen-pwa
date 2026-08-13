@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { and, eq, inArray } from "drizzle-orm";
-import { PERMISSIONS } from "@/lib/permissions";
+import { PERMISSIONS, type PermissionCode, type RoleCode } from "@/lib/permissions";
 
 /**
  * Gate 3 of the roadmap, proven against a real Postgres:
@@ -14,8 +14,8 @@ const actor = {
   fullName: "Integration Store Keeper",
   defaultLocationId: null,
   defaultLocationName: null,
-  roleCodes: ["STORE"],
-  permissions: Object.values(PERMISSIONS) as string[],
+  roleCodes: ["STORE"] as RoleCode[],
+  permissions: Object.values(PERMISSIONS) as PermissionCode[],
 };
 
 vi.mock("@/lib/auth/session", () => ({

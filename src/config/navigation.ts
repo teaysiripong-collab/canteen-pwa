@@ -37,7 +37,7 @@ export const SIDEBAR_GROUPS: NavGroup[] = [
       { label: "เบิกสินค้า", href: "/inventory/issue", permission: PERMISSIONS.ISSUE_CREATE, phase: 4 },
       { label: "โอนสินค้า", href: "/inventory/transfer", permission: PERMISSIONS.TRANSFER_CREATE, phase: 4 },
       { label: "ตรวจนับสต๊อก", href: "/inventory/count", permission: PERMISSIONS.STOCK_COUNT_CREATE, phase: 5 },
-      { label: "ของใกล้หมดอายุ", href: "/inventory/expiry", permission: PERMISSIONS.STOCK_VIEW, phase: 4 },
+      { label: "ของใกล้หมดอายุ", href: "/inventory/expiry", permission: PERMISSIONS.STOCK_VIEW },
     ],
   },
   {

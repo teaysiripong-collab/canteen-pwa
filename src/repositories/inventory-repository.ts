@@ -11,6 +11,7 @@ import {
   units,
   users,
 } from "@/database/schema";
+import { addDays } from "@/lib/date";
 
 /* ------------------------------------------------------------------ balances */
 
@@ -229,13 +230,18 @@ export async function getPostingWithLines(organizationId: string, postingId: str
   return { posting, lines: rows };
 }
 
-/** Lots that are already expired or will expire within `days`, worst first. */
-export async function listExpiringLots(organizationId: string, days: number) {
+/**
+ * Lots that are already expired or will expire within `days` of the given business date,
+ * worst first. The date is passed in rather than read from the database, because the
+ * server's `current_date` is UTC and the canteen's day is Bangkok's.
+ */
+export async function listExpiringLots(organizationId: string, days: number, today: string) {
   return db
     .select({
       lotId: inventoryLots.id,
       lotNumber: inventoryLots.lotNumber,
       expiryDate: inventoryLots.expiryDate,
+      itemId: items.id,
       itemCode: items.code,
       itemNameTh: items.nameTh,
       baseUnitCode: units.code,
@@ -253,7 +259,7 @@ export async function listExpiringLots(organizationId: string, days: number) {
         eq(stockBalances.organizationId, organizationId),
         gt(stockBalances.baseQty, "0"),
         sql`${inventoryLots.expiryDate} is not null`,
-        sql`${inventoryLots.expiryDate} <= current_date + ${days} * interval '1 day'`,
+        sql`${inventoryLots.expiryDate} <= ${addDays(today, days)}::date`,
       ),
     )
     .orderBy(asc(inventoryLots.expiryDate), asc(items.code));

@@ -209,7 +209,19 @@ inventory_lots           ← ลอตที่รับเข้ามา พ�
 3. ตัดยอดทีละลอตจนครบจำนวนที่ขอ — ไม่ตัดเกินยอดที่ลอตมี
 4. ถ้าของไม่พอ จะคืนค่า `shortfallBaseQty` ให้ผู้เรียกปฏิเสธรายการ (ไม่ปล่อยให้ติดลบ)
 
-MANAGER ที่มีสิทธิ์ `fefo.override` เลือกลอตเองได้ และระบบจะบันทึก `stock_issue_items.fefo_overridden` พร้อม audit log
+`planFefoAllocation()` อ่านลอตที่มีของจริงจาก `stock_balances` แล้วเสนอแผนเบิก ถ้าของไม่พอจะคืน `shortfallBaseQty` ให้ผู้เรียกปฏิเสธรายการ และ `toMovementLines()` แปลงแผนเป็น line ที่ `postMovement()` รับได้ทันที
+
+**ของที่หมดอายุแล้วจะไม่ถูกเสนอ** — FEFO เอาของที่หมดอายุก่อนขึ้นก่อนก็จริง แต่ของที่เลยวันหมดอายุไปแล้วถูกกันออกจากแผนทั้งหมด เพราะในโรงอาหารของหมดอายุต้องตัดเป็นของเสีย ไม่ใช่เอาไปปรุง ระบบรายงานจำนวนนั้นแยกเป็น `expiredBaseQty` เพื่อให้หน้าจออธิบายได้ว่าทำไมของบนชั้นกับของที่เบิกได้ไม่เท่ากัน
+
+**FEFO override** — MANAGER ที่มีสิทธิ์ `fefo.override` เลือกลอตเองได้ผ่าน `planManualAllocation()` ซึ่งตรวจว่าลอตที่เลือกมีของพอจริง และตั้ง `overridesFefo` เมื่อการเลือกนั้น *ข้ามลอตที่ควรใช้ก่อน* (ถ้าเลือกตรงกับที่ FEFO เสนออยู่แล้วจะไม่นับเป็น override) เพื่อให้ตอน post บันทึก audit ได้ตรงความจริง
+
+### วันที่ทางธุรกิจใช้เวลาไทย
+
+เซิร์ฟเวอร์รันเป็น UTC ถ้าใช้ `new Date()` ตรงๆ วันจะข้ามตั้งแต่ 17:00 น. เวลาไทย ทำให้ของถูกตีว่าหมดอายุเร็วไปหนึ่งกะ และรายการของกะดึกไปตกวันผิด `src/lib/date.ts` จึงคำนวณวันด้วยโซนเวลา `Asia/Bangkok` และ query วันหมดอายุส่งวันที่เข้าไปเป็นพารามิเตอร์ แทนการใช้ `current_date` ของฐานข้อมูลซึ่งเป็น UTC
+
+### แจ้งเตือนหมดอายุ
+
+`getExpiryAlerts()` จัดกลุ่มลอตเป็น หมดอายุแล้ว / หมดอายุวันนี้ / ตามเกณฑ์วันที่ตั้งไว้ เกณฑ์อ่านจาก `app_settings.expiry_alert_days` (default 1 / 3 / 7 วัน) แก้ได้โดยไม่ต้อง deploy หน้า `/inventory/expiry` และแดชบอร์ดอ่านจากฟังก์ชันเดียวกัน
 
 ## 8. Unit conversion
 
@@ -240,6 +252,10 @@ Recipe รองรับ version — `menu_plan_items.recipe_version_id` ผู
 
 Meal period, จำนวนวันแจ้งเตือนหมดอายุ และ prefix เลขที่เอกสาร เก็บใน `meal_periods` / `app_settings` — ไม่ hardcode
 
+`src/services/settings-service.ts` อ่านค่าเหล่านี้แบบ type-safe ทุกคีย์ประกาศ schema และค่า fallback ไว้ ถ้าแถวหายหรือข้อมูลเพี้ยนจะตกไปใช้ค่า default แทนที่จะพังทั้งหน้า
+
+`src/services/settings-service.ts` อ่านค่าเหล่านี้แบบ type-safe ทุกคีย์ประกาศ schema และค่า fallback ไว้ ถ้าแถวหาย/ข้อมูลเพี้ยนจะตกไปใช้ค่า default แทนที่จะพังทั้งหน้า เกณฑ์แจ้งเตือนหมดอายุ default คือ 1 / 3 / 7 วัน แก้ได้ที่ `app_settings.expiry_alert_days` โดยไม่ต้อง deploy
+
 Seed ใส่ meal period ไว้สองกะตามที่โรงอาหารวางแผนจริง คือ `DAY` (เช้า) และ `NIGHT` (ดึก) ซึ่งเป็นสองฝั่งของสัญกรณ์ BOM `30+20` ใน Phase 7 — เพิ่ม/แก้ไขได้จากตาราง ไม่มีการ hardcode ใน code
 
 ---
@@ -249,8 +265,8 @@ Seed ใส่ meal period ไว้สองกะตามที่โรง�
 เทสแบ่งเป็นสองชั้น
 
 ```bash
-npm run test              # unit — hermetic ไม่ต้องต่อฐานข้อมูล (78 tests)
-npm run test:integration  # integration — เขียนจริงลง Postgres (24 tests)
+npm run test              # unit — hermetic ไม่ต้องต่อฐานข้อมูล (82 tests)
+npm run test:integration  # integration — เขียนจริงลง Postgres (37 tests)
 ```
 
 **Unit** — business logic ล้วน
@@ -260,12 +276,15 @@ npm run test:integration  # integration — เขียนจริงลง Po
 - `fefo.test.ts` — ลำดับ FEFO, การตัดข้ามลอต, การรายงานของไม่พอ (กันสต๊อกติดลบ), การจัดกลุ่มวันหมดอายุ
 - `permissions.test.ts` — สิทธิ์ของแต่ละ role และการรวมสิทธิ์เมื่อมีหลาย role
 - `transaction-types.test.ts` — ทิศทาง IN/OUT ของทุกชนิดรายการ และชนิดที่ห้าม post ตรงๆ
+- `date.test.ts` — วันทางธุรกิจต้องเป็นวันของไทย ไม่ใช่วัน UTC ของเซิร์ฟเวอร์
+- `date.test.ts` — วันทางธุรกิจต้องเป็นวันของไทย ไม่ใช่วัน UTC ของเซิร์ฟเวอร์
 - `form-data.test.ts` — การอ่าน checkbox ที่ไม่ถูกติ๊ก และฟิลด์ที่ส่งหลายค่า (บทบาท)
 - `schemas/common.test.ts` — `booleanFlagSchema` และฟิลด์ตัวเลขที่เว้นว่างต้องเป็น NULL ไม่ใช่ 0
 - `schemas/master-data.test.ts` — validation ของ Item / SupplierItem / User
 
 **Integration** — เขียนจริงผ่าน service + transaction + audit log (stub เฉพาะ session เพราะสิทธิ์มาจาก cookie ของ request)
 
+- `inventory-allocation-service.integration.test.ts` — Gate 4: ลอตหมดอายุ 15 ส.ค. ถูกใช้ก่อนลอต 20 ส.ค., ตัดข้ามหลายลอต, กันของหมดอายุออกจากแผน, รายงานของขาด, แผนที่ได้นำไป post แล้วยอดตรง, override ตรวจสิทธิ์และตรวจว่าข้ามลอตจริงไหม, การจัดกลุ่มแจ้งเตือนหมดอายุ
 - `inventory-ledger-service.integration.test.ts` — Gate 3 ของ roadmap: รับ 100 → เบิก 30 → เหลือ 70, เบิกเกินถูกปฏิเสธและสต๊อกไม่ขยับ, กด submit ซ้ำตัดครั้งเดียว, **สองคนเบิกพร้อมกันแล้วสต๊อกไม่ติดลบ**, โอนสองขาใน posting เดียว, rollback ทั้ง posting เมื่อบรรทัดใดล้ม, reversal และการกันสิทธิ์
 - `user-service.integration.test.ts` — สร้าง/แก้ผู้ใช้, เปลี่ยนบทบาทแล้วบันทึกเป็น `PERMISSION_CHANGE`, อีเมลซ้ำ, ปิดใช้งานแทนการลบ, กันแอดมินถอดสิทธิ์/ปิดบัญชีตัวเอง
 - `supplier-item-service.integration.test.ts` — MOQ / pack size / lead time, `last_price_at` ขยับเฉพาะตอนราคาเปลี่ยน, ผู้ขายหลักมีได้รายเดียวต่อวัตถุดิบ, ปิดใช้งานแทนการลบ
@@ -293,8 +312,8 @@ npm run test:integration  # integration — เขียนจริงลง Po
 | --- | --- | --- |
 | 1 | Foundation: schema, migration, seed, auth, roles, app shell, Item/Location/Supplier master, audit log, health check, จัดการผู้ใช้, Supplier item mapping | ✅ เสร็จ |
 | 3 | Inventory engine: posting + ledger, idempotency, กันสต๊อกติดลบ, กันแย่งกันเบิก, reversal, สต๊อกคงเหลือ, บัญชีเคลื่อนไหว | ✅ เสร็จ |
+| 4 | Lot + expiry + FEFO allocation จากยอดคงเหลือจริง, กันของหมดอายุออกจากแผนเบิก, FEFO override, แจ้งเตือนหมดอายุแบบตั้งเกณฑ์ได้ | ✅ เสร็จ |
 | 2 | Menu master, Menu planner, Recipe/BOM + version, BOM cost preview | ⏳ |
-| 4 | Lot + expiry + FEFO allocation, แจ้งเตือนของใกล้หมดอายุ | ⏳ |
 | 4 | Supplier item, PO, รับของตาม PO, partial receiving, PO status | ⏳ |
 | 5 | ต้นทุนรายวัน/รายเดือน/ต่อเมนู, ประวัติราคา, รายงาน + export | ⏳ |
 | 6 | Management dashboard, alerts, projected stock, purchase recommendation, Google Sheets sync | ⏳ |
