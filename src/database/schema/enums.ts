@@ -69,6 +69,18 @@ export const locationKindEnum = pgEnum("location_kind", [
   "OTHER",
 ]);
 
+/**
+ * Lifecycle of a day's menu plan. Only CONFIRMED (and beyond) counts as planned demand:
+ * a draft must never drive purchasing or issuing.
+ */
+export const menuPlanStatusEnum = pgEnum("menu_plan_status", [
+  "DRAFT",
+  "CONFIRMED",
+  "IN_PROGRESS",
+  "COMPLETED",
+  "CANCELLED",
+]);
+
 export const stockCountStatusEnum = pgEnum("stock_count_status", [
   "OPEN",
   "COUNTED",

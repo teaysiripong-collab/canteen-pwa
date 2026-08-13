@@ -278,7 +278,32 @@ BOM คือหัวใจของการเบิกและการค�
 - ถ้ามีฉบับร่างค้างอยู่ การกดแก้ไขจะกลับไปที่ร่างเดิม ไม่สร้างเวอร์ชันซ้อน
 - เผยแพร่สูตรเปล่าไม่ได้
 
-## 11. Unit conversion
+## 11. Daily Menu Plan + ความต้องการวัตถุดิบ
+
+วางแผนเมนูราย **วัน × สถานที่ × มื้อ** แต่ละแผนมีสถานะ `DRAFT / CONFIRMED / IN_PROGRESS / COMPLETED / CANCELLED`
+
+**เฉพาะแผนที่ยืนยันแล้วเท่านั้นที่นับเป็นความต้องการจริง** — ฉบับร่างคือคนกำลังคิดอยู่ ถ้าปล่อยให้ไปสั่งซื้อหรือเบิกของได้ "อาจจะ" จะกลายเป็น "สั่งแล้ว" (แผนที่ `IN_PROGRESS` / `COMPLETED` ยังนับ เพราะเคยยืนยันมาก่อน)
+
+### ตรึงเวอร์ชันสูตรตอนวางแผน
+
+`menu_plan_items.recipe_version_id` บันทึกเวอร์ชันที่ใช้ ณ วันที่วางแผน สูตรที่เผยแพร่พรุ่งนี้จึงเปลี่ยนความหมายของแผนวันนี้ไม่ได้ และเมนูที่ยังไม่มีสูตรเผยแพร่จะวางแผนไม่ได้ (เพราะจะไม่มีวัตถุดิบให้คำนวณ)
+
+### รวมความต้องการวัตถุดิบ
+
+`getMaterialRequirements()` รวมจากแผนที่ยืนยันแล้ว โดย **หยิบเฉพาะครึ่งของมื้อนั้น** จากสัญกรณ์ `30+20`
+
+- วางแผน ผัดกะเพราไก่ เฉพาะมื้อเช้า → ต้องใช้ไก่บด **30** (ไม่ใช่ 50)
+- วางแผนทั้งเช้าและดึก → เช้า 30 / ดึก 20 / รวม 50
+- คูณตามจำนวนครั้งที่ทำ (`plannedServings`)
+- มี drill-down บอกว่าเมนูไหนดึงวัตถุดิบไปเท่าไร
+
+**ค่า waste factor ไม่ถูกบวกเพิ่มในความต้องการ** — ตัวเลขใน BOM คือปริมาณที่ครัวไปเบิกจากสโตร์จริง (gross) ส่วน waste factor อธิบายว่าในนั้นเป็นเศษที่ตัดทิ้งเท่าไร ใช้สำหรับวิเคราะห์ yield ไม่ใช่ไปเพิ่มยอดเบิก
+
+### คัดลอกและเทมเพลต
+
+คัดลอกเมื่อวาน / สัปดาห์ที่แล้ว / จากมื้ออื่น และบันทึกชุดเมนูเป็นเทมเพลตเพื่อใช้ซ้ำได้ การคัดลอกจะ **resolve เวอร์ชันสูตรใหม่ตามวันที่ปลายทาง** ไม่ได้ลอกเวอร์ชันเก่ามาด้วย — เมนูซ้ำได้ แต่สูตรต้องเป็นของวันนั้น
+
+## 12. Unit conversion
 
 `src/lib/units.ts` แปลงหน่วยผ่าน graph ของกฎการแปลง จึงรองรับการแปลงต่อกันหลายชั้น
 
@@ -288,14 +313,14 @@ BOM คือหัวใจของการเบิกและการค�
 
 ---
 
-## 12. Database tables (40 ตาราง)
+## 13. Database tables (42 ตาราง)
 
 | กลุ่ม | ตาราง |
 | --- | --- |
 | Organization | `organizations`, `locations` |
 | Users & สิทธิ์ | `users`, `roles`, `permissions`, `role_permissions`, `user_roles` |
 | ข้อมูลหลัก | `items`, `item_categories`, `item_aliases`, `units`, `unit_conversions`, `suppliers`, `supplier_items` |
-| เมนู | `menus`, `menu_categories`, `meal_periods`, `menu_plans`, `menu_plan_items` |
+| เมนู | `menus`, `menu_categories`, `meal_periods`, `menu_plans`, `menu_plan_items`, `menu_plan_templates`, `menu_plan_template_items` |
 | BOM | `recipes`, `recipe_versions`, `recipe_items`, `recipe_item_period_quantities` |
 | จัดซื้อ | `purchase_orders`, `purchase_order_items` |
 | เอกสารคลัง | `goods_receipts`, `goods_receipt_items`, `stock_issues`, `stock_issue_items`, `stock_transfers`, `stock_transfer_items` |
@@ -315,13 +340,13 @@ Seed ใส่ meal period ไว้สองกะตามที่โรง�
 
 ---
 
-## 13. Testing
+## 14. Testing
 
 เทสแบ่งเป็นสองชั้น
 
 ```bash
 npm run test              # unit — hermetic ไม่ต้องต่อฐานข้อมูล (94 tests)
-npm run test:integration  # integration — เขียนจริงลง Postgres (73 tests)
+npm run test:integration  # integration — เขียนจริงลง Postgres (89 tests)
 ```
 
 **Unit** — business logic ล้วน
@@ -341,6 +366,7 @@ npm run test:integration  # integration — เขียนจริงลง Po
 
 **Integration** — เขียนจริงผ่าน service + transaction + audit log (stub เฉพาะ session เพราะสิทธิ์มาจาก cookie ของ request)
 
+- `menu-plan-service.integration.test.ts` — ตรึงเวอร์ชันสูตรตอนวางแผน, เมนูไม่มีสูตรวางแผนไม่ได้, ร่างไม่นับเป็นความต้องการจนกว่าจะยืนยัน, หยิบเฉพาะครึ่งของมื้อ (เช้า 30 ไม่ใช่ 50), แยกเช้า/ดึกแล้วรวมเป็น 50, คูณตามจำนวนครั้งที่ทำ, รวมหลายเมนูพร้อม drill-down, แผนที่ยกเลิกหยุดนับ, คัดลอกเมื่อวาน/จากมื้ออื่น และเทมเพลต
 - `bom-service.integration.test.ts` — Gate 7: ไก่บด `30+20` แตกเป็น เช้า 30 / ดึก 20 / รวม 50, ยอดรวมตรงกับผลรวมรายมื้อ, สูตรที่เผยแพร่แล้วแก้ไม่ได้, v2 คัดลอกจาก v1 แล้ว v1 ไม่เปลี่ยน, การแตกมื้อถูกคัดลอกไปด้วย, เผยแพร่สูตรเปล่าไม่ได้ และการตรวจสิทธิ์
 - `transfer-service.integration.test.ts` — สองขาอยู่ใน posting เดียว, FEFO เลือกลอตหมดอายุก่อน, ตัดข้ามหลายลอตแล้วลอตยังคงตัวตนที่ปลายทาง, ต้นทางติดลบไม่ได้, โอนเข้าที่เดิมไม่ได้, กดซ้ำไม่โอนซ้ำ, ตรวจสิทธิ์ และความถูกต้องของยอดก่อน–หลัง
 - `receiving-service.integration.test.ts` — ใบรับ + รายการ + ลอต + ledger เกิดพร้อมกัน, แปลงหน่วยซื้อเป็นหน่วยสต๊อก, ของที่ไม่รับไม่เข้าสต๊อก, ปฏิเสธทั้งรายการไม่สร้างลอต, กดซ้ำไม่รับซ้ำ, รายการเสียหนึ่งบรรทัดแล้ว rollback ทั้งใบ, เลขเอกสารเรียงต่อกัน, จำราคาล่าสุด, ตรวจสิทธิ์ และ path ของ server action ที่ฟอร์มใช้จริง (ส่งค่าเป็น string)
@@ -355,7 +381,7 @@ npm run test:integration  # integration — เขียนจริงลง Po
 
 ---
 
-## 14. Deployment (Vercel)
+## 15. Deployment (Vercel)
 
 1. สร้างโปรเจกต์ Supabase แล้วคัดลอก connection string (แนะนำ session pooler port 5432)
 2. Import repository เข้า Vercel
@@ -366,7 +392,7 @@ npm run test:integration  # integration — เขียนจริงลง Po
 
 ---
 
-## 15. Roadmap
+## 16. Roadmap
 
 | Phase | ขอบเขต | สถานะ |
 | --- | --- | --- |
@@ -376,7 +402,8 @@ npm run test:integration  # integration — เขียนจริงลง Po
 | 5 | Receiving: ใบรับสินค้า mobile-first, ลอต, แปลงหน่วย, ของขาด/เสียหาย, เลขที่เอกสาร, หน้าจอยืนยันผล | ✅ เสร็จ |
 | 6 | Transfer: โอนสองขาใน posting เดียว, FEFO, ยอดก่อน–หลัง, หน้าจอมือถือ | ✅ เสร็จ |
 | 7 | Menu master + BOM แบบมีเวอร์ชัน, สัญกรณ์ `30+20` (เช้า/ดึก), ประวัติสูตรคงที่ | ✅ เสร็จ |
-| 8 | Daily Menu Plan + รวมความต้องการวัตถุดิบตามมื้อ | ⏳ |
+| 8 | Daily Menu Plan: สถานะแผน, ตรึงเวอร์ชันสูตร, รวมความต้องการวัตถุดิบแยกเช้า/ดึก, คัดลอก, เทมเพลต | ✅ เสร็จ |
+| 9 | เบิกของตาม BOM (standard vs actual) | ⏳ |
 | 4 | Supplier item, PO, รับของตาม PO, partial receiving, PO status | ⏳ |
 | 5 | ต้นทุนรายวัน/รายเดือน/ต่อเมนู, ประวัติราคา, รายงาน + export | ⏳ |
 | 6 | Management dashboard, alerts, projected stock, purchase recommendation, Google Sheets sync | ⏳ |
