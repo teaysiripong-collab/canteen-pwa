@@ -50,6 +50,13 @@
       "when": 1786642254767,
       "tag": "0006_flat_blackheart",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1786663804878,
+      "tag": "0007_brown_jackal",
+      "breakpoints": true
     }
   ]
 }

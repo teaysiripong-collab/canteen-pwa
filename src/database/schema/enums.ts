@@ -100,6 +100,8 @@ export const auditActionEnum = pgEnum("audit_action", [
   "OVERRIDE_FEFO",
   "PERMISSION_CHANGE",
   "EXPORT",
+  /** A read worth recording — figures leaving through a channel other than a screen. */
+  "VIEW",
 ]);
 
 export const syncTargetEnum = pgEnum("sync_target", [

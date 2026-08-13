@@ -18,7 +18,10 @@ export type NavGroup = {
 export const SIDEBAR_GROUPS: NavGroup[] = [
   {
     label: "ภาพรวม",
-    items: [{ label: "แดชบอร์ด", href: "/dashboard" }],
+    items: [
+      { label: "แดชบอร์ด", href: "/dashboard" },
+      { label: "ผู้ช่วย", href: "/copilot" },
+    ],
   },
   {
     label: "เมนู",
