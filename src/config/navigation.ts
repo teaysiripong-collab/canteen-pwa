@@ -33,7 +33,7 @@ export const SIDEBAR_GROUPS: NavGroup[] = [
     items: [
       { label: "สต๊อกคงเหลือ", href: "/inventory/stock", permission: PERMISSIONS.STOCK_VIEW },
       { label: "บัญชีเคลื่อนไหว", href: "/inventory/movements", permission: PERMISSIONS.STOCK_VIEW },
-      { label: "รับสินค้า", href: "/inventory/receiving", permission: PERMISSIONS.RECEIVE_CREATE, phase: 4 },
+      { label: "รับสินค้า", href: "/inventory/receiving", permission: PERMISSIONS.STOCK_VIEW },
       { label: "เบิกสินค้า", href: "/inventory/issue", permission: PERMISSIONS.ISSUE_CREATE, phase: 4 },
       { label: "โอนสินค้า", href: "/inventory/transfer", permission: PERMISSIONS.TRANSFER_CREATE, phase: 4 },
       { label: "ตรวจนับสต๊อก", href: "/inventory/count", permission: PERMISSIONS.STOCK_COUNT_CREATE, phase: 5 },
@@ -78,7 +78,7 @@ export type MobileNavItem = NavItem & { icon: "home" | "receive" | "issue" | "tr
 /** Mobile bottom navigation: the four things frontline staff do all day, plus home. */
 export const MOBILE_NAV_ITEMS: MobileNavItem[] = [
   { label: "หน้าหลัก", href: "/dashboard", icon: "home" },
-  { label: "รับของ", href: "/inventory/receiving", icon: "receive", permission: PERMISSIONS.RECEIVE_CREATE, phase: 4 },
+  { label: "รับของ", href: "/inventory/receiving/new", icon: "receive", permission: PERMISSIONS.RECEIVE_CREATE },
   { label: "เบิกของ", href: "/inventory/issue", icon: "issue", permission: PERMISSIONS.ISSUE_CREATE, phase: 4 },
   { label: "โอนของ", href: "/inventory/transfer", icon: "transfer", permission: PERMISSIONS.TRANSFER_CREATE, phase: 4 },
   { label: "เช็กสต๊อก", href: "/inventory/stock", icon: "stock", permission: PERMISSIONS.STOCK_VIEW },

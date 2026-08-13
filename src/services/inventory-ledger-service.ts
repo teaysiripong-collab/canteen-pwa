@@ -254,18 +254,27 @@ async function applyLines(
  * The single entry point that moves stock. Nothing else in the system may write to
  * `inventory_transactions` or `stock_balances`.
  */
-export async function postMovement(input: PostMovementInput): Promise<PostedMovement> {
-  return postMovementAs(await requireUser(), input);
+export async function postMovement(
+  input: PostMovementInput,
+  executor?: DbExecutor,
+): Promise<PostedMovement> {
+  return postMovementAs(await requireUser(), input, executor);
 }
 
 /**
  * Same engine, for callers that already know who is acting and have no HTTP request to
  * resolve a session from — the development seed today, scheduled jobs later. The
  * permission check below still runs, so this is not a way around authorization.
+ *
+ * Pass `executor` when the caller is already inside a transaction (a goods receipt
+ * writing its document, lots and ledger together). Opening a second `db.transaction`
+ * from inside one would take a different connection from the pool, and the two halves
+ * could commit independently.
  */
 export async function postMovementAs(
   user: SessionUser,
   input: PostMovementInput,
+  executor?: DbExecutor,
 ): Promise<PostedMovement> {
   assertLinesValid(input.lines);
 
@@ -276,7 +285,17 @@ export async function postMovementAs(
     }
   }
 
-  return db.transaction(async (tx) => {
+  return executor
+    ? postMovementCore(executor, user, input)
+    : db.transaction((tx) => postMovementCore(tx, user, input));
+}
+
+async function postMovementCore(
+  tx: DbExecutor,
+  user: SessionUser,
+  input: PostMovementInput,
+): Promise<PostedMovement> {
+  {
     // Claiming the key first is what makes a double submit a no-op: the second attempt
     // finds the row already there and returns the original posting untouched.
     const [posting] = await tx
@@ -378,7 +397,7 @@ export async function postMovementAs(
       transactionIds: inserted.map((row) => row.id),
       replayed: false,
     };
-  });
+  }
 }
 
 /**

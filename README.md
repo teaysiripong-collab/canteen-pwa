@@ -184,6 +184,12 @@ inventory_lots           ← ลอตที่รับเข้ามา พ�
 - `stock_balances` มี CHECK `base_qty >= 0` — **สต๊อกติดลบจาก race condition เป็นไปไม่ได้ที่ระดับฐานข้อมูล** ถ้าเบิกเกินจะได้ข้อความ "จำนวนที่ต้องการเบิกมากกว่าสต๊อกคงเหลือ" พร้อมจำนวนที่มีจริง
 - จำนวนทุกค่าเก็บเป็น `numeric(18,4)` และคำนวณด้วยจำนวนเต็ม scale 10⁴ ใน `src/lib/quantity.ts` เพื่อไม่ให้เกิด floating point drift
 
+### เอกสารกับ ledger ต้องอยู่ใน transaction เดียวกัน
+
+`postMovement()` รับ `executor` เพิ่มได้ เพื่อให้ workflow ที่อยู่ใน transaction อยู่แล้ว (เช่นการรับของที่ต้องเขียนใบรับ + รายการ + ลอต + ledger) ส่งตัว transaction ของตัวเองเข้าไปใช้ร่วมกัน
+
+ถ้าไม่ทำแบบนี้ การเรียก `db.transaction()` ซ้อนจากข้างในจะไปหยิบ **connection คนละตัว** จาก pool ทำให้เอกสารกับ ledger commit แยกกันได้ — เกิดใบรับที่ไม่มีของเข้าสต๊อก หรือของเข้าสต๊อกที่ไม่มีเอกสาร
+
 ### `postMovement` — ทางเดียวที่สต๊อกจะขยับได้
 
 `src/services/inventory-ledger-service.ts` เป็น **จุดเดียว** ที่เขียน `inventory_transactions` และ `stock_balances` ได้ ทุก workflow (รับ/เบิก/โอน/ปรับปรุง/ตรวจนับ) ต้องเรียกผ่านฟังก์ชันนี้
@@ -223,7 +229,20 @@ inventory_lots           ← ลอตที่รับเข้ามา พ�
 
 `getExpiryAlerts()` จัดกลุ่มลอตเป็น หมดอายุแล้ว / หมดอายุวันนี้ / ตามเกณฑ์วันที่ตั้งไว้ เกณฑ์อ่านจาก `app_settings.expiry_alert_days` (default 1 / 3 / 7 วัน) แก้ได้โดยไม่ต้อง deploy หน้า `/inventory/expiry` และแดชบอร์ดอ่านจากฟังก์ชันเดียวกัน
 
-## 8. Unit conversion
+## 8. Receiving (รับสินค้า)
+
+`createGoodsReceipt()` เขียนทุกอย่างใน transaction เดียว — ใบรับ, รายการ, ลอตต่อรายการที่รับจริง, และ ledger `RECEIVE` ถ้าพลาดตรงไหนก็ไม่มีของค้างครึ่งๆ กลางๆ
+
+- **หน่วยซื้อ → หน่วยสต๊อก** — กรอก 3 แผง ระบบเก็บ 90 ฟอง และแปลงราคา 128 บาท/แผง เป็นทุน 4.2667 บาท/ฟอง เพราะ ledger กับรายงานต้นทุนใช้หน่วยหลักเสมอ
+- **ของที่ไม่รับ** — ยังอยู่บนเอกสารพร้อมสาเหตุ (ของขาด/เสียหาย/ส่งผิด/ส่งเกิน) แต่ **ไม่เข้าสต๊อก** ใบเอกสารจึงตรงกับที่ผู้ขายส่งมาจริง ส่วนยอดคงเหลือตรงกับของบนชั้น
+- **ปฏิเสธทั้งรายการ** — ไม่สร้างลอตและไม่มี ledger เลย แต่ยังบันทึกไว้บนเอกสาร
+- **วันหมดอายุ** — เติมอัตโนมัติจากอายุการเก็บของวัตถุดิบ ผู้รับแก้ตามที่พิมพ์บนกล่องได้
+- **กดซ้ำไม่รับซ้ำ** — ฟอร์มสร้าง idempotency key ตอนเปิดหน้า ส่งซ้ำจะได้ใบเดิมกลับมา
+- **ราคาล่าสุด** — อัปเดต `supplier_items.last_price` ให้อัตโนมัติเพื่อใช้ใน PO และการเทียบราคา
+
+เลขที่เอกสารเป็น `GR-YYYYMMDD-NNN` ต่อวัน ใช้ prefix จาก `app_settings.document_prefixes` ถ้าสองคนกดยืนยันพร้อมกันจนได้เลขชนกัน ระบบจะ retry ทั้ง transaction ใหม่ (retry ต้องอยู่**นอก** transaction เพราะ Postgres จะ abort ทั้ง transaction เมื่อมี statement ล้ม)
+
+## 9. Unit conversion
 
 `src/lib/units.ts` แปลงหน่วยผ่าน graph ของกฎการแปลง จึงรองรับการแปลงต่อกันหลายชั้น
 
@@ -233,7 +252,7 @@ inventory_lots           ← ลอตที่รับเข้ามา พ�
 
 ---
 
-## 9. Database tables (39 ตาราง)
+## 10. Database tables (39 ตาราง)
 
 | กลุ่ม | ตาราง |
 | --- | --- |
@@ -260,13 +279,13 @@ Seed ใส่ meal period ไว้สองกะตามที่โรง�
 
 ---
 
-## 10. Testing
+## 11. Testing
 
 เทสแบ่งเป็นสองชั้น
 
 ```bash
 npm run test              # unit — hermetic ไม่ต้องต่อฐานข้อมูล (82 tests)
-npm run test:integration  # integration — เขียนจริงลง Postgres (37 tests)
+npm run test:integration  # integration — เขียนจริงลง Postgres (50 tests)
 ```
 
 **Unit** — business logic ล้วน
@@ -284,6 +303,7 @@ npm run test:integration  # integration — เขียนจริงลง Po
 
 **Integration** — เขียนจริงผ่าน service + transaction + audit log (stub เฉพาะ session เพราะสิทธิ์มาจาก cookie ของ request)
 
+- `receiving-service.integration.test.ts` — ใบรับ + รายการ + ลอต + ledger เกิดพร้อมกัน, แปลงหน่วยซื้อเป็นหน่วยสต๊อก, ของที่ไม่รับไม่เข้าสต๊อก, ปฏิเสธทั้งรายการไม่สร้างลอต, กดซ้ำไม่รับซ้ำ, รายการเสียหนึ่งบรรทัดแล้ว rollback ทั้งใบ, เลขเอกสารเรียงต่อกัน, จำราคาล่าสุด, ตรวจสิทธิ์ และ path ของ server action ที่ฟอร์มใช้จริง (ส่งค่าเป็น string)
 - `inventory-allocation-service.integration.test.ts` — Gate 4: ลอตหมดอายุ 15 ส.ค. ถูกใช้ก่อนลอต 20 ส.ค., ตัดข้ามหลายลอต, กันของหมดอายุออกจากแผน, รายงานของขาด, แผนที่ได้นำไป post แล้วยอดตรง, override ตรวจสิทธิ์และตรวจว่าข้ามลอตจริงไหม, การจัดกลุ่มแจ้งเตือนหมดอายุ
 - `inventory-ledger-service.integration.test.ts` — Gate 3 ของ roadmap: รับ 100 → เบิก 30 → เหลือ 70, เบิกเกินถูกปฏิเสธและสต๊อกไม่ขยับ, กด submit ซ้ำตัดครั้งเดียว, **สองคนเบิกพร้อมกันแล้วสต๊อกไม่ติดลบ**, โอนสองขาใน posting เดียว, rollback ทั้ง posting เมื่อบรรทัดใดล้ม, reversal และการกันสิทธิ์
 - `user-service.integration.test.ts` — สร้าง/แก้ผู้ใช้, เปลี่ยนบทบาทแล้วบันทึกเป็น `PERMISSION_CHANGE`, อีเมลซ้ำ, ปิดใช้งานแทนการลบ, กันแอดมินถอดสิทธิ์/ปิดบัญชีตัวเอง
@@ -295,7 +315,7 @@ npm run test:integration  # integration — เขียนจริงลง Po
 
 ---
 
-## 11. Deployment (Vercel)
+## 12. Deployment (Vercel)
 
 1. สร้างโปรเจกต์ Supabase แล้วคัดลอก connection string (แนะนำ session pooler port 5432)
 2. Import repository เข้า Vercel
@@ -306,13 +326,14 @@ npm run test:integration  # integration — เขียนจริงลง Po
 
 ---
 
-## 12. Roadmap
+## 13. Roadmap
 
 | Phase | ขอบเขต | สถานะ |
 | --- | --- | --- |
 | 1 | Foundation: schema, migration, seed, auth, roles, app shell, Item/Location/Supplier master, audit log, health check, จัดการผู้ใช้, Supplier item mapping | ✅ เสร็จ |
 | 3 | Inventory engine: posting + ledger, idempotency, กันสต๊อกติดลบ, กันแย่งกันเบิก, reversal, สต๊อกคงเหลือ, บัญชีเคลื่อนไหว | ✅ เสร็จ |
 | 4 | Lot + expiry + FEFO allocation จากยอดคงเหลือจริง, กันของหมดอายุออกจากแผนเบิก, FEFO override, แจ้งเตือนหมดอายุแบบตั้งเกณฑ์ได้ | ✅ เสร็จ |
+| 5 | Receiving: ใบรับสินค้า mobile-first, ลอต, แปลงหน่วย, ของขาด/เสียหาย, เลขที่เอกสาร, หน้าจอยืนยันผล | ✅ เสร็จ |
 | 2 | Menu master, Menu planner, Recipe/BOM + version, BOM cost preview | ⏳ |
 | 4 | Supplier item, PO, รับของตาม PO, partial receiving, PO status | ⏳ |
 | 5 | ต้นทุนรายวัน/รายเดือน/ต่อเมนู, ประวัติราคา, รายงาน + export | ⏳ |

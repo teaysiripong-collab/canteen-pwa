@@ -20,6 +20,8 @@ export function SearchSelect({
   emptyLabel = "ไม่พบรายการ",
   allowClear = true,
   id,
+  onValueChange,
+  resetAfterSelect = false,
 }: {
   name: string;
   options: SearchSelectOption[];
@@ -29,6 +31,10 @@ export function SearchSelect({
   emptyLabel?: string;
   allowClear?: boolean;
   id?: string;
+  /** Called with the chosen value, for forms that keep their state in React. */
+  onValueChange?: (value: string) => void;
+  /** Clears the selection after choosing — used by "add another row" pickers. */
+  resetAfterSelect?: boolean;
 }) {
   const [value, setValue] = React.useState(defaultValue);
   const [open, setOpen] = React.useState(false);
@@ -92,6 +98,7 @@ export function SearchSelect({
                   onClick={() => {
                     setValue("");
                     setOpen(false);
+                    onValueChange?.("");
                   }}
                 >
                   {placeholder}
@@ -106,9 +113,10 @@ export function SearchSelect({
                   aria-selected={option.value === value}
                   className="flex w-full items-center justify-between gap-2 px-3 py-2.5 text-left text-sm hover:bg-surface-muted"
                   onClick={() => {
-                    setValue(option.value);
+                    setValue(resetAfterSelect ? "" : option.value);
                     setOpen(false);
                     setTerm("");
+                    onValueChange?.(option.value);
                   }}
                 >
                   <span className="min-w-0">
