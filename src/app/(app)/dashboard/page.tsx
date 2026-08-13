@@ -17,7 +17,7 @@ const QUICK_ACTIONS = [
   { label: "เช็กสต๊อก", href: "/inventory/stock", icon: ScanLine, permission: PERMISSIONS.STOCK_VIEW, ready: true },
   { label: "ใกล้หมดอายุ", href: "/inventory/expiry", icon: CalendarClock, permission: PERMISSIONS.STOCK_VIEW, ready: true },
   { label: "รับของ", href: "/inventory/receiving/new", icon: PackagePlus, permission: PERMISSIONS.RECEIVE_CREATE, ready: true },
-  { label: "เบิกของ", href: "/inventory/issue", icon: Boxes, permission: PERMISSIONS.ISSUE_CREATE, ready: false },
+  { label: "เบิกของ", href: "/inventory/issue/new", icon: Boxes, permission: PERMISSIONS.ISSUE_CREATE, ready: true },
   { label: "โอนของ", href: "/inventory/transfer/new", icon: Truck, permission: PERMISSIONS.TRANSFER_CREATE, ready: true },
 ] as const;
 

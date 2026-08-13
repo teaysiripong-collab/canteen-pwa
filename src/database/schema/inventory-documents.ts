@@ -12,7 +12,7 @@ import {
 } from "drizzle-orm/pg-core";
 import { items, suppliers, units } from "./master-data";
 import { locations, organizations } from "./organization";
-import { menus } from "./menu";
+import { mealPeriods, menus } from "./menu";
 import { menuPlanItems } from "./menu-plan";
 import { recipeVersions } from "./recipe";
 import { purchaseOrderItems, purchaseOrders } from "./purchasing";
@@ -119,6 +119,10 @@ export const stockIssues = pgTable(
     menuPlanItemId: uuid("menu_plan_item_id").references(() => menuPlanItems.id, {
       onDelete: "set null",
     }),
+    /** Which shift this issue was cooked for; the BOM quantity depends on it. */
+    mealPeriodId: uuid("meal_period_id").references(() => mealPeriods.id, {
+      onDelete: "restrict",
+    }),
     servings: quantity("servings"),
     status: documentStatusEnum("status").notNull().default("DRAFT"),
     issuedAt: timestamp("issued_at", { withTimezone: true }).notNull().defaultNow(),
@@ -147,6 +151,11 @@ export const stockIssueItems = pgTable(
     /** What the BOM asked for, kept next to the actual issued quantity for variance reports. */
     requestedBaseQty: quantity("requested_base_qty"),
     issuedBaseQty: quantity("issued_base_qty").notNull(),
+    /**
+     * Weighted cost per base unit of the lots actually consumed, frozen at posting time.
+     * Historical cost reports read this rather than today's lot prices.
+     */
+    unitCost: money("unit_cost").notNull().default("0"),
     /** True when a user with the permission picked lots other than the FEFO suggestion. */
     fefoOverridden: boolean("fefo_overridden").notNull().default(false),
     note: text("note"),
@@ -156,6 +165,7 @@ export const stockIssueItems = pgTable(
     index("stock_issue_items_issue_idx").on(t.stockIssueId),
     index("stock_issue_items_item_idx").on(t.itemId),
     check("stock_issue_items_issued_positive", sql`${t.issuedBaseQty} > 0`),
+    check("stock_issue_items_cost_non_negative", sql`${t.unitCost} >= 0`),
   ],
 );
 

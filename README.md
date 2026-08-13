@@ -303,7 +303,27 @@ BOM คือหัวใจของการเบิกและการค�
 
 คัดลอกเมื่อวาน / สัปดาห์ที่แล้ว / จากมื้ออื่น และบันทึกชุดเมนูเป็นเทมเพลตเพื่อใช้ซ้ำได้ การคัดลอกจะ **resolve เวอร์ชันสูตรใหม่ตามวันที่ปลายทาง** ไม่ได้ลอกเวอร์ชันเก่ามาด้วย — เมนูซ้ำได้ แต่สูตรต้องเป็นของวันนั้น
 
-## 12. Unit conversion
+## 12. Issue from BOM (เบิกตามสูตร)
+
+พนักงานเลือก **สถานที่ → มื้อ → เมนู** แล้วระบบดึงวัตถุดิบตามสูตรของมื้อนั้นมาให้ พร้อมจำนวนคงเหลือจริงข้างๆ — แก้เฉพาะรายการที่ใช้จริงไม่ตรงสูตร
+
+- **หยิบเฉพาะครึ่งของมื้อ** จาก `30+20` เลือกมื้อเช้าได้ 30 เลือกมื้อดึกได้ 20 คูณตามจำนวนครั้งที่ทำ
+- **FEFO เลือกลอตให้** และคำนวณใน transaction เดียวกับที่ post
+- **สต๊อกติดลบไม่ได้** เบิกเกินจะปฏิเสธทั้งใบพร้อมบอกว่าเบิกได้เท่าไร
+- **บันทึกทั้ง standard และ actual** พร้อม `meal_period_id`, `recipe_version_id` และ **ต้นทุนถัวเฉลี่ยของลอตที่ใช้จริง** (`stock_issue_items.unit_cost`) เพื่อให้รายงานต้นทุนย้อนหลังอ่านราคาที่ใช้จริง ไม่ใช่ราคาวันนี้
+- รองรับ **เบิกทั่วไป** ที่ไม่อ้างอิงเมนู (ไม่มี standard ให้เทียบ)
+
+### Variance คำนวณตอนอ่าน ไม่ได้เก็บ
+
+`computeVariance()` คิด actual − standard ตอนอ่าน **ไม่เก็บลงคอลัมน์** เพราะค่าที่เก็บซ้ำมีโอกาสไม่ตรงกับตัวตั้งของมันเอง ตัวอย่างตาม Gate 9: standard 30 / actual 32 → **+2 kg (+6.67%)**
+
+### สิทธิ์
+
+- `issue.create` — เบิกได้ตามสูตรเป๊ะๆ
+- `issue.adjust_qty` — แก้จำนวนให้ต่างจากสูตรได้ (ถ้าไม่มีสิทธิ์ ช่องกรอกจะถูกล็อก และเซิร์ฟเวอร์ปฏิเสธซ้ำอีกชั้น)
+- `fefo.override` — เลือกลอตเอง ถ้าการเลือกนั้น **ข้ามลอตที่ควรใช้ก่อนจริงๆ** จะถูกตั้งค่า `fefo_overridden` บนบรรทัดและบันทึก audit `OVERRIDE_FEFO`
+
+## 13. Unit conversion
 
 `src/lib/units.ts` แปลงหน่วยผ่าน graph ของกฎการแปลง จึงรองรับการแปลงต่อกันหลายชั้น
 
@@ -313,7 +333,7 @@ BOM คือหัวใจของการเบิกและการค�
 
 ---
 
-## 13. Database tables (42 ตาราง)
+## 14. Database tables (42 ตาราง)
 
 | กลุ่ม | ตาราง |
 | --- | --- |
@@ -340,13 +360,13 @@ Seed ใส่ meal period ไว้สองกะตามที่โรง�
 
 ---
 
-## 14. Testing
+## 15. Testing
 
 เทสแบ่งเป็นสองชั้น
 
 ```bash
-npm run test              # unit — hermetic ไม่ต้องต่อฐานข้อมูล (94 tests)
-npm run test:integration  # integration — เขียนจริงลง Postgres (89 tests)
+npm run test              # unit — hermetic ไม่ต้องต่อฐานข้อมูล (100 tests)
+npm run test:integration  # integration — เขียนจริงลง Postgres (105 tests)
 ```
 
 **Unit** — business logic ล้วน
@@ -358,14 +378,17 @@ npm run test:integration  # integration — เขียนจริงลง Po
 - `transaction-types.test.ts` — ทิศทาง IN/OUT ของทุกชนิดรายการ และชนิดที่ห้าม post ตรงๆ
 - `date.test.ts` — วันทางธุรกิจต้องเป็นวันของไทย ไม่ใช่วัน UTC ของเซิร์ฟเวอร์
 - `period-quantity.test.ts` — parser ของ `30+20` ทั้งกรณีปกติ ทศนิยม กะที่สาม และกรณีพิมพ์ผิด
+- `issue-variance.test.ts` — standard vs actual รวมกรณีติดลบ ตรงเป๊ะ ไม่มี standard และ standard = 0
 - `date.test.ts` — วันทางธุรกิจต้องเป็นวันของไทย ไม่ใช่วัน UTC ของเซิร์ฟเวอร์
 - `period-quantity.test.ts` — parser ของ `30+20` ทั้งกรณีปกติ ทศนิยม กะที่สาม และกรณีพิมพ์ผิด
+- `issue-variance.test.ts` — standard vs actual รวมกรณีติดลบ ตรงเป๊ะ ไม่มี standard และ standard = 0
 - `form-data.test.ts` — การอ่าน checkbox ที่ไม่ถูกติ๊ก และฟิลด์ที่ส่งหลายค่า (บทบาท)
 - `schemas/common.test.ts` — `booleanFlagSchema` และฟิลด์ตัวเลขที่เว้นว่างต้องเป็น NULL ไม่ใช่ 0
 - `schemas/master-data.test.ts` — validation ของ Item / SupplierItem / User
 
 **Integration** — เขียนจริงผ่าน service + transaction + audit log (stub เฉพาะ session เพราะสิทธิ์มาจาก cookie ของ request)
 
+- `issue-service.integration.test.ts` — Gate 9: standard 30 / actual 32 → +2 kg (+6.67%), ดึงสูตรตามมื้อที่เลือก, คูณตามจำนวนครั้ง, FEFO เลือกลอตหมดอายุก่อน, ต้นทุนถัวเฉลี่ยของลอตที่ใช้, เบิกเกินถูกปฏิเสธ, กดซ้ำไม่เบิกซ้ำ, เบิกทั่วไปไม่มีสูตร, และสิทธิ์ทั้งสามชั้น (create / adjust_qty / fefo.override)
 - `menu-plan-service.integration.test.ts` — ตรึงเวอร์ชันสูตรตอนวางแผน, เมนูไม่มีสูตรวางแผนไม่ได้, ร่างไม่นับเป็นความต้องการจนกว่าจะยืนยัน, หยิบเฉพาะครึ่งของมื้อ (เช้า 30 ไม่ใช่ 50), แยกเช้า/ดึกแล้วรวมเป็น 50, คูณตามจำนวนครั้งที่ทำ, รวมหลายเมนูพร้อม drill-down, แผนที่ยกเลิกหยุดนับ, คัดลอกเมื่อวาน/จากมื้ออื่น และเทมเพลต
 - `bom-service.integration.test.ts` — Gate 7: ไก่บด `30+20` แตกเป็น เช้า 30 / ดึก 20 / รวม 50, ยอดรวมตรงกับผลรวมรายมื้อ, สูตรที่เผยแพร่แล้วแก้ไม่ได้, v2 คัดลอกจาก v1 แล้ว v1 ไม่เปลี่ยน, การแตกมื้อถูกคัดลอกไปด้วย, เผยแพร่สูตรเปล่าไม่ได้ และการตรวจสิทธิ์
 - `transfer-service.integration.test.ts` — สองขาอยู่ใน posting เดียว, FEFO เลือกลอตหมดอายุก่อน, ตัดข้ามหลายลอตแล้วลอตยังคงตัวตนที่ปลายทาง, ต้นทางติดลบไม่ได้, โอนเข้าที่เดิมไม่ได้, กดซ้ำไม่โอนซ้ำ, ตรวจสิทธิ์ และความถูกต้องของยอดก่อน–หลัง
@@ -381,7 +404,7 @@ npm run test:integration  # integration — เขียนจริงลง Po
 
 ---
 
-## 15. Deployment (Vercel)
+## 16. Deployment (Vercel)
 
 1. สร้างโปรเจกต์ Supabase แล้วคัดลอก connection string (แนะนำ session pooler port 5432)
 2. Import repository เข้า Vercel
@@ -392,7 +415,7 @@ npm run test:integration  # integration — เขียนจริงลง Po
 
 ---
 
-## 16. Roadmap
+## 17. Roadmap
 
 | Phase | ขอบเขต | สถานะ |
 | --- | --- | --- |
@@ -403,7 +426,8 @@ npm run test:integration  # integration — เขียนจริงลง Po
 | 6 | Transfer: โอนสองขาใน posting เดียว, FEFO, ยอดก่อน–หลัง, หน้าจอมือถือ | ✅ เสร็จ |
 | 7 | Menu master + BOM แบบมีเวอร์ชัน, สัญกรณ์ `30+20` (เช้า/ดึก), ประวัติสูตรคงที่ | ✅ เสร็จ |
 | 8 | Daily Menu Plan: สถานะแผน, ตรึงเวอร์ชันสูตร, รวมความต้องการวัตถุดิบแยกเช้า/ดึก, คัดลอก, เทมเพลต | ✅ เสร็จ |
-| 9 | เบิกของตาม BOM (standard vs actual) | ⏳ |
+| 9 | เบิกของตาม BOM: ดึงสูตรตามมื้อ, FEFO, standard vs actual + variance, ต้นทุนถัวเฉลี่ย, FEFO override | ✅ เสร็จ |
+| 10 | Purchase Order + partial receiving | ⏳ |
 | 4 | Supplier item, PO, รับของตาม PO, partial receiving, PO status | ⏳ |
 | 5 | ต้นทุนรายวัน/รายเดือน/ต่อเมนู, ประวัติราคา, รายงาน + export | ⏳ |
 | 6 | Management dashboard, alerts, projected stock, purchase recommendation, Google Sheets sync | ⏳ |

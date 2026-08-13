@@ -36,6 +36,13 @@
       "when": 1786592115151,
       "tag": "0004_previous_stepford_cuckoos",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1786625123043,
+      "tag": "0005_premium_dreadnoughts",
+      "breakpoints": true
     }
   ]
 }
