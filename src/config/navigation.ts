@@ -35,7 +35,7 @@ export const SIDEBAR_GROUPS: NavGroup[] = [
       { label: "บัญชีเคลื่อนไหว", href: "/inventory/movements", permission: PERMISSIONS.STOCK_VIEW },
       { label: "รับสินค้า", href: "/inventory/receiving", permission: PERMISSIONS.STOCK_VIEW },
       { label: "เบิกสินค้า", href: "/inventory/issue", permission: PERMISSIONS.ISSUE_CREATE, phase: 4 },
-      { label: "โอนสินค้า", href: "/inventory/transfer", permission: PERMISSIONS.TRANSFER_CREATE, phase: 4 },
+      { label: "โอนสินค้า", href: "/inventory/transfer", permission: PERMISSIONS.STOCK_VIEW },
       { label: "ตรวจนับสต๊อก", href: "/inventory/count", permission: PERMISSIONS.STOCK_COUNT_CREATE, phase: 5 },
       { label: "ของใกล้หมดอายุ", href: "/inventory/expiry", permission: PERMISSIONS.STOCK_VIEW },
     ],
@@ -80,7 +80,7 @@ export const MOBILE_NAV_ITEMS: MobileNavItem[] = [
   { label: "หน้าหลัก", href: "/dashboard", icon: "home" },
   { label: "รับของ", href: "/inventory/receiving/new", icon: "receive", permission: PERMISSIONS.RECEIVE_CREATE },
   { label: "เบิกของ", href: "/inventory/issue", icon: "issue", permission: PERMISSIONS.ISSUE_CREATE, phase: 4 },
-  { label: "โอนของ", href: "/inventory/transfer", icon: "transfer", permission: PERMISSIONS.TRANSFER_CREATE, phase: 4 },
+  { label: "โอนของ", href: "/inventory/transfer/new", icon: "transfer", permission: PERMISSIONS.TRANSFER_CREATE },
   { label: "เช็กสต๊อก", href: "/inventory/stock", icon: "stock", permission: PERMISSIONS.STOCK_VIEW },
 ];
 

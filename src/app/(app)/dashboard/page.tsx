@@ -18,7 +18,7 @@ const QUICK_ACTIONS = [
   { label: "ใกล้หมดอายุ", href: "/inventory/expiry", icon: CalendarClock, permission: PERMISSIONS.STOCK_VIEW, ready: true },
   { label: "รับของ", href: "/inventory/receiving/new", icon: PackagePlus, permission: PERMISSIONS.RECEIVE_CREATE, ready: true },
   { label: "เบิกของ", href: "/inventory/issue", icon: Boxes, permission: PERMISSIONS.ISSUE_CREATE, ready: false },
-  { label: "โอนของ", href: "/inventory/transfer", icon: Truck, permission: PERMISSIONS.TRANSFER_CREATE, ready: false },
+  { label: "โอนของ", href: "/inventory/transfer/new", icon: Truck, permission: PERMISSIONS.TRANSFER_CREATE, ready: true },
 ] as const;
 
 export default async function DashboardPage() {

@@ -242,7 +242,18 @@ inventory_lots           ← ลอตที่รับเข้ามา พ�
 
 เลขที่เอกสารเป็น `GR-YYYYMMDD-NNN` ต่อวัน ใช้ prefix จาก `app_settings.document_prefixes` ถ้าสองคนกดยืนยันพร้อมกันจนได้เลขชนกัน ระบบจะ retry ทั้ง transaction ใหม่ (retry ต้องอยู่**นอก** transaction เพราะ Postgres จะ abort ทั้ง transaction เมื่อมี statement ล้ม)
 
-## 9. Unit conversion
+## 9. Transfer (โอนสินค้า)
+
+`createStockTransfer()` โอนของระหว่างสถานที่ โดยเขียน **ทั้งสองขาไว้ใน posting เดียว** — `TRANSFER_OUT` ที่ต้นทางและ `TRANSFER_IN` ที่ปลายทางใช้ reference เดียวกัน จึงไม่มีทางที่ขาใดขาหนึ่งจะหลุดหายหรือถูกกระทบยอดแยกกัน
+
+- **เลือกลอตด้วย FEFO** และคำนวณ**ภายใน transaction เดียวกับที่ post** ยอดต้นทางจึงถูกอ่านใต้ล็อกเดียวกับที่ posting ใช้ คนอื่นเบิกของแทรกระหว่างวางแผนกับบันทึกไม่ได้
+- **ลอตเดินทางไปด้วย** ของที่ปลายทางยังคงเลขลอตและวันหมดอายุเดิม ทำให้ FEFO ที่ปลายทางยังถูกต้อง
+- **ต้นทางติดลบไม่ได้** ถ้าของไม่พอจะปฏิเสธทั้งใบพร้อมบอกว่าโอนได้เท่าไร (และถ้ามีของหมดอายุกันอยู่ จะบอกด้วยว่าโอนไม่ได้เท่าไร)
+- **ยอดก่อน–หลัง** `previewTransfer()` แสดงยอดทั้งต้นทางและปลายทางก่อนกดยืนยัน เป็น read-only ไม่แตะสต๊อก
+
+รายละเอียดว่าลอตไหนถูกโอนไปเท่าไร อ่านได้จาก ledger ผ่าน posting ของใบโอนนั้น — ตัวเอกสารเก็บระดับวัตถุดิบ ไม่เก็บซ้ำ
+
+## 10. Unit conversion
 
 `src/lib/units.ts` แปลงหน่วยผ่าน graph ของกฎการแปลง จึงรองรับการแปลงต่อกันหลายชั้น
 
@@ -252,7 +263,7 @@ inventory_lots           ← ลอตที่รับเข้ามา พ�
 
 ---
 
-## 10. Database tables (39 ตาราง)
+## 11. Database tables (39 ตาราง)
 
 | กลุ่ม | ตาราง |
 | --- | --- |
@@ -279,13 +290,13 @@ Seed ใส่ meal period ไว้สองกะตามที่โรง�
 
 ---
 
-## 11. Testing
+## 12. Testing
 
 เทสแบ่งเป็นสองชั้น
 
 ```bash
 npm run test              # unit — hermetic ไม่ต้องต่อฐานข้อมูล (82 tests)
-npm run test:integration  # integration — เขียนจริงลง Postgres (50 tests)
+npm run test:integration  # integration — เขียนจริงลง Postgres (61 tests)
 ```
 
 **Unit** — business logic ล้วน
@@ -303,6 +314,7 @@ npm run test:integration  # integration — เขียนจริงลง Po
 
 **Integration** — เขียนจริงผ่าน service + transaction + audit log (stub เฉพาะ session เพราะสิทธิ์มาจาก cookie ของ request)
 
+- `transfer-service.integration.test.ts` — สองขาอยู่ใน posting เดียว, FEFO เลือกลอตหมดอายุก่อน, ตัดข้ามหลายลอตแล้วลอตยังคงตัวตนที่ปลายทาง, ต้นทางติดลบไม่ได้, โอนเข้าที่เดิมไม่ได้, กดซ้ำไม่โอนซ้ำ, ตรวจสิทธิ์ และความถูกต้องของยอดก่อน–หลัง
 - `receiving-service.integration.test.ts` — ใบรับ + รายการ + ลอต + ledger เกิดพร้อมกัน, แปลงหน่วยซื้อเป็นหน่วยสต๊อก, ของที่ไม่รับไม่เข้าสต๊อก, ปฏิเสธทั้งรายการไม่สร้างลอต, กดซ้ำไม่รับซ้ำ, รายการเสียหนึ่งบรรทัดแล้ว rollback ทั้งใบ, เลขเอกสารเรียงต่อกัน, จำราคาล่าสุด, ตรวจสิทธิ์ และ path ของ server action ที่ฟอร์มใช้จริง (ส่งค่าเป็น string)
 - `inventory-allocation-service.integration.test.ts` — Gate 4: ลอตหมดอายุ 15 ส.ค. ถูกใช้ก่อนลอต 20 ส.ค., ตัดข้ามหลายลอต, กันของหมดอายุออกจากแผน, รายงานของขาด, แผนที่ได้นำไป post แล้วยอดตรง, override ตรวจสิทธิ์และตรวจว่าข้ามลอตจริงไหม, การจัดกลุ่มแจ้งเตือนหมดอายุ
 - `inventory-ledger-service.integration.test.ts` — Gate 3 ของ roadmap: รับ 100 → เบิก 30 → เหลือ 70, เบิกเกินถูกปฏิเสธและสต๊อกไม่ขยับ, กด submit ซ้ำตัดครั้งเดียว, **สองคนเบิกพร้อมกันแล้วสต๊อกไม่ติดลบ**, โอนสองขาใน posting เดียว, rollback ทั้ง posting เมื่อบรรทัดใดล้ม, reversal และการกันสิทธิ์
@@ -315,7 +327,7 @@ npm run test:integration  # integration — เขียนจริงลง Po
 
 ---
 
-## 12. Deployment (Vercel)
+## 13. Deployment (Vercel)
 
 1. สร้างโปรเจกต์ Supabase แล้วคัดลอก connection string (แนะนำ session pooler port 5432)
 2. Import repository เข้า Vercel
@@ -326,7 +338,7 @@ npm run test:integration  # integration — เขียนจริงลง Po
 
 ---
 
-## 13. Roadmap
+## 14. Roadmap
 
 | Phase | ขอบเขต | สถานะ |
 | --- | --- | --- |
@@ -334,6 +346,7 @@ npm run test:integration  # integration — เขียนจริงลง Po
 | 3 | Inventory engine: posting + ledger, idempotency, กันสต๊อกติดลบ, กันแย่งกันเบิก, reversal, สต๊อกคงเหลือ, บัญชีเคลื่อนไหว | ✅ เสร็จ |
 | 4 | Lot + expiry + FEFO allocation จากยอดคงเหลือจริง, กันของหมดอายุออกจากแผนเบิก, FEFO override, แจ้งเตือนหมดอายุแบบตั้งเกณฑ์ได้ | ✅ เสร็จ |
 | 5 | Receiving: ใบรับสินค้า mobile-first, ลอต, แปลงหน่วย, ของขาด/เสียหาย, เลขที่เอกสาร, หน้าจอยืนยันผล | ✅ เสร็จ |
+| 6 | Transfer: โอนสองขาใน posting เดียว, FEFO, ยอดก่อน–หลัง, หน้าจอมือถือ | ✅ เสร็จ |
 | 2 | Menu master, Menu planner, Recipe/BOM + version, BOM cost preview | ⏳ |
 | 4 | Supplier item, PO, รับของตาม PO, partial receiving, PO status | ⏳ |
 | 5 | ต้นทุนรายวัน/รายเดือน/ต่อเมนู, ประวัติราคา, รายงาน + export | ⏳ |

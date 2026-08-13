@@ -1,5 +1,5 @@
 import { and, asc, eq, gt, sql } from "drizzle-orm";
-import { db } from "@/database/client";
+import { db, type DbExecutor } from "@/database/client";
 import { inventoryLots, stockBalances } from "@/database/schema";
 import { requirePermission } from "@/lib/auth/session";
 import { todayIso } from "@/lib/date";
@@ -47,8 +47,10 @@ export async function listUsableLots(
   itemId: string,
   locationId: string,
   today = todayIso(),
+  /** Pass a transaction so an allocation and the posting that consumes it cannot race. */
+  executor: DbExecutor = db,
 ): Promise<UsableLot[]> {
-  const rows = await db
+  const rows = await executor
     .select({
       lotId: inventoryLots.id,
       lotNumber: inventoryLots.lotNumber,
@@ -99,11 +101,18 @@ export async function planFefoAllocation(input: {
   locationId: string;
   baseQty: Numeric;
   today?: string;
+  executor?: DbExecutor;
 }): Promise<AllocationPlan> {
   await requirePermission(PERMISSIONS.STOCK_VIEW);
 
   const today = input.today ?? todayIso();
-  const lots = await listUsableLots(input.organizationId, input.itemId, input.locationId, today);
+  const lots = await listUsableLots(
+    input.organizationId,
+    input.itemId,
+    input.locationId,
+    today,
+    input.executor,
+  );
   const totals = summarise(lots);
 
   const allocatable = lots.filter((lot) => !lot.isExpired);
