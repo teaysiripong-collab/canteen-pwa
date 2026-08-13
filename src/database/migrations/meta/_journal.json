@@ -43,6 +43,13 @@
       "when": 1786625123043,
       "tag": "0005_premium_dreadnoughts",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1786642254767,
+      "tag": "0006_flat_blackheart",
+      "breakpoints": true
     }
   ]
 }

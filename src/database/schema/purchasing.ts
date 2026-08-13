@@ -35,6 +35,12 @@ export const purchaseOrders = pgTable(
     expectedDate: date("expected_date"),
     /** Reserved for the Purchase Request module; V1 creates purchase orders directly. */
     purchaseRequestId: uuid("purchase_request_id"),
+    /**
+     * Identifies the planning run that produced this order (window + location + supplier).
+     * Re-running the planner refreshes the draft it already made instead of stacking up a
+     * second one; null for orders a buyer typed by hand.
+     */
+    planKey: text("plan_key"),
     note: text("note"),
     createdBy: uuid("created_by").references(() => users.id, { onDelete: "set null" }),
     approvedBy: uuid("approved_by").references(() => users.id, { onDelete: "set null" }),
@@ -48,6 +54,14 @@ export const purchaseOrders = pgTable(
     uniqueIndex("purchase_orders_org_number_key").on(t.organizationId, t.poNumber),
     index("purchase_orders_status_idx").on(t.organizationId, t.status),
     index("purchase_orders_supplier_idx").on(t.supplierId),
+    /**
+     * Only drafts are claimed. Once an order has been approved or sent it is a commitment to
+     * the supplier, so planning the same window again has to produce a new order rather than
+     * quietly rewriting one the supplier has already seen.
+     */
+    uniqueIndex("purchase_orders_plan_key_draft_key")
+      .on(t.organizationId, t.planKey)
+      .where(sql`${t.planKey} is not null and ${t.status} = 'DRAFT'`),
   ],
 );
 

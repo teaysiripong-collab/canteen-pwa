@@ -43,6 +43,7 @@ export const SIDEBAR_GROUPS: NavGroup[] = [
   {
     label: "จัดซื้อ",
     items: [
+      { label: "วางแผนสั่งซื้อ", href: "/purchasing/planner", permission: PERMISSIONS.PO_VIEW },
       { label: "ใบสั่งซื้อ", href: "/purchasing/orders", permission: PERMISSIONS.PO_VIEW },
       { label: "ผู้ขาย", href: "/suppliers", permission: PERMISSIONS.SUPPLIER_VIEW },
     ],

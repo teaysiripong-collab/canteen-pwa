@@ -19,6 +19,8 @@ export type RequirementContribution = {
   menuId: string;
   menuNameTh: string;
   mealPeriodId: string;
+  /** The business date this contribution is cooked on; the purchase planner orders by it. */
+  planDate: string;
   plannedServings: string;
   /** Quantity this menu contributes to the requirement, in the item's BOM unit. */
   baseQty: string;
@@ -74,6 +76,7 @@ export async function getMaterialRequirements(input: {
       planId: menuPlans.id,
       status: menuPlans.status,
       mealPeriodId: menuPlans.mealPeriodId,
+      planDate: menuPlans.planDate,
     })
     .from(menuPlans)
     .where(and(...planFilters));
@@ -209,6 +212,7 @@ export async function getMaterialRequirements(input: {
           menuId: planItem.menuId,
           menuNameTh: planItem.menuNameTh,
           mealPeriodId: plan.mealPeriodId,
+          planDate: plan.planDate,
           plannedServings: planItem.plannedServings,
           baseQty: scaled,
         });
