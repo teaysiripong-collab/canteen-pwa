@@ -15,6 +15,13 @@
       "when": 1786575799839,
       "tag": "0001_clear_fantastic_four",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1786587507788,
+      "tag": "0002_slow_obadiah_stane",
+      "breakpoints": true
     }
   ]
 }

@@ -2,6 +2,7 @@ import { sql } from "drizzle-orm";
 import {
   boolean,
   check,
+  type AnyPgColumn,
   date,
   index,
   pgTable,
@@ -17,6 +18,7 @@ import {
   inventoryTransactionTypeEnum,
   referenceTypeEnum,
   stockCountStatusEnum,
+  stockDirectionEnum,
 } from "./enums";
 import { users } from "./auth";
 import { money, primaryId, quantity, timestamps } from "./_shared";
@@ -67,6 +69,44 @@ export const inventoryLots = pgTable(
 );
 
 /**
+ * One atomic write to the ledger. A posting groups the rows produced by a single user
+ * action (a receipt, an issue, both legs of a transfer) so the movement history can be
+ * read back as documents rather than loose rows.
+ *
+ * `idempotencyKey` is what makes a double submit safe: it is unique per organization, so
+ * the second attempt collides instead of moving stock twice.
+ */
+export const inventoryPostings = pgTable(
+  "inventory_postings",
+  {
+    id: primaryId(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "restrict" }),
+    idempotencyKey: text("idempotency_key").notNull(),
+    referenceType: referenceTypeEnum("reference_type").notNull(),
+    referenceId: uuid("reference_id"),
+    referenceNumber: text("reference_number"),
+    /** Set on a posting that reverses another one; the original is never modified. */
+    reversalOfPostingId: uuid("reversal_of_posting_id").references(
+      (): AnyPgColumn => inventoryPostings.id,
+      { onDelete: "restrict" },
+    ),
+    postedBy: uuid("posted_by").references(() => users.id, { onDelete: "set null" }),
+    postedAt: timestamp("posted_at", { withTimezone: true }).notNull().defaultNow(),
+    note: text("note"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("inventory_postings_idempotency_key").on(t.organizationId, t.idempotencyKey),
+    /** A posting can only be reversed once. */
+    uniqueIndex("inventory_postings_reversal_key").on(t.reversalOfPostingId),
+    index("inventory_postings_reference_idx").on(t.referenceType, t.referenceId),
+    index("inventory_postings_posted_idx").on(t.organizationId, t.postedAt),
+  ],
+);
+
+/**
  * The append-only ledger. Every movement of stock is one row here and rows are never
  * updated or deleted — a mistake is corrected with a reversing entry.
  */
@@ -77,7 +117,16 @@ export const inventoryTransactions = pgTable(
     organizationId: uuid("organization_id")
       .notNull()
       .references(() => organizations.id, { onDelete: "restrict" }),
+    postingId: uuid("posting_id")
+      .notNull()
+      .references(() => inventoryPostings.id, { onDelete: "restrict" }),
     transactionType: inventoryTransactionTypeEnum("transaction_type").notNull(),
+    direction: stockDirectionEnum("direction").notNull(),
+    /** Set on a REVERSAL row; points at the exact ledger row it cancels out. */
+    reversalOfTransactionId: uuid("reversal_of_transaction_id").references(
+      (): AnyPgColumn => inventoryTransactions.id,
+      { onDelete: "restrict" },
+    ),
     itemId: uuid("item_id")
       .notNull()
       .references(() => items.id, { onDelete: "restrict" }),
@@ -107,7 +156,11 @@ export const inventoryTransactions = pgTable(
     index("inventory_transactions_lot_idx").on(t.lotId),
     index("inventory_transactions_reference_idx").on(t.referenceType, t.referenceId),
     index("inventory_transactions_date_idx").on(t.transactionAt),
+    index("inventory_transactions_posting_idx").on(t.postingId),
+    /** A given ledger row can only be reversed once. */
+    uniqueIndex("inventory_transactions_reversal_key").on(t.reversalOfTransactionId),
     check("inventory_transactions_qty_positive", sql`${t.baseQty} > 0`),
+    check("inventory_transactions_cost_non_negative", sql`${t.unitCost} >= 0`),
   ],
 );
 

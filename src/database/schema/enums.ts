@@ -15,7 +15,17 @@ export const inventoryTransactionTypeEnum = pgEnum("inventory_transaction_type",
   "RETURN_TO_SUPPLIER",
   "RETURN_TO_STOCK",
   "STOCK_COUNT_ADJUSTMENT",
+  "OPENING_BALANCE",
+  "REVERSAL",
 ]);
+
+/**
+ * Whether a ledger row adds to or removes from a balance. It is stored rather than
+ * inferred at read time because two types are not directional on their own: a REVERSAL
+ * mirrors whatever it reverses, and a stock-count adjustment can go either way.
+ * For every other type the service derives it from the type and a test enforces that.
+ */
+export const stockDirectionEnum = pgEnum("stock_direction", ["IN", "OUT"]);
 
 export const referenceTypeEnum = pgEnum("reference_type", [
   "GOODS_RECEIPT",

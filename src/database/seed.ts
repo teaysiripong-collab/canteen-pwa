@@ -496,6 +496,103 @@ async function seedMealPeriodsAndMenus(db: Db, organizationId: string) {
   }
 }
 
+/**
+ * Opening stock for development, posted through the real ledger engine rather than
+ * inserted straight into the balance table — so the seeded state is reachable by the
+ * same rules the application enforces, and re-running the seed cannot double it
+ * (the idempotency key is fixed per item).
+ */
+async function seedOpeningStock(
+  db: Db,
+  organizationId: string,
+  items: Map<string, string>,
+  locations: Map<string, string>,
+) {
+  // Imported lazily: these modules read DATABASE_URL when they load, which only happens
+  // after dotenv has run in main().
+  const { postMovementAs } = await import("../services/inventory-ledger-service");
+  const { createLot } = await import("../services/inventory-lot-service");
+  const { permissionsForRoles } = await import("../lib/permissions");
+
+  const [admin] = await db
+    .select()
+    .from(schema.users)
+    .where(eq(schema.users.email, "admin@canteen.local"))
+    .limit(1);
+
+  if (!admin) return 0;
+
+  const actor = {
+    id: admin.id,
+    organizationId,
+    email: admin.email,
+    fullName: admin.fullName,
+    defaultLocationId: admin.defaultLocationId,
+    defaultLocationName: null,
+    roleCodes: ["ADMIN" as const],
+    permissions: permissionsForRoles(["ADMIN"]),
+  };
+
+  const rows = [
+    { item: "MEAT-004", location: "B16", qty: "32", cost: "88.5000", expiresInDays: 3 },
+    { item: "MEAT-001", location: "B16", qty: "18", cost: "182.0000", expiresInDays: 3 },
+    { item: "MEAT-003", location: "B16", qty: "24", cost: "96.0000", expiresInDays: 2 },
+    { item: "VEG-001", location: "B16", qty: "26", cost: "25.0000", expiresInDays: 6 },
+    { item: "VEG-002", location: "B16", qty: "9", cost: "32.0000", expiresInDays: 4 },
+    { item: "VEG-003", location: "B16", qty: "3", cost: "45.0000", expiresInDays: 1 },
+    { item: "EGG-001", location: "B16", qty: "900", cost: "4.2667", expiresInDays: 12 },
+    { item: "VEG-001", location: "B1", qty: "6", cost: "25.0000", expiresInDays: 5 },
+    { item: "MEAT-004", location: "B1", qty: "5", cost: "88.5000", expiresInDays: 2 },
+  ];
+
+  let posted = 0;
+  for (const [index, row] of rows.entries()) {
+    const idempotencyKey = `seed:opening-balance:${row.item}:${row.location}`;
+
+    const [already] = await db
+      .select({ id: schema.inventoryPostings.id })
+      .from(schema.inventoryPostings)
+      .where(eq(schema.inventoryPostings.idempotencyKey, idempotencyKey))
+      .limit(1);
+
+    if (already) continue;
+
+    const expiry = new Date();
+    expiry.setDate(expiry.getDate() + row.expiresInDays);
+
+    const lot = await createLot({
+      organizationId,
+      itemId: items.get(row.item)!,
+      lotNumber: `SEED-${row.item}-${row.location}`,
+      receivedBaseQty: row.qty,
+      unitCost: row.cost,
+      expiryDate: expiry.toISOString().slice(0, 10),
+      note: "ยอดยกมาสำหรับ development",
+    });
+
+    await postMovementAs(actor, {
+      idempotencyKey,
+      referenceType: "MANUAL_ADJUSTMENT",
+      referenceNumber: `OPEN-${String(index + 1).padStart(3, "0")}`,
+      note: "ยอดยกมาสำหรับ development",
+      lines: [
+        {
+          type: "OPENING_BALANCE",
+          itemId: items.get(row.item)!,
+          lotId: lot.id,
+          locationId: locations.get(row.location)!,
+          baseQty: row.qty,
+          unitCost: row.cost,
+        },
+      ],
+    });
+
+    posted += 1;
+  }
+
+  return posted;
+}
+
 async function seedSettings(db: Db, organizationId: string) {
   const rows = [
     {
@@ -547,6 +644,7 @@ async function main() {
   await seedUsers(db, organization.id, roleIds, locations);
   await seedMealPeriodsAndMenus(db, organization.id);
   await seedSettings(db, organization.id);
+  const openingPostings = await seedOpeningStock(db, organization.id, items, locations);
 
   const seededUsers = await db
     .select({ email: schema.users.email })
@@ -554,7 +652,7 @@ async function main() {
     .where(eq(schema.users.organizationId, organization.id));
 
   console.log(
-    `Seed complete: ${locations.size} locations, ${items.size} items, ${suppliers.size} suppliers, ${supplierItemCount} supplier items, ${seededUsers.length} users.`,
+    `Seed complete: ${locations.size} locations, ${items.size} items, ${suppliers.size} suppliers, ${supplierItemCount} supplier items, ${seededUsers.length} users, ${openingPostings} opening-stock postings.`,
   );
   console.log(`Sign in with: ${seededUsers.map((user) => user.email).join(", ")}`);
 

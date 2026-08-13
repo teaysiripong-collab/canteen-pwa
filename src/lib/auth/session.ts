@@ -103,14 +103,23 @@ export async function requirePermission(
   return user;
 }
 
+/**
+ * Device metadata for the audit trail. Seeds, scheduled jobs and background sync run
+ * outside a request, where there are no headers to read — those callers still write
+ * their audit rows, just without IP and user agent.
+ */
 export async function getRequestMetadata(): Promise<{
   ipAddress: string | null;
   userAgent: string | null;
 }> {
-  const headerList = await headers();
-  const forwardedFor = headerList.get("x-forwarded-for");
-  return {
-    ipAddress: forwardedFor?.split(",")[0]?.trim() ?? headerList.get("x-real-ip"),
-    userAgent: headerList.get("user-agent"),
-  };
+  try {
+    const headerList = await headers();
+    const forwardedFor = headerList.get("x-forwarded-for");
+    return {
+      ipAddress: forwardedFor?.split(",")[0]?.trim() ?? headerList.get("x-real-ip"),
+      userAgent: headerList.get("user-agent"),
+    };
+  } catch {
+    return { ipAddress: null, userAgent: null };
+  }
 }

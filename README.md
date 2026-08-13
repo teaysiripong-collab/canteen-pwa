@@ -173,6 +173,7 @@ Seed จะ sync ตาราง `permissions` / `role_permissions` ให้ต
 ระบบ **ไม่เก็บแค่ยอดคงเหลือปัจจุบัน** แต่ใช้หลัก ledger:
 
 ```
+inventory_postings       ← 1 การกระทำของผู้ใช้ = 1 posting (มี idempotency key)
 inventory_transactions   ← append-only ทุกการเคลื่อนไหว (RECEIVE / ISSUE / TRANSFER_OUT / ...)
                             ห้าม UPDATE หรือ DELETE — ถ้าผิดให้ออกรายการกลับรายการ
 stock_balances           ← ยอดคงเหลือรายลอต × สถานที่ (อัปเดตใน transaction เดียวกับ ledger)
@@ -180,8 +181,24 @@ inventory_lots           ← ลอตที่รับเข้ามา พ�
 ```
 
 - ทุกแถวใน ledger เก็บ `who / when / item / lot / location / qty / reference document`
-- `stock_balances` มี CHECK `base_qty >= 0` — **สต๊อกติดลบจาก race condition เป็นไปไม่ได้ที่ระดับฐานข้อมูล** ถ้าเบิกเกินจะได้ข้อความ "จำนวนที่ต้องการเบิกมากกว่าสต๊อกคงเหลือ"
+- `stock_balances` มี CHECK `base_qty >= 0` — **สต๊อกติดลบจาก race condition เป็นไปไม่ได้ที่ระดับฐานข้อมูล** ถ้าเบิกเกินจะได้ข้อความ "จำนวนที่ต้องการเบิกมากกว่าสต๊อกคงเหลือ" พร้อมจำนวนที่มีจริง
 - จำนวนทุกค่าเก็บเป็น `numeric(18,4)` และคำนวณด้วยจำนวนเต็ม scale 10⁴ ใน `src/lib/quantity.ts` เพื่อไม่ให้เกิด floating point drift
+
+### `postMovement` — ทางเดียวที่สต๊อกจะขยับได้
+
+`src/services/inventory-ledger-service.ts` เป็น **จุดเดียว** ที่เขียน `inventory_transactions` และ `stock_balances` ได้ ทุก workflow (รับ/เบิก/โอน/ปรับปรุง/ตรวจนับ) ต้องเรียกผ่านฟังก์ชันนี้
+
+หนึ่งครั้งที่เรียก = หนึ่ง database transaction ที่ทำตามลำดับนี้
+
+1. ตรวจสิทธิ์จาก **ชนิดของรายการ** (`RECEIVE` ต้องมี `receive.create`, `ISSUE` ต้องมี `issue.create`, ...) — สิทธิ์อยู่ในตัว engine ไม่ใช่แค่ที่หน้าจอ
+2. จอง `idempotency_key` — ถ้าคีย์นี้เคยใช้แล้วจะคืน posting เดิมโดย **ไม่ตัดสต๊อกซ้ำ** (กันกดปุ่มสองครั้ง / เน็ตกระตุก / กด refresh)
+3. `SELECT ... FOR UPDATE` แถว balance ที่เกี่ยวข้อง เรียงลำดับคงที่เพื่อกัน deadlock
+4. ตรวจว่าเบิกไม่เกินของที่มี แล้วเขียน balance แบบ **relative** (`base_qty + delta`) จึงถูกต้องแม้มีคนสร้างแถวเดียวกันพร้อมกัน
+5. เขียน ledger + audit log ในธุรกรรมเดียวกัน — ถ้าขั้นตอนใดล้ม จะ rollback ทั้งหมด
+
+ทิศทาง (IN/OUT) เก็บไว้ในคอลัมน์ `direction` เพราะมีสองชนิดที่บอกทิศจากชื่อไม่ได้ คือ `REVERSAL` (ทิศตรงข้ามกับรายการที่กลับ) และ `STOCK_COUNT_ADJUSTMENT` (ขึ้นกับผลนับ) ส่วนชนิดอื่นทั้งหมด service เป็นคนกำหนดจาก `directionOfType()` และมีเทสบังคับไว้
+
+**กลับรายการ (reversal)** — `reversePosting()` จะสร้าง posting ใหม่ที่มีแถวตรงข้ามกับของเดิมทุกแถว โดย **ไม่แตะของเดิมเลย** กลับรายการซ้ำไม่ได้ และถ้าของถูกเบิกไปใช้แล้วจนกลับรายการไม่ได้ ระบบจะปฏิเสธพร้อมบอกยอดคงเหลือ
 
 ## 7. FEFO concept
 
@@ -204,7 +221,7 @@ MANAGER ที่มีสิทธิ์ `fefo.override` เลือกลอ�
 
 ---
 
-## 9. Database tables (38 ตาราง)
+## 9. Database tables (39 ตาราง)
 
 | กลุ่ม | ตาราง |
 | --- | --- |
@@ -215,7 +232,7 @@ MANAGER ที่มีสิทธิ์ `fefo.override` เลือกลอ�
 | BOM | `recipes`, `recipe_versions`, `recipe_items` |
 | จัดซื้อ | `purchase_orders`, `purchase_order_items` |
 | เอกสารคลัง | `goods_receipts`, `goods_receipt_items`, `stock_issues`, `stock_issue_items`, `stock_transfers`, `stock_transfer_items` |
-| Ledger & ลอต | `inventory_lots`, `inventory_transactions`, `stock_balances` |
+| Ledger & ลอต | `inventory_lots`, `inventory_postings`, `inventory_transactions`, `stock_balances` |
 | ตรวจนับ | `stock_count_sessions`, `stock_count_items` |
 | ระบบ | `audit_logs`, `app_settings`, `sheet_sync_runs` |
 
@@ -232,8 +249,8 @@ Seed ใส่ meal period ไว้สองกะตามที่โรง�
 เทสแบ่งเป็นสองชั้น
 
 ```bash
-npm run test              # unit — hermetic ไม่ต้องต่อฐานข้อมูล (72 tests)
-npm run test:integration  # integration — เขียนจริงลง Postgres (12 tests)
+npm run test              # unit — hermetic ไม่ต้องต่อฐานข้อมูล (78 tests)
+npm run test:integration  # integration — เขียนจริงลง Postgres (24 tests)
 ```
 
 **Unit** — business logic ล้วน
@@ -242,12 +259,14 @@ npm run test:integration  # integration — เขียนจริงลง Po
 - `units.test.ts` — การแปลงหน่วยทั้งทางตรง ทางกลับ ต่อกันหลายชั้น และ override รายสินค้า
 - `fefo.test.ts` — ลำดับ FEFO, การตัดข้ามลอต, การรายงานของไม่พอ (กันสต๊อกติดลบ), การจัดกลุ่มวันหมดอายุ
 - `permissions.test.ts` — สิทธิ์ของแต่ละ role และการรวมสิทธิ์เมื่อมีหลาย role
+- `transaction-types.test.ts` — ทิศทาง IN/OUT ของทุกชนิดรายการ และชนิดที่ห้าม post ตรงๆ
 - `form-data.test.ts` — การอ่าน checkbox ที่ไม่ถูกติ๊ก และฟิลด์ที่ส่งหลายค่า (บทบาท)
 - `schemas/common.test.ts` — `booleanFlagSchema` และฟิลด์ตัวเลขที่เว้นว่างต้องเป็น NULL ไม่ใช่ 0
 - `schemas/master-data.test.ts` — validation ของ Item / SupplierItem / User
 
 **Integration** — เขียนจริงผ่าน service + transaction + audit log (stub เฉพาะ session เพราะสิทธิ์มาจาก cookie ของ request)
 
+- `inventory-ledger-service.integration.test.ts` — Gate 3 ของ roadmap: รับ 100 → เบิก 30 → เหลือ 70, เบิกเกินถูกปฏิเสธและสต๊อกไม่ขยับ, กด submit ซ้ำตัดครั้งเดียว, **สองคนเบิกพร้อมกันแล้วสต๊อกไม่ติดลบ**, โอนสองขาใน posting เดียว, rollback ทั้ง posting เมื่อบรรทัดใดล้ม, reversal และการกันสิทธิ์
 - `user-service.integration.test.ts` — สร้าง/แก้ผู้ใช้, เปลี่ยนบทบาทแล้วบันทึกเป็น `PERMISSION_CHANGE`, อีเมลซ้ำ, ปิดใช้งานแทนการลบ, กันแอดมินถอดสิทธิ์/ปิดบัญชีตัวเอง
 - `supplier-item-service.integration.test.ts` — MOQ / pack size / lead time, `last_price_at` ขยับเฉพาะตอนราคาเปลี่ยน, ผู้ขายหลักมีได้รายเดียวต่อวัตถุดิบ, ปิดใช้งานแทนการลบ
 
@@ -273,8 +292,9 @@ npm run test:integration  # integration — เขียนจริงลง Po
 | Phase | ขอบเขต | สถานะ |
 | --- | --- | --- |
 | 1 | Foundation: schema, migration, seed, auth, roles, app shell, Item/Location/Supplier master, audit log, health check, จัดการผู้ใช้, Supplier item mapping | ✅ เสร็จ |
+| 3 | Inventory engine: posting + ledger, idempotency, กันสต๊อกติดลบ, กันแย่งกันเบิก, reversal, สต๊อกคงเหลือ, บัญชีเคลื่อนไหว | ✅ เสร็จ |
 | 2 | Menu master, Menu planner, Recipe/BOM + version, BOM cost preview | ⏳ |
-| 3 | Inventory lot, ledger, รับ/เบิก/โอน, FEFO, สต๊อกคงเหลือ, แจ้งเตือนหมดอายุ | ⏳ |
+| 4 | Lot + expiry + FEFO allocation, แจ้งเตือนของใกล้หมดอายุ | ⏳ |
 | 4 | Supplier item, PO, รับของตาม PO, partial receiving, PO status | ⏳ |
 | 5 | ต้นทุนรายวัน/รายเดือน/ต่อเมนู, ประวัติราคา, รายงาน + export | ⏳ |
 | 6 | Management dashboard, alerts, projected stock, purchase recommendation, Google Sheets sync | ⏳ |
