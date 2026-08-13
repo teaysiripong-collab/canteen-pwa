@@ -22,6 +22,13 @@
       "when": 1786587507788,
       "tag": "0002_slow_obadiah_stane",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1786591070138,
+      "tag": "0003_brief_outlaw_kid",
+      "breakpoints": true
     }
   ]
 }

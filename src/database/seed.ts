@@ -188,6 +188,9 @@ async function seedItems(
     { code: "VEG-002", nameTh: "แตงกวา", category: "VEG", supplier: "PUANGPLOY", reorder: "15", min: "5", safety: "4", shelfLife: 5, aliases: [] },
     { code: "VEG-003", nameTh: "ถั่วฝักยาว", category: "VEG", supplier: "PUANGPLOY", reorder: "10", min: "4", safety: "3", shelfLife: 4, aliases: [] },
     { code: "VEG-004", nameTh: "มะเขือพวง", category: "VEG", supplier: "PUANGPLOY", reorder: "5", min: "2", safety: "2", shelfLife: 4, aliases: [] },
+    { code: "VEG-005", nameTh: "ใบกะเพรา", category: "VEG", supplier: "PUANGPLOY", reorder: "6", min: "2", safety: "2", shelfLife: 3, aliases: ["กะเพรา"] },
+    { code: "VEG-006", nameTh: "พริกขี้หนู", category: "VEG", supplier: "PUANGPLOY", reorder: "4", min: "1.5", safety: "1.5", shelfLife: 5, aliases: ["พริก"] },
+    { code: "VEG-007", nameTh: "กระเทียม", category: "VEG", supplier: "PUANGPLOY", reorder: "5", min: "2", safety: "2", shelfLife: 20, aliases: [] },
   ];
 
   const result = new Map<string, string>();
@@ -593,6 +596,92 @@ async function seedOpeningStock(
   return posted;
 }
 
+/**
+ * A published BOM for ผัดกะเพราไก่ that shows the "30+20" split in the running app.
+ * Totals are computed with the same helper the service uses, so the stored total can
+ * never disagree with the period rows.
+ */
+async function seedRecipes(
+  db: Db,
+  organizationId: string,
+  items: Map<string, string>,
+  units: Map<string, string>,
+) {
+  const { sumPeriodQuantities } = await import("../lib/bom/period-quantity");
+
+  const [menu] = await db
+    .select()
+    .from(schema.menus)
+    .where(and(eq(schema.menus.organizationId, organizationId), eq(schema.menus.code, "MENU-001")))
+    .limit(1);
+  if (!menu) return 0;
+
+  const periods = await db
+    .select()
+    .from(schema.mealPeriods)
+    .where(eq(schema.mealPeriods.organizationId, organizationId))
+    .orderBy(schema.mealPeriods.sortOrder);
+  if (periods.length < 2) return 0;
+
+  const [recipe] = await db
+    .insert(schema.recipes)
+    .values({ menuId: menu.id, nameTh: menu.nameTh })
+    .onConflictDoUpdate({ target: schema.recipes.menuId, set: { nameTh: menu.nameTh } })
+    .returning();
+
+  const [existingVersion] = await db
+    .select()
+    .from(schema.recipeVersions)
+    .where(eq(schema.recipeVersions.recipeId, recipe!.id))
+    .limit(1);
+  if (existingVersion) return 0;
+
+  const [version] = await db
+    .insert(schema.recipeVersions)
+    .values({
+      recipeId: recipe!.id,
+      versionNo: 1,
+      yieldQty: "1",
+      effectiveFrom: new Date().toISOString().slice(0, 10),
+      isPublished: true,
+      note: "สูตรตัวอย่างสำหรับ development",
+    })
+    .returning();
+
+  // "30+20" = เช้า 30 / ดึก 20, and so on for the rest of the line-up.
+  const lines = [
+    { item: "MEAT-004", day: "30", night: "20", waste: "0" },
+    { item: "VEG-005", day: "2.5", night: "1.5", waste: "0.05" },
+    { item: "VEG-006", day: "1", night: "0.5", waste: "0" },
+    { item: "VEG-007", day: "0.8", night: "0.5", waste: "0.1" },
+  ];
+
+  for (const [index, line] of lines.entries()) {
+    const values = [line.day, line.night];
+    const [recipeItem] = await db
+      .insert(schema.recipeItems)
+      .values({
+        recipeVersionId: version!.id,
+        itemId: items.get(line.item)!,
+        quantity: sumPeriodQuantities(values),
+        unitId: units.get("KG")!,
+        wasteFactor: line.waste,
+        sortOrder: index,
+      })
+      .returning();
+
+    await db.insert(schema.recipeItemPeriodQuantities).values(
+      periods.slice(0, 2).map((period, periodIndex) => ({
+        recipeItemId: recipeItem!.id,
+        mealPeriodId: period.id,
+        quantity: values[periodIndex]!,
+      })),
+    );
+  }
+
+  return lines.length;
+}
+
 async function seedSettings(db: Db, organizationId: string) {
   const rows = [
     {
@@ -645,6 +734,7 @@ async function main() {
   await seedMealPeriodsAndMenus(db, organization.id);
   await seedSettings(db, organization.id);
   const openingPostings = await seedOpeningStock(db, organization.id, items, locations);
+  const recipeLines = await seedRecipes(db, organization.id, items, units);
 
   const seededUsers = await db
     .select({ email: schema.users.email })
@@ -652,7 +742,7 @@ async function main() {
     .where(eq(schema.users.organizationId, organization.id));
 
   console.log(
-    `Seed complete: ${locations.size} locations, ${items.size} items, ${suppliers.size} suppliers, ${supplierItemCount} supplier items, ${seededUsers.length} users, ${openingPostings} opening-stock postings.`,
+    `Seed complete: ${locations.size} locations, ${items.size} items, ${suppliers.size} suppliers, ${supplierItemCount} supplier items, ${seededUsers.length} users, ${openingPostings} opening-stock postings, ${recipeLines} BOM lines.`,
   );
   console.log(`Sign in with: ${seededUsers.map((user) => user.email).join(", ")}`);
 

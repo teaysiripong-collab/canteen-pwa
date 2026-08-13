@@ -24,8 +24,8 @@ export const SIDEBAR_GROUPS: NavGroup[] = [
     label: "เมนู",
     items: [
       { label: "แผนเมนู", href: "/menu/planner", permission: PERMISSIONS.MENU_VIEW, phase: 2 },
-      { label: "รายการเมนู", href: "/menu/master", permission: PERMISSIONS.MENU_VIEW, phase: 2 },
-      { label: "สูตรอาหาร / BOM", href: "/menu/recipes", permission: PERMISSIONS.RECIPE_VIEW, phase: 2 },
+      { label: "รายการเมนู", href: "/menu/master", permission: PERMISSIONS.MENU_VIEW },
+      { label: "สูตรอาหาร / BOM", href: "/menu/recipes", permission: PERMISSIONS.RECIPE_VIEW },
     ],
   },
   {

@@ -11,7 +11,7 @@ import {
   uuid,
 } from "drizzle-orm/pg-core";
 import { items, units } from "./master-data";
-import { menus } from "./menu";
+import { mealPeriods, menus } from "./menu";
 import { users } from "./auth";
 import { primaryId, quantity, timestamps } from "./_shared";
 
@@ -69,6 +69,10 @@ export const recipeItems = pgTable(
     itemId: uuid("item_id")
       .notNull()
       .references(() => items.id, { onDelete: "restrict" }),
+    /**
+     * Total across every meal period, kept in step with `recipeItemPeriodQuantities`
+     * by the BOM service. Reports and costing read this; the split lives in the child.
+     */
     quantity: quantity("quantity").notNull(),
     unitId: uuid("unit_id")
       .notNull()
@@ -86,5 +90,32 @@ export const recipeItems = pgTable(
       "recipe_items_waste_factor_range",
       sql`${t.wasteFactor} >= 0 AND ${t.wasteFactor} < 1`,
     ),
+  ],
+);
+
+/**
+ * How a BOM line splits across the shifts — the two halves of the "30+20" notation the
+ * kitchen writes on paper (เช้า 30 / ดึก 20).
+ *
+ * It is a table rather than day/night columns because meal periods are configurable
+ * master data: a site that adds a third shift adds rows, not a migration.
+ */
+export const recipeItemPeriodQuantities = pgTable(
+  "recipe_item_period_quantities",
+  {
+    id: primaryId(),
+    recipeItemId: uuid("recipe_item_id")
+      .notNull()
+      .references(() => recipeItems.id, { onDelete: "cascade" }),
+    mealPeriodId: uuid("meal_period_id")
+      .notNull()
+      .references(() => mealPeriods.id, { onDelete: "restrict" }),
+    quantity: quantity("quantity").notNull(),
+    ...timestamps,
+  },
+  (t) => [
+    uniqueIndex("recipe_item_period_key").on(t.recipeItemId, t.mealPeriodId),
+    index("recipe_item_period_item_idx").on(t.recipeItemId),
+    check("recipe_item_period_quantity_non_negative", sql`${t.quantity} >= 0`),
   ],
 );

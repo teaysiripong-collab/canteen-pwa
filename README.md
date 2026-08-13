@@ -253,7 +253,32 @@ inventory_lots           ← ลอตที่รับเข้ามา พ�
 
 รายละเอียดว่าลอตไหนถูกโอนไปเท่าไร อ่านได้จาก ledger ผ่าน posting ของใบโอนนั้น — ตัวเอกสารเก็บระดับวัตถุดิบ ไม่เก็บซ้ำ
 
-## 10. Unit conversion
+## 10. Menu + BOM (สูตรอาหาร)
+
+BOM คือหัวใจของการเบิกและการคำนวณต้นทุน ระบบเก็บเป็น **เวอร์ชัน** เสมอ
+
+### สัญกรณ์ `30+20`
+
+ครัวเขียนบนกระดาษว่า `30+20` หมายถึง **เช้า 30 / ดึก 20** ระบบรับรูปแบบนี้ตรงๆ แล้วแตกเป็นตัวเลขต่อมื้อ
+
+- ค่าที่พิมพ์จะ map เข้ากับมื้อ **ตามลำดับ** ที่ตั้งไว้ (seed คือ DAY แล้ว NIGHT)
+- พิมพ์ตัวเดียว เช่น `30` = มื้อแรก 30 มื้อที่เหลือ 0
+- รองรับทศนิยม (`2.5+1.5`) และมื้อที่สามขึ้นไปถ้าตั้งค่าไว้ (`10+20+5`)
+- พิมพ์ค้าง เช่น `30+` จะไม่ถูกอ่านเป็น 0 แต่ขึ้น error ให้แก้
+- หน้าจอแสดง **preview แบบมีโครงสร้าง** ทันที (เช้า 30 · ดึก 20 · รวม 50) เพื่อให้เห็นว่าระบบเข้าใจตรงกันก่อนบันทึก
+
+จำนวนต่อมื้อเก็บใน `recipe_item_period_quantities` (ผูกกับ `meal_periods`) **ไม่ใช่คอลัมน์ day/night** เพราะมื้ออาหารเป็นข้อมูลตั้งค่าได้ — ถ้าโรงอาหารเพิ่มกะที่สาม ก็เพิ่มแถว ไม่ต้อง migrate
+
+`recipe_items.quantity` เก็บ**ยอดรวมทุกมื้อ** และถูกคำนวณจากแถวรายมื้อเสมอในการบันทึกครั้งเดียวกัน จึงไม่มีทางไม่ตรงกัน
+
+### เวอร์ชันและความคงที่ของประวัติ
+
+- แก้สูตรที่ **เผยแพร่แล้วไม่ได้** — กดแก้ไขจะสร้างเวอร์ชันใหม่โดย **คัดลอกจากเวอร์ชันปัจจุบัน** (รวมการแตกมื้อ)
+- เวอร์ชันเก่าอ่านย้อนหลังได้ตรงกับตอนที่ใช้จริง ต้นทุนย้อนหลังจึงไม่เปลี่ยนตามการแก้สูตรวันนี้
+- ถ้ามีฉบับร่างค้างอยู่ การกดแก้ไขจะกลับไปที่ร่างเดิม ไม่สร้างเวอร์ชันซ้อน
+- เผยแพร่สูตรเปล่าไม่ได้
+
+## 11. Unit conversion
 
 `src/lib/units.ts` แปลงหน่วยผ่าน graph ของกฎการแปลง จึงรองรับการแปลงต่อกันหลายชั้น
 
@@ -263,7 +288,7 @@ inventory_lots           ← ลอตที่รับเข้ามา พ�
 
 ---
 
-## 11. Database tables (39 ตาราง)
+## 12. Database tables (40 ตาราง)
 
 | กลุ่ม | ตาราง |
 | --- | --- |
@@ -271,7 +296,7 @@ inventory_lots           ← ลอตที่รับเข้ามา พ�
 | Users & สิทธิ์ | `users`, `roles`, `permissions`, `role_permissions`, `user_roles` |
 | ข้อมูลหลัก | `items`, `item_categories`, `item_aliases`, `units`, `unit_conversions`, `suppliers`, `supplier_items` |
 | เมนู | `menus`, `menu_categories`, `meal_periods`, `menu_plans`, `menu_plan_items` |
-| BOM | `recipes`, `recipe_versions`, `recipe_items` |
+| BOM | `recipes`, `recipe_versions`, `recipe_items`, `recipe_item_period_quantities` |
 | จัดซื้อ | `purchase_orders`, `purchase_order_items` |
 | เอกสารคลัง | `goods_receipts`, `goods_receipt_items`, `stock_issues`, `stock_issue_items`, `stock_transfers`, `stock_transfer_items` |
 | Ledger & ลอต | `inventory_lots`, `inventory_postings`, `inventory_transactions`, `stock_balances` |
@@ -290,13 +315,13 @@ Seed ใส่ meal period ไว้สองกะตามที่โรง�
 
 ---
 
-## 12. Testing
+## 13. Testing
 
 เทสแบ่งเป็นสองชั้น
 
 ```bash
-npm run test              # unit — hermetic ไม่ต้องต่อฐานข้อมูล (82 tests)
-npm run test:integration  # integration — เขียนจริงลง Postgres (61 tests)
+npm run test              # unit — hermetic ไม่ต้องต่อฐานข้อมูล (94 tests)
+npm run test:integration  # integration — เขียนจริงลง Postgres (73 tests)
 ```
 
 **Unit** — business logic ล้วน
@@ -307,13 +332,16 @@ npm run test:integration  # integration — เขียนจริงลง Po
 - `permissions.test.ts` — สิทธิ์ของแต่ละ role และการรวมสิทธิ์เมื่อมีหลาย role
 - `transaction-types.test.ts` — ทิศทาง IN/OUT ของทุกชนิดรายการ และชนิดที่ห้าม post ตรงๆ
 - `date.test.ts` — วันทางธุรกิจต้องเป็นวันของไทย ไม่ใช่วัน UTC ของเซิร์ฟเวอร์
+- `period-quantity.test.ts` — parser ของ `30+20` ทั้งกรณีปกติ ทศนิยม กะที่สาม และกรณีพิมพ์ผิด
 - `date.test.ts` — วันทางธุรกิจต้องเป็นวันของไทย ไม่ใช่วัน UTC ของเซิร์ฟเวอร์
+- `period-quantity.test.ts` — parser ของ `30+20` ทั้งกรณีปกติ ทศนิยม กะที่สาม และกรณีพิมพ์ผิด
 - `form-data.test.ts` — การอ่าน checkbox ที่ไม่ถูกติ๊ก และฟิลด์ที่ส่งหลายค่า (บทบาท)
 - `schemas/common.test.ts` — `booleanFlagSchema` และฟิลด์ตัวเลขที่เว้นว่างต้องเป็น NULL ไม่ใช่ 0
 - `schemas/master-data.test.ts` — validation ของ Item / SupplierItem / User
 
 **Integration** — เขียนจริงผ่าน service + transaction + audit log (stub เฉพาะ session เพราะสิทธิ์มาจาก cookie ของ request)
 
+- `bom-service.integration.test.ts` — Gate 7: ไก่บด `30+20` แตกเป็น เช้า 30 / ดึก 20 / รวม 50, ยอดรวมตรงกับผลรวมรายมื้อ, สูตรที่เผยแพร่แล้วแก้ไม่ได้, v2 คัดลอกจาก v1 แล้ว v1 ไม่เปลี่ยน, การแตกมื้อถูกคัดลอกไปด้วย, เผยแพร่สูตรเปล่าไม่ได้ และการตรวจสิทธิ์
 - `transfer-service.integration.test.ts` — สองขาอยู่ใน posting เดียว, FEFO เลือกลอตหมดอายุก่อน, ตัดข้ามหลายลอตแล้วลอตยังคงตัวตนที่ปลายทาง, ต้นทางติดลบไม่ได้, โอนเข้าที่เดิมไม่ได้, กดซ้ำไม่โอนซ้ำ, ตรวจสิทธิ์ และความถูกต้องของยอดก่อน–หลัง
 - `receiving-service.integration.test.ts` — ใบรับ + รายการ + ลอต + ledger เกิดพร้อมกัน, แปลงหน่วยซื้อเป็นหน่วยสต๊อก, ของที่ไม่รับไม่เข้าสต๊อก, ปฏิเสธทั้งรายการไม่สร้างลอต, กดซ้ำไม่รับซ้ำ, รายการเสียหนึ่งบรรทัดแล้ว rollback ทั้งใบ, เลขเอกสารเรียงต่อกัน, จำราคาล่าสุด, ตรวจสิทธิ์ และ path ของ server action ที่ฟอร์มใช้จริง (ส่งค่าเป็น string)
 - `inventory-allocation-service.integration.test.ts` — Gate 4: ลอตหมดอายุ 15 ส.ค. ถูกใช้ก่อนลอต 20 ส.ค., ตัดข้ามหลายลอต, กันของหมดอายุออกจากแผน, รายงานของขาด, แผนที่ได้นำไป post แล้วยอดตรง, override ตรวจสิทธิ์และตรวจว่าข้ามลอตจริงไหม, การจัดกลุ่มแจ้งเตือนหมดอายุ
@@ -327,7 +355,7 @@ npm run test:integration  # integration — เขียนจริงลง Po
 
 ---
 
-## 13. Deployment (Vercel)
+## 14. Deployment (Vercel)
 
 1. สร้างโปรเจกต์ Supabase แล้วคัดลอก connection string (แนะนำ session pooler port 5432)
 2. Import repository เข้า Vercel
@@ -338,7 +366,7 @@ npm run test:integration  # integration — เขียนจริงลง Po
 
 ---
 
-## 14. Roadmap
+## 15. Roadmap
 
 | Phase | ขอบเขต | สถานะ |
 | --- | --- | --- |
@@ -347,7 +375,8 @@ npm run test:integration  # integration — เขียนจริงลง Po
 | 4 | Lot + expiry + FEFO allocation จากยอดคงเหลือจริง, กันของหมดอายุออกจากแผนเบิก, FEFO override, แจ้งเตือนหมดอายุแบบตั้งเกณฑ์ได้ | ✅ เสร็จ |
 | 5 | Receiving: ใบรับสินค้า mobile-first, ลอต, แปลงหน่วย, ของขาด/เสียหาย, เลขที่เอกสาร, หน้าจอยืนยันผล | ✅ เสร็จ |
 | 6 | Transfer: โอนสองขาใน posting เดียว, FEFO, ยอดก่อน–หลัง, หน้าจอมือถือ | ✅ เสร็จ |
-| 2 | Menu master, Menu planner, Recipe/BOM + version, BOM cost preview | ⏳ |
+| 7 | Menu master + BOM แบบมีเวอร์ชัน, สัญกรณ์ `30+20` (เช้า/ดึก), ประวัติสูตรคงที่ | ✅ เสร็จ |
+| 8 | Daily Menu Plan + รวมความต้องการวัตถุดิบตามมื้อ | ⏳ |
 | 4 | Supplier item, PO, รับของตาม PO, partial receiving, PO status | ⏳ |
 | 5 | ต้นทุนรายวัน/รายเดือน/ต่อเมนู, ประวัติราคา, รายงาน + export | ⏳ |
 | 6 | Management dashboard, alerts, projected stock, purchase recommendation, Google Sheets sync | ⏳ |
