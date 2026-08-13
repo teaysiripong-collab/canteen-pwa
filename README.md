@@ -134,15 +134,17 @@ src/
     (app)/                 พื้นที่ที่ต้องล็อกอิน (app shell: sidebar + bottom nav)
       dashboard/           หน้าหลัก (mobile home + desktop dashboard)
       items/ locations/ suppliers/   ข้อมูลหลัก
+      inventory/ purchasing/ menu/  งานคลัง จัดซื้อ และเมนู/BOM
+      cost/                  ต้นทุนรายวัน ต่อเมนู และประวัติราคา
       audit-log/
   components/
     ui/                    Design system (Button, Field, Card, DataTable, StatusBadge, ...)
     layout/                Sidebar, MobileHeader, DesktopHeader, BottomNavigation
-  features/master-data/    ฟอร์มและ server actions ของข้อมูลหลัก
+  features/               ฟอร์มและ server actions แยกตามโดเมน (master-data, receiving, issue, transfer, purchasing, menu, cost)
   services/                business logic + permission check + audit + transaction
   repositories/            data access ล้วนๆ
   schemas/                 Zod schema (ข้อความ error เป็นภาษาไทย)
-  lib/                     permissions, quantity, units, fefo, errors, auth, supabase
+  lib/                     permissions, quantity, units, fefo, costing, date, errors, auth, supabase
   config/                  navigation
   database/                schema/ migrations/ client.ts migrate.ts seed.ts
 ```
@@ -352,7 +354,43 @@ BOM คือหัวใจของการเบิกและการค�
 
 ฟอร์มสร้างใบสั่งซื้อเติมหน่วยสั่งซื้อ ขั้นต่ำ (MOQ) ขนาดแพ็ก และราคาล่าสุดจาก supplier item ให้ พร้อมแสดง **% ที่ต่างจากราคาครั้งก่อน** เพื่อให้เห็นราคาที่กระโดดก่อนอนุมัติ ไม่ใช่ตอนใบแจ้งหนี้มาถึง
 
-## 14. Unit conversion
+## 14. Costing (ต้นทุน)
+
+ต้นทุนตอบคำถามสองข้อที่หน้าตาคล้ายกันแต่คนละเรื่อง และระบบแยกทางเดินข้อมูลของสองข้อนี้ออกจากกัน
+
+| คำถาม | อ่านจาก | ขยับตามราคาวันนี้ไหม |
+| --- | --- | --- |
+| "ของที่มีอยู่ตอนนี้มูลค่าเท่าไร" | ลอตที่ยังเหลือใน `stock_balances` × `inventory_lots.unit_cost` | ✅ ขยับ — เป็นตัวเลขปัจจุบัน |
+| "วันนั้นใช้ต้นทุนไปเท่าไร" | `inventory_transactions.unit_cost` ที่ **ตรึงไว้ตอน post** | ❌ ไม่ขยับ |
+
+นี่คือกฎที่สำคัญที่สุดของโมดูลนี้: **รายงานย้อนหลังต้องไม่เปลี่ยนเมื่อราคาซื้อวันนี้เปลี่ยน** ของที่รับเข้ามาเช้านี้ในราคาแพงขึ้นเท่าตัว ไม่มีสิทธิ์ไปแก้ตัวเลขต้นทุนของสัปดาห์ที่แล้วที่หัวหน้าเซ็นไปแล้ว
+
+### ต้นทุนถัวเฉลี่ยถ่วงน้ำหนัก
+
+`src/lib/costing/weighted-average.ts` ถ่วงน้ำหนักด้วย **ปริมาณ ไม่ใช่จำนวนลอต** — 20 kg ที่ 90 บาท กับ 10 kg ที่ 80 บาท ได้ 86.67 ไม่ใช่ 85 คำนวณผ่าน scaled-integer ใน `lib/quantity` ทั้งหมด การเฉลี่ยราคาซ้ำๆ อย่าง 4.2667 จึงไม่สะสมความคลาดเคลื่อนแบบ float
+
+### ต้นทุนรายวัน (`/cost/daily`)
+
+- นับเฉพาะ **การใช้จริง** คือ `ISSUE` และ `WASTE`
+- **การโอนไม่ใช่ต้นทุน** — ของยังเป็นของโรงอาหาร แค่ย้ายอาคาร
+- **การกลับรายการหักออกในวันที่กลับรายการ ไม่ใช่วันที่ทำผิด** เหตุผลเดียวกับที่ ledger ใช้ reversal แทนการแก้ของเดิม คือรายงานที่ปิดไปแล้วต้องไม่ถูกเขียนทับลับหลัง
+- วันทางธุรกิจเป็น **วันของไทย** ทั้งขอบเขตของช่วงและการจัดกลุ่ม การเบิกตอนตีหนึ่งของกะดึกจึงอยู่ในวันที่ถูกต้อง ไม่ใช่วัน UTC ของเซิร์ฟเวอร์
+
+### ต้นทุนต่อเมนู (`/cost/menu`)
+
+ต้นทุน **มาตรฐาน**: ปริมาณตามสูตรที่เผยแพร่แล้ว × ต้นทุนถัวเฉลี่ยของสต๊อกที่มีอยู่ เลือกดูแยกกะได้ — ไก่บด `30+20` กะเช้าคิด 30 ไม่ใช่ 50 วัตถุดิบที่ไม่มีสต๊อกจะยังไม่มีต้นทุนถัวเฉลี่ย หน้าจอจึงบอกตรงๆ ว่ายอดรวมต่ำกว่าความจริง แทนที่จะแกล้งเป็นตัวเลขที่ดูสมบูรณ์
+
+### Variance ของใบเบิก
+
+`getIssueCostVariance` คิดทั้งฝั่งมาตรฐานและฝั่งจริงด้วย **ต้นทุนต่อหน่วยชุดเดียวกัน** คือของใบเบิกนั้นเอง การตรึงราคาไว้ทำให้เหลือเฉพาะส่วนที่ครัวควบคุมได้ — หยิบไปเท่าไรเทียบกับที่สูตรขอ — ไม่ปนกับราคาที่ขยับซึ่งคนทำครัวไม่ได้เกี่ยวด้วย
+
+### ประวัติราคา (`/cost/price-history`)
+
+ราคาต่อหน่วยฐานของทุกลอตที่รับเข้ามาจริง เรียงใหม่สุดก่อน พร้อมป้ายบอกว่า **แพงขึ้น/ถูกลง เทียบกับครั้งก่อนของวัตถุดิบเดียวกัน** ลอตที่ใช้หมดแล้วยังอยู่ในประวัติ เพราะราคาที่จ่ายไปแล้วเป็นข้อเท็จจริง ไม่ได้หายไปพร้อมของ
+
+---
+
+## 15. Unit conversion
 
 `src/lib/units.ts` แปลงหน่วยผ่าน graph ของกฎการแปลง จึงรองรับการแปลงต่อกันหลายชั้น
 
@@ -362,7 +400,7 @@ BOM คือหัวใจของการเบิกและการค�
 
 ---
 
-## 15. Database tables (42 ตาราง)
+## 16. Database tables (42 ตาราง)
 
 | กลุ่ม | ตาราง |
 | --- | --- |
@@ -389,13 +427,13 @@ Seed ใส่ meal period ไว้สองกะตามที่โรง�
 
 ---
 
-## 16. Testing
+## 17. Testing
 
 เทสแบ่งเป็นสองชั้น
 
 ```bash
-npm run test              # unit — hermetic ไม่ต้องต่อฐานข้อมูล (100 tests)
-npm run test:integration  # integration — เขียนจริงลง Postgres (122 tests)
+npm run test              # unit — hermetic ไม่ต้องต่อฐานข้อมูล (109 tests)
+npm run test:integration  # integration — เขียนจริงลง Postgres (141 tests)
 ```
 
 **Unit** — business logic ล้วน
@@ -408,15 +446,14 @@ npm run test:integration  # integration — เขียนจริงลง Po
 - `date.test.ts` — วันทางธุรกิจต้องเป็นวันของไทย ไม่ใช่วัน UTC ของเซิร์ฟเวอร์
 - `period-quantity.test.ts` — parser ของ `30+20` ทั้งกรณีปกติ ทศนิยม กะที่สาม และกรณีพิมพ์ผิด
 - `issue-variance.test.ts` — standard vs actual รวมกรณีติดลบ ตรงเป๊ะ ไม่มี standard และ standard = 0
-- `date.test.ts` — วันทางธุรกิจต้องเป็นวันของไทย ไม่ใช่วัน UTC ของเซิร์ฟเวอร์
-- `period-quantity.test.ts` — parser ของ `30+20` ทั้งกรณีปกติ ทศนิยม กะที่สาม และกรณีพิมพ์ผิด
-- `issue-variance.test.ts` — standard vs actual รวมกรณีติดลบ ตรงเป๊ะ ไม่มี standard และ standard = 0
+- `weighted-average.test.ts` — ถ่วงน้ำหนักด้วยปริมาณไม่ใช่จำนวนลอต, ลอตที่เหลือศูนย์ไม่ถูกนับ, ราคาทศนิยมซ้ำๆ ไม่สะสมความคลาดเคลื่อน, variance เป็นเงินและเป็น % รวมกรณีมาตรฐานเป็นศูนย์
 - `form-data.test.ts` — การอ่าน checkbox ที่ไม่ถูกติ๊ก และฟิลด์ที่ส่งหลายค่า (บทบาท)
 - `schemas/common.test.ts` — `booleanFlagSchema` และฟิลด์ตัวเลขที่เว้นว่างต้องเป็น NULL ไม่ใช่ 0
 - `schemas/master-data.test.ts` — validation ของ Item / SupplierItem / User
 
 **Integration** — เขียนจริงผ่าน service + transaction + audit log (stub เฉพาะ session เพราะสิทธิ์มาจาก cookie ของ request)
 
+- `costing-service.integration.test.ts` — Gate 11: **ต้นทุนของวันที่ผ่านมาไม่เปลี่ยนหลังราคาซื้อขึ้นเท่าตัว** ในขณะที่มูลค่าสต๊อกปัจจุบันขยับตาม, ถ่วงน้ำหนักตามลอตที่มีจริง, แยกของเสียออกจากการเบิก, การโอนไม่นับเป็นต้นทุน, การกลับรายการหักในวันที่กลับรายการ, การเบิกกะดึกอยู่ในวันของไทยที่ถูกต้อง, ต้นทุนมาตรฐานแยกกะจาก `30+20`, variance ของใบเบิกที่หยิบเกินสูตร, ประวัติราคา และการกันสิทธิ์ `cost.view`
 - `purchase-order-service.integration.test.ts` — สั่ง 100 รับ 70 เหลือ 30 สถานะ PARTIALLY_RECEIVED, รับครบแล้วเป็น RECEIVED, ส่งเกินถือว่าครบและ remaining ไม่ติดลบ, รับซ้ำหลังครบไม่ได้, รับก่อนอนุมัติไม่ได้, ยกเลิกหลังรับบางส่วนไม่ได้, ของที่ปฏิเสธไม่ถูกนับเข้ายอดรับ, แปลงหน่วยสั่งซื้อ, workflow ข้ามขั้นไม่ได้, `po.approve` แยกจาก `po.manage` และการเทียบราคา
 - `issue-service.integration.test.ts` — Gate 9: standard 30 / actual 32 → +2 kg (+6.67%), ดึงสูตรตามมื้อที่เลือก, คูณตามจำนวนครั้ง, FEFO เลือกลอตหมดอายุก่อน, ต้นทุนถัวเฉลี่ยของลอตที่ใช้, เบิกเกินถูกปฏิเสธ, กดซ้ำไม่เบิกซ้ำ, เบิกทั่วไปไม่มีสูตร, และสิทธิ์ทั้งสามชั้น (create / adjust_qty / fefo.override)
 - `menu-plan-service.integration.test.ts` — ตรึงเวอร์ชันสูตรตอนวางแผน, เมนูไม่มีสูตรวางแผนไม่ได้, ร่างไม่นับเป็นความต้องการจนกว่าจะยืนยัน, หยิบเฉพาะครึ่งของมื้อ (เช้า 30 ไม่ใช่ 50), แยกเช้า/ดึกแล้วรวมเป็น 50, คูณตามจำนวนครั้งที่ทำ, รวมหลายเมนูพร้อม drill-down, แผนที่ยกเลิกหยุดนับ, คัดลอกเมื่อวาน/จากมื้ออื่น และเทมเพลต
@@ -430,11 +467,9 @@ npm run test:integration  # integration — เขียนจริงลง Po
 
 ต้อง `npm run db:migrate && npm run db:seed` ก่อนรัน integration — เทสจะเก็บกวาดข้อมูลของตัวเองหลังรันเสร็จ
 
-เทสของ Receiving / Issue / Transfer / Partial Receiving / Cost calculation จะเพิ่มพร้อมกับโมดูลใน Phase 3–5
-
 ---
 
-## 17. Deployment (Vercel)
+## 18. Deployment (Vercel)
 
 1. สร้างโปรเจกต์ Supabase แล้วคัดลอก connection string (แนะนำ session pooler port 5432)
 2. Import repository เข้า Vercel
@@ -445,7 +480,7 @@ npm run test:integration  # integration — เขียนจริงลง Po
 
 ---
 
-## 18. Roadmap
+## 19. Roadmap
 
 | Phase | ขอบเขต | สถานะ |
 | --- | --- | --- |
@@ -458,9 +493,7 @@ npm run test:integration  # integration — เขียนจริงลง Po
 | 8 | Daily Menu Plan: สถานะแผน, ตรึงเวอร์ชันสูตร, รวมความต้องการวัตถุดิบแยกเช้า/ดึก, คัดลอก, เทมเพลต | ✅ เสร็จ |
 | 9 | เบิกของตาม BOM: ดึงสูตรตามมื้อ, FEFO, standard vs actual + variance, ต้นทุนถัวเฉลี่ย, FEFO override | ✅ เสร็จ |
 | 10 | Purchase Order: workflow + อนุมัติ, partial receiving, สถานะอัตโนมัติ, เทียบราคา, รับของตาม PO | ✅ เสร็จ |
-| 11 | Weighted average cost + ต้นทุนย้อนหลัง | ⏳ |
-| 4 | Supplier item, PO, รับของตาม PO, partial receiving, PO status | ⏳ |
-| 5 | ต้นทุนรายวัน/รายเดือน/ต่อเมนู, ประวัติราคา, รายงาน + export | ⏳ |
-| 6 | Management dashboard, alerts, projected stock, purchase recommendation, Google Sheets sync | ⏳ |
+| 11 | Weighted average cost: ต้นทุนรายวัน/รายเดือน, ต้นทุนต่อเมนู, variance, ประวัติราคา, ต้นทุนย้อนหลังคงที่ | ✅ เสร็จ |
+| 12+ | Auto purchase planner, AI copilot, งาน/แจ้งเตือน, ตรวจนับสต๊อก, ของเสีย, command center, รายงาน + export, Google Sheets sync, security hardening | ⏳ |
 
-โครงสร้างฐานข้อมูลของ Phase 2–6 ถูกออกแบบและ migrate ไว้แล้วทั้งหมด เหลือเพียงชั้น service และ UI
+โครงสร้างฐานข้อมูลของเฟสที่เหลือถูกออกแบบและ migrate ไว้แล้วทั้งหมด เหลือเพียงชั้น service และ UI

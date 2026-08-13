@@ -57,9 +57,9 @@ export const SIDEBAR_GROUPS: NavGroup[] = [
   {
     label: "ต้นทุน",
     items: [
-      { label: "ต้นทุนรายวัน", href: "/cost/daily", permission: PERMISSIONS.COST_VIEW, phase: 5 },
-      { label: "ต้นทุนต่อเมนู", href: "/cost/menu", permission: PERMISSIONS.COST_VIEW, phase: 5 },
-      { label: "ประวัติราคา", href: "/cost/price-history", permission: PERMISSIONS.COST_VIEW, phase: 5 },
+      { label: "ต้นทุนรายวัน", href: "/cost/daily", permission: PERMISSIONS.COST_VIEW },
+      { label: "ต้นทุนต่อเมนู", href: "/cost/menu", permission: PERMISSIONS.COST_VIEW },
+      { label: "ประวัติราคา", href: "/cost/price-history", permission: PERMISSIONS.COST_VIEW },
     ],
   },
   {

@@ -212,3 +212,29 @@ export async function listRecipeItemOptions(organizationId: string) {
     .where(and(eq(items.organizationId, organizationId), eq(items.isActive, true)))
     .orderBy(asc(items.code));
 }
+
+/**
+ * Published versions only, one row per menu version, for the cost screens. A draft has no
+ * business being priced — it is not what the kitchen is cooking.
+ */
+export async function listPublishedRecipeVersionOptions(organizationId: string) {
+  return db
+    .select({
+      id: recipeVersions.id,
+      versionNo: recipeVersions.versionNo,
+      menuCode: menus.code,
+      menuNameTh: menus.nameTh,
+      effectiveFrom: recipeVersions.effectiveFrom,
+    })
+    .from(recipeVersions)
+    .innerJoin(recipes, eq(recipes.id, recipeVersions.recipeId))
+    .innerJoin(menus, eq(menus.id, recipes.menuId))
+    .where(
+      and(
+        eq(menus.organizationId, organizationId),
+        eq(recipeVersions.isPublished, true),
+        eq(menus.isActive, true),
+      ),
+    )
+    .orderBy(asc(menus.code), desc(recipeVersions.versionNo));
+}
