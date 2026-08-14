@@ -2,14 +2,12 @@ import Link from "next/link";
 import { Boxes, CalendarClock, PackagePlus, ScanLine, Truck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, KpiCard } from "@/components/ui/card";
-import { AlertCard } from "@/components/ui/cards";
+import { AlertBand } from "@/features/alerts/alert-list";
 import { PageHeader } from "@/components/ui/page-header";
 import { requireUser } from "@/lib/auth/session";
 import { PERMISSIONS, hasPermission } from "@/lib/permissions";
-import { formatQty } from "@/lib/quantity";
 import { countMasterData } from "@/repositories/master-data-repository";
-import { listStockBalances } from "@/repositories/inventory-repository";
-import { getExpiryAlerts } from "@/services/expiry-service";
+import { getAlerts, urgentAlerts } from "@/services/alert-service";
 
 export const dynamic = "force-dynamic";
 
@@ -25,21 +23,10 @@ export default async function DashboardPage() {
   const user = await requireUser();
   const canSeeStock = hasPermission(user.permissions, PERMISSIONS.STOCK_VIEW);
 
-  // Alerts are only computed for users who may see stock at all.
-  const [counts, lowStock, expiry] = await Promise.all([
-    countMasterData(user.organizationId),
-    canSeeStock
-      ? listStockBalances(user.organizationId, { onlyInStock: true, onlyBelowReorder: true })
-      : Promise.resolve([]),
-    canSeeStock
-      ? getExpiryAlerts(user.organizationId)
-      : Promise.resolve({ groups: [], totalLots: 0, thresholds: [], today: "" }),
-  ]);
+  // One source for "what needs attention", shared with /alerts so the two cannot disagree.
+  const [counts, alerts] = await Promise.all([countMasterData(user.organizationId), getAlerts()]);
 
-  const expiredLots = expiry.groups.find((group) => group.key < 0)?.lots ?? [];
-  const urgentLots = expiry.groups
-    .filter((group) => group.key >= 0 && group.key <= (expiry.thresholds[0] ?? 1))
-    .flatMap((group) => group.lots);
+  const stockAlerts = alerts.alerts.filter((alert) => alert.href.startsWith("/inventory"));
 
   return (
     <div className="flex flex-col gap-6">
@@ -77,9 +64,19 @@ export default async function DashboardPage() {
 
       {canSeeStock ? (
         <section aria-label="ต้องดูแลวันนี้" className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <KpiCard label="ของใกล้หมด" value={lowStock.length} unit="รายการ" />
-          <KpiCard label="ใกล้หมดอายุ" value={expiry.totalLots} unit="ลอต" />
-          <KpiCard label="หมดอายุแล้ว" value={expiredLots.length} unit="ลอต" />
+          <KpiCard
+            label="ต้องแก้วันนี้"
+            value={alerts.counts.critical}
+            unit="เรื่อง"
+            tone={alerts.counts.critical > 0 ? "critical" : "neutral"}
+          />
+          <KpiCard
+            label="ควรจัดการ"
+            value={alerts.counts.warning}
+            unit="เรื่อง"
+            tone={alerts.counts.warning > 0 ? "warning" : "neutral"}
+          />
+          <KpiCard label="เรื่องเกี่ยวกับสต๊อก" value={stockAlerts.length} unit="เรื่อง" />
           <KpiCard label="วัตถุดิบที่ใช้งาน" value={counts.items} unit="รายการ" />
         </section>
       ) : (
@@ -90,56 +87,10 @@ export default async function DashboardPage() {
         </section>
       )}
 
-      {canSeeStock ? (
-        <section aria-label="แจ้งเตือน" className="flex flex-col gap-3">
-          {expiredLots.length > 0 ? (
-            <AlertCard
-              tone="critical"
-              title={`หมดอายุแล้ว ${expiredLots.length} ลอต`}
-              description={`${expiredLots[0]!.itemNameTh} ลอต ${expiredLots[0]!.lotNumber} ที่ ${expiredLots[0]!.locationCode} — ห้ามนำไปใช้ ให้บันทึกเป็นของเสีย`}
-              action={
-                <Button asChild size="sm" variant="secondary">
-                  <Link href="/inventory/expiry">ดูทั้งหมด</Link>
-                </Button>
-              }
-            />
-          ) : null}
-
-          {urgentLots.length > 0 ? (
-            <AlertCard
-              tone="warning"
-              title={`ใกล้หมดอายุ ${urgentLots.length} ลอต`}
-              description={`${urgentLots[0]!.itemNameTh} ลอต ${urgentLots[0]!.lotNumber} เหลืออีก ${urgentLots[0]!.daysLeft} วัน — ระบบจะเลือกลอตนี้ก่อนเมื่อเบิก`}
-              action={
-                <Button asChild size="sm" variant="secondary">
-                  <Link href="/inventory/expiry">ดูทั้งหมด</Link>
-                </Button>
-              }
-            />
-          ) : null}
-
-          {lowStock.length > 0 ? (
-            <AlertCard
-              tone="warning"
-              title={`ของใกล้หมด ${lowStock.length} รายการ`}
-              description={`${lowStock[0]!.itemNameTh} ที่ ${lowStock[0]!.locationCode} เหลือ ${formatQty(lowStock[0]!.baseQty)} ${lowStock[0]!.baseUnitCode ?? ""} (จุดสั่งซื้อ ${formatQty(lowStock[0]!.reorderPoint)})`}
-              action={
-                <Button asChild size="sm" variant="secondary">
-                  <Link href="/inventory/stock?view=low">ดูทั้งหมด</Link>
-                </Button>
-              }
-            />
-          ) : null}
-
-          {expiredLots.length + urgentLots.length + lowStock.length === 0 ? (
-            <AlertCard
-              tone="success"
-              title="ไม่มีเรื่องต้องดูแลวันนี้"
-              description="ไม่มีของใกล้หมด และไม่มีลอตที่ใกล้หมดอายุตามเกณฑ์ที่ตั้งไว้"
-            />
-          ) : null}
-        </section>
-      ) : null}
+      <section aria-label="เรื่องที่ต้องดูแล" className="flex flex-col gap-3">
+        <h2 className="text-base font-semibold text-ink">เรื่องที่ต้องดูแล</h2>
+        <AlertBand alerts={urgentAlerts(alerts)} total={alerts.alerts.length} />
+      </section>
 
       <Card className="hidden lg:block">
         <CardHeader>

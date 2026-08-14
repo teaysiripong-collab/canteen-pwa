@@ -20,6 +20,7 @@ export const SIDEBAR_GROUPS: NavGroup[] = [
     label: "ภาพรวม",
     items: [
       { label: "แดชบอร์ด", href: "/dashboard" },
+      { label: "เรื่องที่ต้องดูแล", href: "/alerts" },
       { label: "ผู้ช่วย", href: "/copilot" },
     ],
   },
