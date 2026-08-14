@@ -60,3 +60,67 @@ export async function getExpiryThresholds(organizationId: string): Promise<numbe
   const days = await getSetting(organizationId, "expiry_alert_days");
   return [...new Set(days)].sort((a, b) => a - b);
 }
+
+export type SettingsSnapshot = {
+  expiryAlertDays: number[];
+  allowNegativeStock: boolean;
+  documentPrefixes: SettingValue<"document_prefixes">;
+};
+
+export async function getSettingsSnapshot(organizationId: string): Promise<SettingsSnapshot> {
+  const [expiryAlertDays, allowNegativeStock, documentPrefixes] = await Promise.all([
+    getExpiryThresholds(organizationId),
+    getSetting(organizationId, "allow_negative_stock"),
+    getSetting(organizationId, "document_prefixes"),
+  ]);
+
+  return { expiryAlertDays, allowNegativeStock, documentPrefixes };
+}
+
+/**
+ * Writes a setting after validating it against the same schema reads use, so a bad value can
+ * never be stored in the first place — the read-side fallback is a safety net, not a plan.
+ *
+ * Changing a setting is audited: "why did documents start being numbered differently" should
+ * have an answer.
+ */
+export async function updateSetting<K extends SettingKey>(
+  key: K,
+  value: unknown,
+): Promise<SettingValue<K>> {
+  const { requirePermission } = await import("@/lib/auth/session");
+  const { AppError } = await import("@/lib/errors");
+  const { PERMISSIONS } = await import("@/lib/permissions");
+  const { writeAuditLog } = await import("./audit-service");
+
+  const user = await requirePermission(PERMISSIONS.SETTINGS_MANAGE);
+
+  const parsed = SETTINGS[key].schema.safeParse(value);
+  if (!parsed.success) {
+    throw new AppError("VALIDATION", `ค่าที่ตั้งไม่ถูกต้อง: ${parsed.error.issues[0]?.message ?? key}`);
+  }
+
+  const before = await getSetting(user.organizationId, key);
+
+  await db.transaction(async (tx) => {
+    await tx
+      .insert(appSettings)
+      .values({ organizationId: user.organizationId, key, value: parsed.data })
+      .onConflictDoUpdate({
+        target: [appSettings.organizationId, appSettings.key],
+        set: { value: parsed.data, updatedAt: new Date() },
+      });
+
+    await writeAuditLog(tx, {
+      organizationId: user.organizationId,
+      userId: user.id,
+      action: "UPDATE",
+      entityType: "app_setting",
+      entityId: user.organizationId,
+      beforeData: { key, value: before },
+      afterData: { key, value: parsed.data },
+    });
+  });
+
+  return parsed.data as SettingValue<K>;
+}
