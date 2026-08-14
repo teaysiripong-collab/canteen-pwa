@@ -122,6 +122,9 @@ export const syncTargetEnum = pgEnum("sync_target", [
   "PURCHASE_ORDER",
   "MONTHLY_USAGE",
   "SUPPLIER_PRICE",
+  "STOCK_MOVEMENT",
+  "WASTE",
+  "PRICE_HISTORY",
 ]);
 
 export const syncStatusEnum = pgEnum("sync_status", ["PENDING", "SUCCESS", "FAILED"]);
