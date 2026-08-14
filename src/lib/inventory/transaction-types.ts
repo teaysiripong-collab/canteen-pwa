@@ -95,3 +95,21 @@ export const REFERENCE_TYPE_LABELS_TH = {
 } as const;
 
 export type ReferenceType = keyof typeof REFERENCE_TYPE_LABELS_TH;
+
+/** Why stock was written off. Mirrors the `waste_reason` enum in the database. */
+export const WASTE_REASON_LABELS_TH = {
+  EXPIRED: "หมดอายุ",
+  DAMAGED: "เสียหาย/ชำรุด",
+  SPOILED: "เน่าเสีย",
+  CONTAMINATED: "ปนเปื้อน",
+  OVER_PRODUCTION: "ทำเกิน",
+  OTHER: "อื่นๆ",
+} as const;
+
+export type WasteReason = keyof typeof WASTE_REASON_LABELS_TH;
+
+export const WASTE_REASONS = Object.keys(WASTE_REASON_LABELS_TH) as WasteReason[];
+
+export function isWasteReason(value: string): value is WasteReason {
+  return value in WASTE_REASON_LABELS_TH;
+}

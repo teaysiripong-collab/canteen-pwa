@@ -104,6 +104,16 @@ export const auditActionEnum = pgEnum("audit_action", [
   "VIEW",
 ]);
 
+/** Why stock was written off — kept structured so waste can be reported by cause. */
+export const wasteReasonEnum = pgEnum("waste_reason", [
+  "EXPIRED",
+  "DAMAGED",
+  "SPOILED",
+  "CONTAMINATED",
+  "OVER_PRODUCTION",
+  "OTHER",
+]);
+
 export const syncTargetEnum = pgEnum("sync_target", [
   "DAILY_COST",
   "INVENTORY_BALANCE",

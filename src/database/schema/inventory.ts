@@ -19,6 +19,7 @@ import {
   referenceTypeEnum,
   stockCountStatusEnum,
   stockDirectionEnum,
+  wasteReasonEnum,
 } from "./enums";
 import { users } from "./auth";
 import { money, primaryId, quantity, timestamps } from "./_shared";
@@ -143,6 +144,8 @@ export const inventoryTransactions = pgTable(
       .references(() => units.id, { onDelete: "restrict" }),
     /** Cost per base unit at the moment of the movement, copied from the lot. */
     unitCost: money("unit_cost").notNull().default("0"),
+    /** Set on WASTE rows only — the cause is a property of the movement, not a free-text note. */
+    wasteReason: wasteReasonEnum("waste_reason"),
     referenceType: referenceTypeEnum("reference_type").notNull(),
     referenceId: uuid("reference_id"),
     referenceNumber: text("reference_number"),

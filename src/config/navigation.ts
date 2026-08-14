@@ -40,8 +40,9 @@ export const SIDEBAR_GROUPS: NavGroup[] = [
       { label: "รับสินค้า", href: "/inventory/receiving", permission: PERMISSIONS.STOCK_VIEW },
       { label: "เบิกสินค้า", href: "/inventory/issue", permission: PERMISSIONS.STOCK_VIEW },
       { label: "โอนสินค้า", href: "/inventory/transfer", permission: PERMISSIONS.STOCK_VIEW },
-      { label: "ตรวจนับสต๊อก", href: "/inventory/count", permission: PERMISSIONS.STOCK_COUNT_CREATE, phase: 5 },
+      { label: "ตรวจนับสต๊อก", href: "/inventory/count", permission: PERMISSIONS.STOCK_VIEW },
       { label: "ของใกล้หมดอายุ", href: "/inventory/expiry", permission: PERMISSIONS.STOCK_VIEW },
+      { label: "ของเสีย", href: "/inventory/waste", permission: PERMISSIONS.STOCK_VIEW },
     ],
   },
   {

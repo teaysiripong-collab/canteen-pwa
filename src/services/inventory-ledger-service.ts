@@ -16,6 +16,7 @@ import {
   type DirectionalTransactionType,
   type ReferenceType,
   type StockDirection,
+  type WasteReason,
 } from "@/lib/inventory/transaction-types";
 import { hasPermission, PERMISSIONS, type PermissionCode } from "@/lib/permissions";
 import { addQty, compareQty, formatQty, subQty, toNumericString, type Numeric } from "@/lib/quantity";
@@ -47,6 +48,8 @@ export type MovementLine = {
   baseQty: Numeric;
   /** Defaults to the lot's unit cost, which is what costing reads back later. */
   unitCost?: Numeric;
+  /** Only meaningful on a WASTE line; ignored elsewhere so a cause cannot be misfiled. */
+  wasteReason?: WasteReason | null;
   note?: string | null;
 };
 
@@ -366,6 +369,7 @@ async function postMovementCore(
             referenceNumber: input.referenceNumber ?? null,
             userId: user.id,
             transactionAt,
+            wasteReason: line.type === "WASTE" ? (line.wasteReason ?? "OTHER") : null,
             note: line.note ?? null,
           };
         }),

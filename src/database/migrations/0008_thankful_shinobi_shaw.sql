@@ -1,0 +1,2 @@
+CREATE TYPE "public"."waste_reason" AS ENUM('EXPIRED', 'DAMAGED', 'SPOILED', 'CONTAMINATED', 'OVER_PRODUCTION', 'OTHER');--> statement-breakpoint
+ALTER TABLE "inventory_transactions" ADD COLUMN "waste_reason" "waste_reason";
