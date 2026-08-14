@@ -154,6 +154,9 @@ export type MovementQuery = {
   locationId?: string;
   lotId?: string;
   postingId?: string;
+  /** Bangkok business days, inclusive on both ends. */
+  fromDate?: string;
+  toDate?: string;
   page?: number;
   pageSize?: number;
 };
@@ -168,6 +171,17 @@ export async function listStockMovements(organizationId: string, query: Movement
   if (query.itemId) filters.push(eq(inventoryTransactions.itemId, query.itemId));
   if (query.locationId) filters.push(eq(inventoryTransactions.locationId, query.locationId));
   if (query.lotId) filters.push(eq(inventoryTransactions.lotId, query.lotId));
+  // Bangkok day bounds, so a night-shift movement lands in the day the kitchen worked.
+  if (query.fromDate) {
+    filters.push(
+      sql`${inventoryTransactions.transactionAt} >= (${query.fromDate}::timestamp at time zone 'Asia/Bangkok')`,
+    );
+  }
+  if (query.toDate) {
+    filters.push(
+      sql`${inventoryTransactions.transactionAt} < ((${query.toDate}::timestamp + interval '1 day') at time zone 'Asia/Bangkok')`,
+    );
+  }
   if (query.postingId) filters.push(eq(inventoryTransactions.postingId, query.postingId));
 
   const where = and(...filters);
