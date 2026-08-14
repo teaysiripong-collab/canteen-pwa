@@ -8,7 +8,7 @@ import { PageHeader } from "@/components/ui/page-header";
 import { ActiveBadge } from "@/components/ui/status-badge";
 import { EmptyState } from "@/components/ui/states";
 import { ItemTable } from "@/features/master-data/item-table";
-import { requirePermission } from "@/lib/auth/session";
+import { requirePagePermission } from "@/lib/auth/page-guard";
 import { PERMISSIONS, hasPermission } from "@/lib/permissions";
 import { formatQty } from "@/lib/quantity";
 import { listItems } from "@/repositories/master-data-repository";
@@ -21,7 +21,7 @@ export default async function ItemsPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const user = await requirePermission(PERMISSIONS.ITEM_VIEW);
+  const user = await requirePagePermission(PERMISSIONS.ITEM_VIEW);
   const query = listQuerySchema.parse(await searchParams);
   const { rows, total } = await listItems(user.organizationId, query);
   const canManage = hasPermission(user.permissions, PERMISSIONS.ITEM_MANAGE);

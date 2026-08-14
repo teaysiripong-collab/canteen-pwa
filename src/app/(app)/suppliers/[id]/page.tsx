@@ -7,7 +7,7 @@ import { PageHeader } from "@/components/ui/page-header";
 import { ActiveBadge } from "@/components/ui/status-badge";
 import { EmptyState } from "@/components/ui/states";
 import { SupplierForm } from "@/features/master-data/supplier-form";
-import { requirePermission } from "@/lib/auth/session";
+import { requirePagePermission } from "@/lib/auth/page-guard";
 import { PERMISSIONS } from "@/lib/permissions";
 import { formatMoney, formatQty } from "@/lib/quantity";
 import { getSupplierById, listSupplierItems } from "@/repositories/master-data-repository";
@@ -15,7 +15,7 @@ import { getSupplierById, listSupplierItems } from "@/repositories/master-data-r
 export const dynamic = "force-dynamic";
 
 export default async function EditSupplierPage({ params }: { params: Promise<{ id: string }> }) {
-  const user = await requirePermission(PERMISSIONS.SUPPLIER_MANAGE);
+  const user = await requirePagePermission(PERMISSIONS.SUPPLIER_MANAGE);
   const { id } = await params;
 
   const supplier = await getSupplierById(user.organizationId, id);

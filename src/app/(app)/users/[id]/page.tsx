@@ -3,7 +3,7 @@ import { PageHeader } from "@/components/ui/page-header";
 import { ActiveBadge } from "@/components/ui/status-badge";
 import { UserActiveToggle } from "@/features/users/user-active-toggle";
 import { UserForm } from "@/features/users/user-form";
-import { requirePermission } from "@/lib/auth/session";
+import { requirePagePermission } from "@/lib/auth/page-guard";
 import { PERMISSIONS } from "@/lib/permissions";
 import { getMasterDataOptions } from "@/repositories/master-data-repository";
 import { getUserById, listAssignableRoles } from "@/repositories/user-repository";
@@ -11,7 +11,7 @@ import { getUserById, listAssignableRoles } from "@/repositories/user-repository
 export const dynamic = "force-dynamic";
 
 export default async function EditUserPage({ params }: { params: Promise<{ id: string }> }) {
-  const actor = await requirePermission(PERMISSIONS.USER_MANAGE);
+  const actor = await requirePagePermission(PERMISSIONS.USER_MANAGE);
   const { id } = await params;
 
   const [target, roles, options] = await Promise.all([

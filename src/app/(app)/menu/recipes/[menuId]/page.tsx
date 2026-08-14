@@ -5,7 +5,7 @@ import { PageHeader } from "@/components/ui/page-header";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { EmptyState } from "@/components/ui/states";
 import { OpenDraftButton } from "@/features/menu/open-draft-button";
-import { requirePermission } from "@/lib/auth/session";
+import { requirePagePermission } from "@/lib/auth/page-guard";
 import { PERMISSIONS, hasPermission } from "@/lib/permissions";
 import { formatQty } from "@/lib/quantity";
 import { getMenuById, listRecipeVersions } from "@/repositories/bom-repository";
@@ -17,7 +17,7 @@ export default async function MenuRecipePage({
 }: {
   params: Promise<{ menuId: string }>;
 }) {
-  const user = await requirePermission(PERMISSIONS.RECIPE_VIEW);
+  const user = await requirePagePermission(PERMISSIONS.RECIPE_VIEW);
   const { menuId } = await params;
 
   const [menu, versions] = await Promise.all([

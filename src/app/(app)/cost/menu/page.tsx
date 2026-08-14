@@ -2,7 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle, KpiCard } from "@/components/
 import { PageHeader } from "@/components/ui/page-header";
 import { EmptyState } from "@/components/ui/states";
 import { CostFilters } from "@/features/cost/cost-filters";
-import { requirePermission } from "@/lib/auth/session";
+import { requirePagePermission } from "@/lib/auth/page-guard";
 import { PERMISSIONS } from "@/lib/permissions";
 import { formatMoney, formatQty } from "@/lib/quantity";
 import { listPublishedRecipeVersionOptions } from "@/repositories/bom-repository";
@@ -17,7 +17,7 @@ export default async function MenuCostPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const user = await requirePermission(PERMISSIONS.COST_VIEW);
+  const user = await requirePagePermission(PERMISSIONS.COST_VIEW);
   const params = await searchParams;
 
   const [versions, periods, locations] = await Promise.all([

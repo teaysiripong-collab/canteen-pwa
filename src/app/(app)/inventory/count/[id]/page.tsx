@@ -4,7 +4,7 @@ import { PageHeader } from "@/components/ui/page-header";
 import { EmptyState } from "@/components/ui/states";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { CountSheet } from "@/features/stock-count/count-sheet";
-import { requirePermission } from "@/lib/auth/session";
+import { requirePagePermission } from "@/lib/auth/page-guard";
 import { hasPermission, PERMISSIONS } from "@/lib/permissions";
 import { formatMoney } from "@/lib/quantity";
 import { getCountSession } from "@/services/stock-count-service";
@@ -16,7 +16,7 @@ export default async function CountSessionPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
-  const user = await requirePermission(PERMISSIONS.STOCK_VIEW);
+  const user = await requirePagePermission(PERMISSIONS.STOCK_VIEW);
   const { id } = await params;
 
   const detail = await getCountSession(user.organizationId, id);

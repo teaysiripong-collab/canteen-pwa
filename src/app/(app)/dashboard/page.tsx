@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, KpiCard } from "@/components/ui/card";
 import { AlertBand } from "@/features/alerts/alert-list";
 import { PageHeader } from "@/components/ui/page-header";
-import { requireUser } from "@/lib/auth/session";
+import { requirePageUser } from "@/lib/auth/page-guard";
 import { PERMISSIONS, hasPermission } from "@/lib/permissions";
 import { countMasterData } from "@/repositories/master-data-repository";
 import { getAlerts, urgentAlerts } from "@/services/alert-service";
@@ -20,7 +20,7 @@ const QUICK_ACTIONS = [
 ] as const;
 
 export default async function DashboardPage() {
-  const user = await requireUser();
+  const user = await requirePageUser();
   const canSeeStock = hasPermission(user.permissions, PERMISSIONS.STOCK_VIEW);
 
   // One source for "what needs attention", shared with /alerts so the two cannot disagree.

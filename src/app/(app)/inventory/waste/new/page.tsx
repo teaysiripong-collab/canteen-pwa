@@ -2,7 +2,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { PageHeader } from "@/components/ui/page-header";
 import { EmptyState } from "@/components/ui/states";
 import { WasteForm } from "@/features/waste/waste-form";
-import { requirePermission } from "@/lib/auth/session";
+import { requirePagePermission } from "@/lib/auth/page-guard";
 import { PERMISSIONS } from "@/lib/permissions";
 import { listStockLocations } from "@/repositories/inventory-repository";
 import { listWastableLots } from "@/services/waste-service";
@@ -14,7 +14,7 @@ export default async function NewWastePage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const user = await requirePermission(PERMISSIONS.ADJUSTMENT_CREATE);
+  const user = await requirePagePermission(PERMISSIONS.ADJUSTMENT_CREATE);
   const params = await searchParams;
 
   const locations = await listStockLocations(user.organizationId);

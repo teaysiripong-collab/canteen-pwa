@@ -7,7 +7,7 @@ import { FilterBar } from "@/components/ui/filter-bar";
 import { PageHeader } from "@/components/ui/page-header";
 import { ActiveBadge, StatusBadge } from "@/components/ui/status-badge";
 import { EmptyState } from "@/components/ui/states";
-import { requirePermission } from "@/lib/auth/session";
+import { requirePagePermission } from "@/lib/auth/page-guard";
 import { PERMISSIONS, hasPermission } from "@/lib/permissions";
 import { listLocations } from "@/repositories/master-data-repository";
 import { listQuerySchema } from "@/schemas/common";
@@ -20,7 +20,7 @@ export default async function LocationsPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const user = await requirePermission(PERMISSIONS.LOCATION_VIEW);
+  const user = await requirePagePermission(PERMISSIONS.LOCATION_VIEW);
   const query = listQuerySchema.parse(await searchParams);
   const rows = await listLocations(user.organizationId, query);
   const canManage = hasPermission(user.permissions, PERMISSIONS.LOCATION_MANAGE);

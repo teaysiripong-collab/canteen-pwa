@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageHeader } from "@/components/ui/page-header";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { PurchaseOrderStatusActions } from "@/features/purchasing/po-status-actions";
-import { requirePermission } from "@/lib/auth/session";
+import { requirePagePermission } from "@/lib/auth/page-guard";
 import { PERMISSIONS, hasPermission } from "@/lib/permissions";
 import { formatMoney, formatQty } from "@/lib/quantity";
 import { getPurchaseOrderById } from "@/repositories/purchase-order-repository";
@@ -19,7 +19,7 @@ import {
 export const dynamic = "force-dynamic";
 
 export default async function PurchaseOrderPage({ params }: { params: Promise<{ id: string }> }) {
-  const user = await requirePermission(PERMISSIONS.PO_VIEW);
+  const user = await requirePagePermission(PERMISSIONS.PO_VIEW);
   const { id } = await params;
 
   const result = await getPurchaseOrderById(user.organizationId, id);

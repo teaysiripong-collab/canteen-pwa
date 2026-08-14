@@ -2,7 +2,7 @@ import { Card, CardContent, KpiCard } from "@/components/ui/card";
 import { PageHeader } from "@/components/ui/page-header";
 import { EmptyState } from "@/components/ui/states";
 import { AlertList } from "@/features/alerts/alert-list";
-import { requireUser } from "@/lib/auth/session";
+import { requirePageUser } from "@/lib/auth/page-guard";
 import { getAlerts, type AlertSeverity } from "@/services/alert-service";
 
 export const dynamic = "force-dynamic";
@@ -26,7 +26,7 @@ const SECTIONS: Array<{ severity: AlertSeverity; titleTh: string; descriptionTh:
 ];
 
 export default async function AlertsPage() {
-  await requireUser();
+  await requirePageUser();
   const report = await getAlerts();
 
   return (

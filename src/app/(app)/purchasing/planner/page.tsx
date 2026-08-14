@@ -3,7 +3,7 @@ import { PageHeader } from "@/components/ui/page-header";
 import { EmptyState } from "@/components/ui/states";
 import { CostFilters } from "@/features/cost/cost-filters";
 import { PlannerBoard, UnsourcedList } from "@/features/purchasing/planner-board";
-import { requirePermission } from "@/lib/auth/session";
+import { requirePagePermission } from "@/lib/auth/page-guard";
 import { addDays, todayIso } from "@/lib/date";
 import { hasPermission, PERMISSIONS } from "@/lib/permissions";
 import { addQty, formatMoney } from "@/lib/quantity";
@@ -17,7 +17,7 @@ export default async function PurchasePlannerPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const user = await requirePermission(PERMISSIONS.PO_VIEW);
+  const user = await requirePagePermission(PERMISSIONS.PO_VIEW);
   const params = await searchParams;
 
   const locations = await listStockLocations(user.organizationId);

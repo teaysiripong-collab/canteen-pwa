@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageHeader } from "@/components/ui/page-header";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { MovementList } from "@/features/inventory/movement-list";
-import { requirePermission } from "@/lib/auth/session";
+import { requirePagePermission } from "@/lib/auth/page-guard";
 import { PERMISSIONS } from "@/lib/permissions";
 import { formatQty } from "@/lib/quantity";
 import { listStockMovements } from "@/repositories/inventory-repository";
@@ -27,7 +27,7 @@ export default async function TransferDetailPage({
   params: Promise<{ id: string }>;
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const user = await requirePermission(PERMISSIONS.STOCK_VIEW);
+  const user = await requirePagePermission(PERMISSIONS.STOCK_VIEW);
   const { id } = await params;
   const query = await searchParams;
 

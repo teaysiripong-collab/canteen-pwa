@@ -4,7 +4,7 @@ import { ItemCard } from "@/components/ui/cards";
 import { PageHeader } from "@/components/ui/page-header";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { EmptyState } from "@/components/ui/states";
-import { requirePermission } from "@/lib/auth/session";
+import { requirePagePermission } from "@/lib/auth/page-guard";
 import { PERMISSIONS } from "@/lib/permissions";
 import { listMenus } from "@/repositories/bom-repository";
 import { listQuerySchema } from "@/schemas/common";
@@ -12,7 +12,7 @@ import { listQuerySchema } from "@/schemas/common";
 export const dynamic = "force-dynamic";
 
 export default async function RecipesPage() {
-  const user = await requirePermission(PERMISSIONS.RECIPE_VIEW);
+  const user = await requirePagePermission(PERMISSIONS.RECIPE_VIEW);
   const rows = await listMenus(user.organizationId, listQuerySchema.parse({}));
 
   return (

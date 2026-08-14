@@ -5,7 +5,7 @@ import { PageHeader } from "@/components/ui/page-header";
 import { EmptyState } from "@/components/ui/states";
 import { StatusBadge, type StatusTone } from "@/components/ui/status-badge";
 import { OpenCountButton } from "@/features/stock-count/open-count-button";
-import { requirePermission } from "@/lib/auth/session";
+import { requirePagePermission } from "@/lib/auth/page-guard";
 import { hasPermission, PERMISSIONS } from "@/lib/permissions";
 import { listStockLocations } from "@/repositories/inventory-repository";
 import { listCountSessions } from "@/services/stock-count-service";
@@ -27,7 +27,7 @@ const STATUS_LABEL: Record<string, string> = {
 const dateFormatter = new Intl.DateTimeFormat("th-TH", { dateStyle: "medium", timeStyle: "short" });
 
 export default async function StockCountPage() {
-  const user = await requirePermission(PERMISSIONS.STOCK_VIEW);
+  const user = await requirePagePermission(PERMISSIONS.STOCK_VIEW);
 
   const [sessions, locations] = await Promise.all([
     listCountSessions(user.organizationId),

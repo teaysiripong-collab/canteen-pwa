@@ -5,7 +5,7 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { EmptyState } from "@/components/ui/states";
 import { db } from "@/database/client";
 import { auditLogs, users } from "@/database/schema";
-import { requirePermission } from "@/lib/auth/session";
+import { requirePagePermission } from "@/lib/auth/page-guard";
 import { PERMISSIONS } from "@/lib/permissions";
 import { formatDateTimeTh } from "@/lib/utils";
 
@@ -26,7 +26,7 @@ const ACTION_LABELS_TH: Record<string, string> = {
 };
 
 export default async function AuditLogPage() {
-  const user = await requirePermission(PERMISSIONS.AUDIT_VIEW);
+  const user = await requirePagePermission(PERMISSIONS.AUDIT_VIEW);
 
   const rows = await db
     .select({

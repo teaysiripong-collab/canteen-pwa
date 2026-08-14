@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { PageHeader } from "@/components/ui/page-header";
 import { SupplierItemForm } from "@/features/master-data/supplier-item-form";
-import { requirePermission } from "@/lib/auth/session";
+import { requirePagePermission } from "@/lib/auth/page-guard";
 import { PERMISSIONS } from "@/lib/permissions";
 import {
   getMasterDataOptions,
@@ -16,7 +16,7 @@ export default async function NewSupplierItemPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
-  const user = await requirePermission(PERMISSIONS.SUPPLIER_MANAGE);
+  const user = await requirePagePermission(PERMISSIONS.SUPPLIER_MANAGE);
   const { id } = await params;
 
   const [supplier, items, options] = await Promise.all([

@@ -2,7 +2,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { PageHeader } from "@/components/ui/page-header";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { ReceivingForm } from "@/features/receiving/receiving-form";
-import { requirePermission } from "@/lib/auth/session";
+import { requirePagePermission } from "@/lib/auth/page-guard";
 import { PERMISSIONS } from "@/lib/permissions";
 import { getReceivingFormData } from "@/repositories/receiving-repository";
 import { getPurchaseOrderById } from "@/repositories/purchase-order-repository";
@@ -14,7 +14,7 @@ export default async function NewReceivingPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const user = await requirePermission(PERMISSIONS.RECEIVE_CREATE);
+  const user = await requirePagePermission(PERMISSIONS.RECEIVE_CREATE);
   const params = await searchParams;
   const purchaseOrderId = typeof params.po === "string" ? params.po : undefined;
 

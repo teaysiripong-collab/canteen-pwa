@@ -3,7 +3,7 @@ import { PageHeader } from "@/components/ui/page-header";
 import { EmptyState } from "@/components/ui/states";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { CostFilters } from "@/features/cost/cost-filters";
-import { requirePermission } from "@/lib/auth/session";
+import { requirePagePermission } from "@/lib/auth/page-guard";
 import { addDays, todayIso } from "@/lib/date";
 import { PERMISSIONS } from "@/lib/permissions";
 import { compareQty, formatMoney, formatQty } from "@/lib/quantity";
@@ -17,7 +17,7 @@ export default async function PriceHistoryPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const user = await requirePermission(PERMISSIONS.COST_VIEW);
+  const user = await requirePagePermission(PERMISSIONS.COST_VIEW);
   const params = await searchParams;
 
   const today = todayIso();

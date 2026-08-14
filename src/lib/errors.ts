@@ -69,6 +69,26 @@ export function toActionError(error: unknown): Extract<ActionResult, { ok: false
   };
 }
 
+const HTTP_STATUS: Record<AppErrorCode, number> = {
+  UNAUTHENTICATED: 401,
+  FORBIDDEN: 403,
+  NOT_FOUND: 404,
+  VALIDATION: 400,
+  CONFLICT: 409,
+  INSUFFICIENT_STOCK: 409,
+  INTERNAL: 500,
+};
+
+/**
+ * The HTTP status a route handler should answer with.
+ *
+ * Kept beside the codes so a new error code cannot quietly default to 500 — "the server is
+ * broken" and "you may not do that" are different facts, and monitoring reads the difference.
+ */
+export function httpStatusFor(error: unknown): number {
+  return error instanceof AppError ? HTTP_STATUS[error.code] : 500;
+}
+
 /** Maps Postgres unique-violation errors onto a Thai message instead of leaking SQL. */
 export function isUniqueViolation(error: unknown): boolean {
   return (

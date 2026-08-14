@@ -7,7 +7,7 @@ import { FilterBar } from "@/components/ui/filter-bar";
 import { PageHeader } from "@/components/ui/page-header";
 import { ActiveBadge } from "@/components/ui/status-badge";
 import { EmptyState } from "@/components/ui/states";
-import { requirePermission } from "@/lib/auth/session";
+import { requirePagePermission } from "@/lib/auth/page-guard";
 import { PERMISSIONS, ROLE_LABELS_TH, type RoleCode } from "@/lib/permissions";
 import { listUsers } from "@/repositories/user-repository";
 import { listQuerySchema } from "@/schemas/common";
@@ -24,7 +24,7 @@ export default async function UsersPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const user = await requirePermission(PERMISSIONS.USER_MANAGE);
+  const user = await requirePagePermission(PERMISSIONS.USER_MANAGE);
   const query = listQuerySchema.parse(await searchParams);
   const rows = await listUsers(user.organizationId, query);
 

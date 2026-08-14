@@ -7,7 +7,7 @@ import { FilterBar } from "@/components/ui/filter-bar";
 import { PageHeader } from "@/components/ui/page-header";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { EmptyState } from "@/components/ui/states";
-import { requirePermission } from "@/lib/auth/session";
+import { requirePagePermission } from "@/lib/auth/page-guard";
 import { PERMISSIONS, hasPermission } from "@/lib/permissions";
 import { formatMoney } from "@/lib/quantity";
 import { listPurchaseOrders } from "@/repositories/purchase-order-repository";
@@ -25,7 +25,7 @@ export default async function PurchaseOrdersPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const user = await requirePermission(PERMISSIONS.PO_VIEW);
+  const user = await requirePagePermission(PERMISSIONS.PO_VIEW);
   const params = await searchParams;
   const status = typeof params.status === "string" ? params.status : "all";
   const page = Math.max(1, Number(params.page ?? 1) || 1);

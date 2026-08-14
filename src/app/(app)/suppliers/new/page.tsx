@@ -1,12 +1,12 @@
 import { PageHeader } from "@/components/ui/page-header";
 import { SupplierForm } from "@/features/master-data/supplier-form";
-import { requirePermission } from "@/lib/auth/session";
+import { requirePagePermission } from "@/lib/auth/page-guard";
 import { PERMISSIONS } from "@/lib/permissions";
 
 export const dynamic = "force-dynamic";
 
 export default async function NewSupplierPage() {
-  await requirePermission(PERMISSIONS.SUPPLIER_MANAGE);
+  await requirePagePermission(PERMISSIONS.SUPPLIER_MANAGE);
 
   return (
     <div className="flex flex-col gap-5">

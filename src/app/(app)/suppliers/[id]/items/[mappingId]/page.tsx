@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import { PageHeader } from "@/components/ui/page-header";
 import { ActiveBadge } from "@/components/ui/status-badge";
 import { SupplierItemForm } from "@/features/master-data/supplier-item-form";
-import { requirePermission } from "@/lib/auth/session";
+import { requirePagePermission } from "@/lib/auth/page-guard";
 import { PERMISSIONS } from "@/lib/permissions";
 import {
   getMasterDataOptions,
@@ -18,7 +18,7 @@ export default async function EditSupplierItemPage({
 }: {
   params: Promise<{ id: string; mappingId: string }>;
 }) {
-  const user = await requirePermission(PERMISSIONS.SUPPLIER_MANAGE);
+  const user = await requirePagePermission(PERMISSIONS.SUPPLIER_MANAGE);
   const { id, mappingId } = await params;
 
   const [supplier, mapping, items, options] = await Promise.all([

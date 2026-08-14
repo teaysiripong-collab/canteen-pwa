@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageHeader } from "@/components/ui/page-header";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { EmptyState } from "@/components/ui/states";
-import { requirePermission } from "@/lib/auth/session";
+import { requirePagePermission } from "@/lib/auth/page-guard";
 import { PERMISSIONS } from "@/lib/permissions";
 import { formatQty } from "@/lib/quantity";
 import { getExpiryAlerts } from "@/services/expiry-service";
@@ -11,7 +11,7 @@ import { getExpiryAlerts } from "@/services/expiry-service";
 export const dynamic = "force-dynamic";
 
 export default async function ExpiryPage() {
-  const user = await requirePermission(PERMISSIONS.STOCK_VIEW);
+  const user = await requirePagePermission(PERMISSIONS.STOCK_VIEW);
   const alerts = await getExpiryAlerts(user.organizationId);
 
   return (

@@ -1,6 +1,6 @@
 import { PageHeader } from "@/components/ui/page-header";
 import { IssueForm } from "@/features/issue/issue-form";
-import { requirePermission } from "@/lib/auth/session";
+import { requirePagePermission } from "@/lib/auth/page-guard";
 import { PERMISSIONS, hasPermission } from "@/lib/permissions";
 import { listMenus } from "@/repositories/bom-repository";
 import { listStockLocations } from "@/repositories/inventory-repository";
@@ -10,7 +10,7 @@ import { listMealPeriods } from "@/services/bom-service";
 export const dynamic = "force-dynamic";
 
 export default async function NewIssuePage() {
-  const user = await requirePermission(PERMISSIONS.ISSUE_CREATE);
+  const user = await requirePagePermission(PERMISSIONS.ISSUE_CREATE);
 
   const [locations, periods, menuRows] = await Promise.all([
     listStockLocations(user.organizationId),

@@ -2,14 +2,14 @@ import { notFound } from "next/navigation";
 import { PageHeader } from "@/components/ui/page-header";
 import { ActiveBadge } from "@/components/ui/status-badge";
 import { LocationForm } from "@/features/master-data/location-form";
-import { requirePermission } from "@/lib/auth/session";
+import { requirePagePermission } from "@/lib/auth/page-guard";
 import { PERMISSIONS } from "@/lib/permissions";
 import { getLocationById } from "@/repositories/master-data-repository";
 
 export const dynamic = "force-dynamic";
 
 export default async function EditLocationPage({ params }: { params: Promise<{ id: string }> }) {
-  const user = await requirePermission(PERMISSIONS.LOCATION_MANAGE);
+  const user = await requirePagePermission(PERMISSIONS.LOCATION_MANAGE);
   const { id } = await params;
   const location = await getLocationById(user.organizationId, id);
 

@@ -2,14 +2,14 @@ import { notFound } from "next/navigation";
 import { PageHeader } from "@/components/ui/page-header";
 import { ActiveBadge } from "@/components/ui/status-badge";
 import { ItemForm } from "@/features/master-data/item-form";
-import { requirePermission } from "@/lib/auth/session";
+import { requirePagePermission } from "@/lib/auth/page-guard";
 import { PERMISSIONS } from "@/lib/permissions";
 import { getItemById, getMasterDataOptions } from "@/repositories/master-data-repository";
 
 export const dynamic = "force-dynamic";
 
 export default async function EditItemPage({ params }: { params: Promise<{ id: string }> }) {
-  const user = await requirePermission(PERMISSIONS.ITEM_MANAGE);
+  const user = await requirePagePermission(PERMISSIONS.ITEM_MANAGE);
   const { id } = await params;
 
   const [item, options] = await Promise.all([

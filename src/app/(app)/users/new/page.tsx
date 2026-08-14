@@ -1,6 +1,6 @@
 import { PageHeader } from "@/components/ui/page-header";
 import { UserForm } from "@/features/users/user-form";
-import { requirePermission } from "@/lib/auth/session";
+import { requirePagePermission } from "@/lib/auth/page-guard";
 import { PERMISSIONS } from "@/lib/permissions";
 import { getMasterDataOptions } from "@/repositories/master-data-repository";
 import { listAssignableRoles } from "@/repositories/user-repository";
@@ -8,7 +8,7 @@ import { listAssignableRoles } from "@/repositories/user-repository";
 export const dynamic = "force-dynamic";
 
 export default async function NewUserPage() {
-  const actor = await requirePermission(PERMISSIONS.USER_MANAGE);
+  const actor = await requirePagePermission(PERMISSIONS.USER_MANAGE);
   const [roles, options] = await Promise.all([
     listAssignableRoles(),
     getMasterDataOptions(actor.organizationId),

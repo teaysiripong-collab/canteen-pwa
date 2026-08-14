@@ -1,13 +1,13 @@
 import { PageHeader } from "@/components/ui/page-header";
 import { ItemForm } from "@/features/master-data/item-form";
-import { requirePermission } from "@/lib/auth/session";
+import { requirePagePermission } from "@/lib/auth/page-guard";
 import { PERMISSIONS } from "@/lib/permissions";
 import { getMasterDataOptions } from "@/repositories/master-data-repository";
 
 export const dynamic = "force-dynamic";
 
 export default async function NewItemPage() {
-  const user = await requirePermission(PERMISSIONS.ITEM_MANAGE);
+  const user = await requirePagePermission(PERMISSIONS.ITEM_MANAGE);
   const options = await getMasterDataOptions(user.organizationId);
 
   return (

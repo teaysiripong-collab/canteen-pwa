@@ -5,7 +5,7 @@ import { PageHeader } from "@/components/ui/page-header";
 import { EmptyState } from "@/components/ui/states";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { CostFilters } from "@/features/cost/cost-filters";
-import { requirePermission } from "@/lib/auth/session";
+import { requirePagePermission } from "@/lib/auth/page-guard";
 import { addDays, todayIso } from "@/lib/date";
 import { WASTE_REASON_LABELS_TH } from "@/lib/inventory/transaction-types";
 import { hasPermission, PERMISSIONS } from "@/lib/permissions";
@@ -25,7 +25,7 @@ export default async function WastePage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const user = await requirePermission(PERMISSIONS.STOCK_VIEW);
+  const user = await requirePagePermission(PERMISSIONS.STOCK_VIEW);
   const params = await searchParams;
 
   const today = todayIso();

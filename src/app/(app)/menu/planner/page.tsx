@@ -4,7 +4,7 @@ import { PageHeader } from "@/components/ui/page-header";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { EmptyState } from "@/components/ui/states";
 import { PeriodPlanner } from "@/features/menu/period-planner";
-import { requirePermission } from "@/lib/auth/session";
+import { requirePagePermission } from "@/lib/auth/page-guard";
 import { todayIso } from "@/lib/date";
 import { PERMISSIONS, hasPermission } from "@/lib/permissions";
 import { formatQty } from "@/lib/quantity";
@@ -22,7 +22,7 @@ export default async function MenuPlannerPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const user = await requirePermission(PERMISSIONS.MENU_VIEW);
+  const user = await requirePagePermission(PERMISSIONS.MENU_VIEW);
   const params = await searchParams;
 
   const planDate =

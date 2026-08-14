@@ -3,7 +3,7 @@ import { db } from "@/database/client";
 import { items, supplierItems, units } from "@/database/schema";
 import { PageHeader } from "@/components/ui/page-header";
 import { PurchaseOrderForm } from "@/features/purchasing/po-form";
-import { requirePermission } from "@/lib/auth/session";
+import { requirePagePermission } from "@/lib/auth/page-guard";
 import { PERMISSIONS } from "@/lib/permissions";
 import { listStockLocations } from "@/repositories/inventory-repository";
 import { getMasterDataOptions } from "@/repositories/master-data-repository";
@@ -11,7 +11,7 @@ import { getMasterDataOptions } from "@/repositories/master-data-repository";
 export const dynamic = "force-dynamic";
 
 export default async function NewPurchaseOrderPage() {
-  const user = await requirePermission(PERMISSIONS.PO_MANAGE);
+  const user = await requirePagePermission(PERMISSIONS.PO_MANAGE);
 
   const [options, locations, itemRows, unitRows, terms] = await Promise.all([
     getMasterDataOptions(user.organizationId),

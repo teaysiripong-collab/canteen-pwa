@@ -2,7 +2,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { PageHeader } from "@/components/ui/page-header";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { CopilotChat } from "@/features/copilot/copilot-chat";
-import { requireUser } from "@/lib/auth/session";
+import { requirePageUser } from "@/lib/auth/page-guard";
 import { isCopilotConfigured } from "@/lib/copilot/config";
 import { toolsForUser } from "@/lib/copilot/tools";
 
@@ -18,7 +18,7 @@ const SUGGESTIONS: Array<{ text: string; tool: string }> = [
 ];
 
 export default async function CopilotPage() {
-  const user = await requireUser();
+  const user = await requirePageUser();
   const configured = isCopilotConfigured();
   const available = toolsForUser(user);
   const allowed = new Set(available.map((tool) => tool.name));

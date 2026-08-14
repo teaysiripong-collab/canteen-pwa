@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageHeader } from "@/components/ui/page-header";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { BomEditor } from "@/features/menu/bom-editor";
-import { requirePermission } from "@/lib/auth/session";
+import { requirePagePermission } from "@/lib/auth/page-guard";
 import { PERMISSIONS, hasPermission } from "@/lib/permissions";
 import { formatQty } from "@/lib/quantity";
 import { getRecipeVersionDetail, listRecipeItemOptions } from "@/repositories/bom-repository";
@@ -17,7 +17,7 @@ export default async function RecipeVersionPage({
 }: {
   params: Promise<{ menuId: string; versionId: string }>;
 }) {
-  const user = await requirePermission(PERMISSIONS.RECIPE_VIEW);
+  const user = await requirePagePermission(PERMISSIONS.RECIPE_VIEW);
   const { menuId, versionId } = await params;
 
   const [detail, periods, itemOptions] = await Promise.all([
