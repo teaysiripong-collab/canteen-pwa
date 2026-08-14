@@ -73,7 +73,7 @@ git clone <repo> && cd canteen-pwa
 npm install
 cp .env.example .env.local     # แล้วกรอกค่าจริง
 npm run db:migrate             # สร้างตารางทั้งหมด
-npm run db:seed                # ใส่ข้อมูลตัวอย่างสำหรับ development
+npm run db:seed                # ใส่ข้อมูลตัวอย่างสำหรับ development (สำหรับฐานข้อมูลจริงใช้ db:bootstrap — ดูหัวข้อ 26)
 npm run dev                    # http://localhost:3000
 ```
 
@@ -123,6 +123,7 @@ npm run test:integration  # Vitest (integration — ต้องมี DATABASE_
 npm run db:generate  # สร้าง migration ใหม่จาก schema
 npm run db:migrate   # รัน migration
 npm run db:seed      # seed ข้อมูล development (รันซ้ำได้ ไม่สร้างข้อมูลซ้ำ)
+npm run db:bootstrap # เตรียมฐานข้อมูลจริง: ข้อมูลอ้างอิง + ผู้ดูแลคนแรก ไม่มีข้อมูลตัวอย่าง
 npm run db:studio    # Drizzle Studio
 ```
 
@@ -670,14 +671,75 @@ npm run test:integration  # integration — เขียนจริงลง Po
 
 ---
 
-## 26. Deployment (Vercel)
+## 26. Deployment (Vercel + Supabase)
 
-1. สร้างโปรเจกต์ Supabase แล้วคัดลอก connection string (แนะนำ session pooler port 5432)
-2. Import repository เข้า Vercel
-3. ตั้งค่า environment variables: `DATABASE_URL`, `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY` (**ห้ามตั้ง `ALLOW_DEV_AUTH`**)
-4. รัน migration ครั้งแรกจากเครื่อง: `DATABASE_URL=<production> npm run db:migrate`
-5. สร้างผู้ใช้ใน Supabase Auth ด้วยอีเมลเดียวกับแถวในตาราง `users` (ระบบจับคู่ผู้ใช้ด้วยอีเมล)
-6. Deploy — ทุกหน้าที่ต้องล็อกอินถูกตั้งเป็น dynamic rendering อยู่แล้ว
+### 26.1 เตรียมฐานข้อมูล
+
+1. สร้างโปรเจกต์ Supabase แล้วคัดลอก connection string (แนะนำ **session pooler port 5432** — transaction pooler port 6543 ไม่รองรับ prepared statement ที่ Drizzle ใช้)
+2. รัน migration จากเครื่อง — Vercel ไม่ได้รัน migration ให้ระหว่าง build โดยตั้งใจ เพราะ build ที่แก้ schema เองเป็นสิ่งที่ย้อนกลับไม่ได้เมื่อผิด
+
+   ```bash
+   DATABASE_URL='<production connection string>' npm run db:migrate
+   ```
+
+3. **`npm run db:bootstrap` ไม่ใช่ `db:seed`**
+
+   ```bash
+   DATABASE_URL='<production>' \
+   ADMIN_EMAIL='คุณ@บริษัท.com' \
+   ADMIN_NAME='ชื่อผู้ดูแลระบบ' \
+   ORG_NAME='ชื่อบริษัท' \
+     npm run db:bootstrap
+   ```
+
+   | | `db:bootstrap` | `db:seed` |
+   | --- | --- | --- |
+   | หน่วยนับ + การแปลงหน่วย | ✅ | ✅ |
+   | บทบาท + สิทธิ์ | ✅ | ✅ |
+   | มื้อ เช้า/ดึก | ✅ | ✅ |
+   | ค่าตั้งต้นของระบบ | ✅ | ✅ |
+   | ผู้ดูแลระบบคนแรก | ✅ (จาก `ADMIN_EMAIL`) | ✅ (บัญชีตัวอย่าง 4 บัญชี) |
+   | สถานที่ · วัตถุดิบ · ผู้ขาย · เมนู · สต๊อกตั้งต้น · สูตร | ❌ | ✅ ข้อมูลตัวอย่าง |
+
+   **ห้ามรัน `db:seed` กับฐานข้อมูลจริง** — จะได้ผู้ขาย วัตถุดิบ และยอดสต๊อกที่ไม่มีใครกรอก ปนอยู่กับข้อมูลที่มีคนกรอกจริง
+
+   `db:bootstrap` รันซ้ำได้ทุกครั้งหลัง deploy — ข้อมูลอ้างอิงจะปรับให้ตรงกับ catalogue ในโค้ด (บทบาทที่เพิ่มสิทธิ์ใหม่จะได้สิทธิ์นั้นทันที) ส่วนชื่อผู้ดูแลที่แก้ไปแล้วและค่าที่ปรับใน `/settings` จะไม่ถูกเขียนทับ
+
+### 26.2 ตั้งค่า Vercel
+
+4. Import repository เข้า Vercel
+5. ตั้ง environment variables:
+
+   | ตัวแปร | ค่า |
+   | --- | --- |
+   | `DATABASE_URL` | connection string จากข้อ 1 |
+   | `NEXT_PUBLIC_SUPABASE_URL` | Supabase project URL |
+   | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase anon key |
+   | `SUPABASE_SERVICE_ROLE_KEY` | Supabase service role key |
+   | `ANTHROPIC_API_KEY` | ถ้าจะใช้ผู้ช่วย AI |
+   | `GOOGLE_*` | ถ้าจะใช้ Google Sheets (ดู 26.4) |
+
+   **ห้ามตั้ง `ALLOW_DEV_AUTH`** — ถึงตั้งไปก็ถูกปิดตายเมื่อ `NODE_ENV=production` (`src/lib/supabase/config.ts`) แต่ไม่ต้องตั้งตั้งแต่แรกดีกว่า
+
+   `ADMIN_EMAIL` / `ADMIN_NAME` / `ORG_NAME` ใช้เฉพาะตอนรัน `db:bootstrap` จากเครื่อง ไม่ต้องใส่ใน Vercel
+
+6. Deploy — ทุกหน้าที่ต้องล็อกอินถูกตั้งเป็น dynamic rendering ไว้แล้ว
+
+### 26.3 เข้าใช้งานครั้งแรก
+
+7. สร้างผู้ใช้ใน **Supabase Auth** ด้วยอีเมลเดียวกับ `ADMIN_EMAIL` — ระบบจับคู่ session กับแถวในตาราง `users` **ด้วยอีเมล** ถ้าไม่ตรงจะล็อกอินได้แต่ระบบมองว่าไม่มีบัญชี
+8. เข้าสู่ระบบ แล้วสร้างตามลำดับนี้ (แต่ละอย่างอ้างอิงอันก่อนหน้า)
+
+   `/locations` สถานที่เก็บของ → `/items` วัตถุดิบ → `/suppliers` ผู้ขาย + ราคา → `/users` ผู้ใช้ที่เหลือ → `/menu/master` เมนู → `/menu/recipes` สูตร/BOM → `/inventory/receiving` รับของเข้าครั้งแรก
+
+9. ตรวจว่า `https://<โดเมน>/api/health` ตอบ 200
+
+### 26.4 Google Sheets (ไม่บังคับ)
+
+10. สร้าง service account ใน Google Cloud → เปิดใช้ **Google Sheets API** → สร้าง JSON key
+11. เปิดสเปรดชีตปลายทาง แล้ว **แชร์ให้อีเมลของ service account เป็น Editor** — ถ้าลืมขั้นนี้ Google จะตอบ 403 และหน้า `/reports` จะแสดงเหตุผลนั้นไว้ในประวัติการส่ง
+12. ตั้ง env ใน Vercel: `GOOGLE_SERVICE_ACCOUNT_EMAIL`, `GOOGLE_SHEET_ID` และ `GOOGLE_PRIVATE_KEY` — ค่า `private_key` จากไฟล์ JSON **แบบบรรทัดเดียวโดยคง `\n` ไว้ตามที่อยู่ในไฟล์**
+13. เข้า `/reports` ปุ่ม **Sheets** จะขึ้นเมื่อครบทั้งสามตัวแปร กดส่งหนึ่งครั้งแล้วดูประวัติด้านล่างว่าขึ้น "สำเร็จ"
 
 ---
 
