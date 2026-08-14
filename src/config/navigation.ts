@@ -5,8 +5,6 @@ export type NavItem = {
   href: string;
   /** Hidden when the user lacks this permission; the page still re-checks on the server. */
   permission?: PermissionCode;
-  /** Modules that arrive in a later phase are shown as disabled so the roadmap is visible. */
-  phase?: 2 | 3 | 4 | 5 | 6;
 };
 
 export type NavGroup = {
@@ -71,10 +69,10 @@ export const SIDEBAR_GROUPS: NavGroup[] = [
   {
     label: "ระบบ",
     items: [
-      { label: "รายงาน", href: "/reports", permission: PERMISSIONS.REPORT_VIEW, phase: 5 },
+      { label: "รายงาน", href: "/reports", permission: PERMISSIONS.REPORT_VIEW },
       { label: "ผู้ใช้งาน", href: "/users", permission: PERMISSIONS.USER_MANAGE },
       { label: "Audit Log", href: "/audit-log", permission: PERMISSIONS.AUDIT_VIEW },
-      { label: "ตั้งค่า", href: "/settings", permission: PERMISSIONS.SETTINGS_MANAGE, phase: 2 },
+      { label: "ตั้งค่า", href: "/settings", permission: PERMISSIONS.SETTINGS_MANAGE },
     ],
   },
 ];

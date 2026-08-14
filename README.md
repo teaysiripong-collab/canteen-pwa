@@ -4,8 +4,10 @@
 
 Mobile-first สำหรับพนักงานหน้างาน และมี Desktop Control Center สำหรับหัวหน้าแผนก/ผู้ดูแลระบบ
 
-> **สถานะปัจจุบัน: Phase 1 — Foundation เสร็จแล้ว และรันได้จริง**
-> Phase 2–6 (เมนู/BOM, สต๊อก, จัดซื้อ, ต้นทุน, แดชบอร์ด+Google Sheets) ยังไม่ได้ implement — เมนูที่ยังไม่เปิดใช้งานจะแสดงป้าย `P2`–`P6` ใน Sidebar
+> **สถานะปัจจุบัน: ครบทุกโมดูลของ V1 และรันได้จริงบนฐานข้อมูลจริง**
+> ตั้งแต่ ledger, FEFO, รับ/เบิก/โอน, BOM, แผนเมนู, จัดซื้อ, ต้นทุน, ผู้ช่วย AI, แจ้งเตือน, ตรวจนับ, ของเสีย, ตั้งค่า ไปจนถึงรายงาน + export และ Google Sheets — 153 unit tests + 248 integration tests ผ่านทั้งหมด
+>
+> ส่วนเดียวที่ยังยืนยันกับของจริงไม่ได้คือ **การเขียนลง Google Sheets** เพราะต้องใช้ credential ของบัญชี Google จริง — ขั้นตอนเซ็น JWT ยืนยันกับ endpoint จริงของ Google แล้ว (ถูกปฏิเสธด้วย `account not found` ไม่ใช่ signature ผิด) ส่วนที่เหลือของ flow ทดสอบครบผ่าน transport ที่ inject เข้าไป
 
 ---
 
@@ -90,7 +92,8 @@ curl http://localhost:3000/api/health
 | `NEXT_PUBLIC_SUPABASE_URL` | production | Supabase project URL |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | production | Supabase anon key |
 | `SUPABASE_SERVICE_ROLE_KEY` | ภายหลัง | ใช้ตอน provision ผู้ใช้ |
-| `GOOGLE_SERVICE_ACCOUNT_EMAIL` / `GOOGLE_PRIVATE_KEY` / `GOOGLE_SHEET_ID` | Phase 6 | Google Sheets export |
+| `GOOGLE_SERVICE_ACCOUNT_EMAIL` / `GOOGLE_PRIVATE_KEY` / `GOOGLE_SHEET_ID` | ไม่บังคับ | Google Sheets export — ถ้าไม่ตั้ง ปุ่มส่งจะไม่ขึ้น ส่วน CSV ใช้ได้ตามปกติ |
+| `ANTHROPIC_API_KEY` | ไม่บังคับ | ผู้ช่วย AI — ถ้าไม่ตั้ง หน้า `/copilot` บอกว่ายังไม่ได้ตั้งค่า ส่วนอื่นทำงานปกติ |
 | `ALLOW_DEV_AUTH` | local เท่านั้น | `true` = เข้าสู่ระบบด้วยอีเมลอย่างเดียว |
 
 **`ALLOW_DEV_AUTH` ถูกปิดตายเมื่อ `NODE_ENV=production`** — ตรวจสอบใน `src/lib/supabase/config.ts` จึงไม่มีทางกลายเป็นช่องโหว่บน production
@@ -139,15 +142,21 @@ src/
       copilot/               ผู้ช่วยถาม-ตอบภาษาไทย
       alerts/                เรื่องที่ต้องดูแล (คำนวณสด)
       purchasing/planner/    วางแผนสั่งซื้ออัตโนมัติ
+      reports/               รายงาน + ดาวน์โหลด CSV + ส่งไป Google Sheets
+      settings/              ค่าที่แก้ได้โดยไม่ต้อง deploy
       audit-log/
+      forbidden.tsx unauthorized.tsx   หน้า 403 / 401 (ไม่ใช่หน้า error 500)
+    api/
+      health/              health check
+      reports/[key]/       ดาวน์โหลด CSV (route handler เพราะเบราว์เซอร์ต้องได้ไฟล์)
   components/
     ui/                    Design system (Button, Field, Card, DataTable, StatusBadge, ...)
     layout/                Sidebar, MobileHeader, DesktopHeader, BottomNavigation
-  features/               ฟอร์มและ server actions แยกตามโดเมน (master-data, receiving, issue, transfer, purchasing, menu, cost)
+  features/               ฟอร์มและ server actions แยกตามโดเมน (master-data, receiving, issue, transfer, purchasing, menu, cost, waste, stock-count, settings, reports)
   services/                business logic + permission check + audit + transaction
   repositories/            data access ล้วนๆ
   schemas/                 Zod schema (ข้อความ error เป็นภาษาไทย)
-  lib/                     permissions, quantity, units, fefo, costing, purchasing, copilot, date, errors, auth, supabase
+  lib/                     permissions, quantity, units, fefo, costing, purchasing, copilot, csv, sheets, date, errors, auth (session + page-guard), supabase
   config/                  navigation
   database/                schema/ migrations/ client.ts migrate.ts seed.ts
 ```
@@ -491,9 +500,86 @@ BOM คือหัวใจของการเบิกและการค�
 
 ราคาต่อหน่วยฐานของทุกลอตที่รับเข้ามาจริง เรียงใหม่สุดก่อน พร้อมป้ายบอกว่า **แพงขึ้น/ถูกลง เทียบกับครั้งก่อนของวัตถุดิบเดียวกัน** ลอตที่ใช้หมดแล้วยังอยู่ในประวัติ เพราะราคาที่จ่ายไปแล้วเป็นข้อเท็จจริง ไม่ได้หายไปพร้อมของ
 
+## 18. ตรวจนับสต๊อก (Stock Count)
+
+`/inventory/count` — ใบตรวจนับ (`SC-YYYYMMDD-NNN`) มีสามสถานะ `OPEN → APPROVED` หรือ `OPEN → CANCELLED`
+
+**ยอดระบบถูก snapshot ตอนเปิดใบ ไม่ใช่ตอนอนุมัติ** — ผลต่างต้องเทียบกับยอด ณ ตอนที่คนเดินไปนับ ไม่ใช่ยอดตอนที่หัวหน้ากดอนุมัติในอีกสองชั่วโมงถัดมา มิฉะนั้นการเบิกที่เกิดระหว่างนั้นจะกลายเป็น "ของหาย"
+
+| สิ่งที่ตั้งใจทำ | เหตุผล |
+| --- | --- |
+| ช่องกรอกจำนวนนับ**ไม่ pre-fill** ยอดระบบ | ใบที่กรอกไว้ล่วงหน้าจะถูกกดผ่านโดยไม่ได้นับจริง |
+| ลอตที่ยอดเป็น 0 ก็อยู่ในใบ | "ของที่ควรมีแต่ไม่มี" คือสิ่งที่การตรวจนับมีไว้เพื่อหา |
+| หนึ่งสถานที่เปิดได้ทีละใบ | สองใบจะ snapshot คนละจังหวะแล้วปรับยอดทับกัน |
+| อนุมัติแล้วแก้ไม่ได้ | ใบที่ post แล้วเป็นเอกสาร ไม่ใช่ฟอร์ม |
+| อนุมัติต้องใช้สิทธิ์ `stock_count.approve` แยกจากคนนับ | คนนับกับคนรับรองผลไม่ควรเป็นคนเดียวกัน |
+
+ตอนอนุมัติ ระบบ post `ADJUSTMENT_IN` / `ADJUSTMENT_OUT` เข้า ledger ตามผลต่างของแต่ละลอต — ยอดคงเหลือไม่เคยถูกเขียนทับตรงๆ การตรวจนับจึงปรากฏในบัญชีเคลื่อนไหวเหมือนรายการอื่นทุกประการ ใบที่ยกเลิกไม่ post อะไรเลย จึงไม่ต้องกลับรายการ
+
 ---
 
-## 18. Unit conversion
+## 19. ของเสีย (Waste)
+
+`/inventory/waste` — **posting คือเอกสาร** ไม่มีตาราง header แยก เพราะ posting เก็บครบอยู่แล้วว่าใคร เมื่อไร ลอตไหน เหตุผลอะไร ตารางที่สองจะเป็นสำเนาที่มีโอกาสไม่ตรงกับ ledger
+
+ตัดของเสียต้องระบุ**ลอต**เสมอ ไม่ใช่ยอดรวมของวัตถุดิบ — ลอตไหนเสียคือประเด็นทั้งหมด เพราะเป็นสิ่งที่ทำให้ต้นทุนเป็นราคาจริงของลอตนั้น (ไม่ใช่ค่าเฉลี่ย) และเป็นสิ่งที่ทำให้แจ้งเตือนของใกล้หมดอายุหายไปหลังจัดการแล้ว
+
+สาเหตุเป็น enum ไม่ใช่ช่องข้อความ: `EXPIRED` หมดอายุ · `DAMAGED` เสียหาย · `SPOILED` บูดเน่า · `CONTAMINATED` ปนเปื้อน · `OVER_PRODUCTION` ทำเกิน · `OTHER` อื่นๆ — ข้อความอิสระสรุปเป็นตัวเลขไม่ได้ และคำถามที่ต้องตอบคือ "เดือนนี้เสียเพราะอะไรมากที่สุด"
+
+---
+
+## 20. รายงาน + Export
+
+`/reports` — รายงาน 5 ชุด: สต๊อกคงเหลือ, บัญชีเคลื่อนไหว, ต้นทุนรายวัน, ของเสีย, ประวัติราคาซื้อ
+
+**`report.export` เป็นสิทธิ์แยกจาก `report.view`** — การดูตัวเลขบนจอกับการนำทั้งตารางออกนอกระบบเป็นการตัดสินใจคนละเรื่อง และมีเพียงอย่างหลังที่เอาคืนไม่ได้ นอกจากนั้นยังต้องมีสิทธิ์ของรายงานนั้นเองด้วย (เช่น `cost.view` สำหรับต้นทุนรายวัน) — ต้องมีครบทั้งสองอย่าง
+
+### CSV ที่เปิดใน Excel ภาษาไทยได้จริง
+
+- **ทุกฟิลด์ถูก quote และ quote ข้างในถูกซ้ำ** — ชื่อวัตถุดิบที่มีจุลภาค เช่น `ไก่บด, ไม่ติดมัน` ต้องไม่ทำให้คอลัมน์ที่เหลือเลื่อนทั้งแถว คอลัมน์เลื่อนแบบเงียบๆ คือความเสียหายที่ทำให้ export แย่กว่าไม่มี export
+- **ไฟล์ขึ้นต้นด้วย UTF-8 BOM** — ถ้าไม่มี Excel บน Windows จะอ่านภาษาไทยเป็นอักขระเพี้ยน แล้วผู้รับจะสรุปว่าข้อมูลพัง
+- ขึ้นบรรทัดด้วย CRLF และชื่อไฟล์เรียงตามวันที่ `stock_on_hand_2026-07-16_2026-08-14.csv`
+
+ดาวน์โหลดผ่าน `/api/reports/[key]` (route handler เพราะเบราว์เซอร์ต้องได้ไฟล์) — การตรวจสิทธิ์ยังอยู่ฝั่งเซิร์ฟเวอร์ใน `exportReport` ลิงก์จึงส่งต่อให้คนที่ไม่มีสิทธิ์ใช้ไม่ได้ ทุกครั้งที่ดาวน์โหลดจะบันทึก audit log ว่าใครดึงรายงานอะไร ช่วงไหน กี่แถว
+
+### Google Sheets — ทางเดียว ERP → Sheets
+
+ตั้งค่าได้ด้วย `GOOGLE_SERVICE_ACCOUNT_EMAIL`, `GOOGLE_PRIVATE_KEY`, `GOOGLE_SHEET_ID` แล้วแชร์สเปรดชีตให้ service account เป็น Editor — ถ้ายังไม่ตั้งค่า ปุ่มจะไม่ขึ้นและหน้าจอบอกว่าต้องตั้งอะไรบ้าง ดาวน์โหลด CSV ยังใช้ได้ตามปกติ
+
+- **ไม่มีการอ่านกลับจาก Sheets เลย** — PostgreSQL เป็นแหล่งข้อมูลจริง สเปรดชีตที่ใครก็แก้ได้ต้องเขียนกลับเข้าระบบไม่ได้
+- แถวที่ส่งมาจาก `buildReportTable` ตัวเดียวกับที่ CSV ใช้ — แท็บในสเปรดชีตกับไฟล์บนเครื่องจึงไม่มีทางตีความคอลัมน์ต่างกัน
+- เขียนทับทั้งแท็บ (clear ก่อนแล้วเขียนใหม่) — ถ้าเขียนทับรอบก่อนที่ยาวกว่าโดยไม่ clear หางเก่าจะค้างอยู่ และหางเก่าในรายงานอันตรายกว่าแท็บว่าง
+- **ทุกครั้งที่ส่งจะบันทึกใน `sheet_sync_runs` ทั้งที่สำเร็จและไม่สำเร็จ** พร้อมสาเหตุ — sync ที่ล้มเหลวเงียบๆ คือกรณีที่อันตรายที่สุด เพราะจะมีคนอ่านแท็บเก่าอยู่เป็นสัปดาห์โดยไม่รู้ว่าหยุดอัปเดตไปแล้ว หน้า `/reports` จึงแสดงประวัติการส่งรวมรายการที่ล้มเหลวด้วย
+
+การยืนยันตัวตนใช้ service account JWT (RS256) แลกเป็น access token เขียนเองด้วย `node:crypto` ไม่ได้ดึง `googleapis` เข้ามา เพราะงานทั้งหมดคือลายเซ็นหนึ่งครั้งกับ POST หนึ่งครั้ง ตัว transport ถูกแยกเป็น interface `SheetsClient` จึงทดสอบ lifecycle ทั้งหมดได้โดยไม่ต้องมีบัญชี Google จริง
+
+---
+
+## 21. ตั้งค่า (`/settings`)
+
+ค่าที่แก้ได้โดยไม่ต้อง deploy: เกณฑ์วันแจ้งเตือนของใกล้หมดอายุ, prefix ของเลขที่เอกสารแต่ละชนิด, และการอนุญาตสต๊อกติดลบ (ปิดไว้เป็นค่าเริ่มต้น)
+
+ค่าที่บันทึกถูก validate ด้วย schema **ตัวเดียวกับตอนอ่าน** ค่าที่ผิดรูปแบบจึงบันทึกไม่ได้ตั้งแต่แรกแทนที่จะไปพังตอนหน้าจออ่าน และถ้าแถวข้อมูลหายไประบบใช้ค่าเริ่มต้นแทนการพัง ทุกการเปลี่ยนแปลงเขียน audit log ว่าใครแก้จากค่าอะไรเป็นค่าอะไร
+
+---
+
+## 22. Authorization กับ HTTP status
+
+หน้าเว็บที่ผู้ใช้ไม่มีสิทธิ์ต้องตอบ **403 ไม่ใช่ 500** — เบราว์เซอร์, monitoring และ load balancer อ่านความต่างนี้ ถ้าตอบ 500 ทุกฝ่ายจะเข้าใจว่า "เซิร์ฟเวอร์พัง" ทั้งที่ความจริงคือ "คุณดูอันนี้ไม่ได้"
+
+| ชั้น | กลไก | ผลลัพธ์ |
+| --- | --- | --- |
+| Page (RSC) | `requirePagePermission()` → `forbidden()` / `unauthorized()` ของ Next | 403 / 401 พร้อมหน้าไทย `forbidden.tsx` / `unauthorized.tsx` |
+| Route handler | `httpStatusFor(error)` map จาก `AppErrorCode` | 401 / 403 / 404 / 400 / 409 / 500 |
+| Server action | `toActionError()` | `{ ok: false, code, message }` ให้ฟอร์มแสดงผลเอง |
+
+`forbidden()` และ `unauthorized()` ทำงานด้วยการ throw sentinel ที่ Next รู้จัก จึง**ห้าม catch** — โค้ดใน `page-guard.ts` จึงเขียนเป็น if ธรรมดา ไม่ใช่ try/catch ครอบ `requirePermission`
+
+การกันสิทธิ์จริงยังอยู่ที่ service ทุกตัวเหมือนเดิม — guard ชั้นหน้าจอทำให้ **คำตอบตรงความจริง** ไม่ใช่สิ่งที่ทำให้ **ปลอดภัย**
+
+---
+
+## 23. Unit conversion
 
 `src/lib/units.ts` แปลงหน่วยผ่าน graph ของกฎการแปลง จึงรองรับการแปลงต่อกันหลายชั้น
 
@@ -503,7 +589,7 @@ BOM คือหัวใจของการเบิกและการค�
 
 ---
 
-## 19. Database tables (42 ตาราง)
+## 24. Database tables (42 ตาราง)
 
 | กลุ่ม | ตาราง |
 | --- | --- |
@@ -530,13 +616,13 @@ Seed ใส่ meal period ไว้สองกะตามที่โรง�
 
 ---
 
-## 20. Testing
+## 25. Testing
 
 เทสแบ่งเป็นสองชั้น
 
 ```bash
-npm run test              # unit — hermetic ไม่ต้องต่อฐานข้อมูล (124 tests)
-npm run test:integration  # integration — เขียนจริงลง Postgres (199 tests)
+npm run test              # unit — hermetic ไม่ต้องต่อฐานข้อมูล (153 tests)
+npm run test:integration  # integration — เขียนจริงลง Postgres (248 tests)
 ```
 
 **Unit** — business logic ล้วน
@@ -554,6 +640,11 @@ npm run test:integration  # integration — เขียนจริงลง Po
 - `form-data.test.ts` — การอ่าน checkbox ที่ไม่ถูกติ๊ก และฟิลด์ที่ส่งหลายค่า (บทบาท)
 - `schemas/common.test.ts` — `booleanFlagSchema` และฟิลด์ตัวเลขที่เว้นว่างต้องเป็น NULL ไม่ใช่ 0
 - `schemas/master-data.test.ts` — validation ของ Item / SupplierItem / User
+- `csv.test.ts` — จุลภาคในชื่อวัตถุดิบต้องไม่ทำให้คอลัมน์เลื่อน, quote ซ้อน quote, UTF-8 BOM, ไฟล์เปล่ายังมีหัวตาราง, CRLF และชื่อไฟล์ที่ตัดอักขระอันตรายออก
+- `errors.test.ts` — `AppErrorCode` map เป็น HTTP status ที่ถูกต้อง (403 ไม่ใช่ 500) และ error ที่ไม่คาดคิดต้องไม่หลุดข้อความจากฐานข้อมูลไปถึงผู้ใช้
+- `auth/page-guard.test.ts` — หน้าที่ไม่มีสิทธิ์ต้องตอบ 403, ไม่ได้ล็อกอินต้องเป็น 401 ก่อน 403, และรายการสิทธิ์ต้องมีครบทุกตัวไม่ใช่แค่ตัวใดตัวหนึ่ง
+- `sheets/jwt.test.ts` — claim ที่เซ็นต้องขอ scope เฉพาะ Sheets, ส่งไปที่ token endpoint, หมดอายุภายในหนึ่งชั่วโมง, ใช้หน่วยวินาทีไม่ใช่มิลลิวินาที และเป็น base64url ไม่มี padding
+- `sheets/config.test.ts` — ต้องครบทั้งสามตัวแปรจึงถือว่าตั้งค่าแล้ว, การคืนขึ้นบรรทัดใหม่ให้ private key และการ escape ชื่อแท็บใน A1 range
 
 **Integration** — เขียนจริงผ่าน service + transaction + audit log (stub เฉพาะ session เพราะสิทธิ์มาจาก cookie ของ request)
 
@@ -569,13 +660,17 @@ npm run test:integration  # integration — เขียนจริงลง Po
 - `inventory-allocation-service.integration.test.ts` — Gate 4: ลอตหมดอายุ 15 ส.ค. ถูกใช้ก่อนลอต 20 ส.ค., ตัดข้ามหลายลอต, กันของหมดอายุออกจากแผน, รายงานของขาด, แผนที่ได้นำไป post แล้วยอดตรง, override ตรวจสิทธิ์และตรวจว่าข้ามลอตจริงไหม, การจัดกลุ่มแจ้งเตือนหมดอายุ
 - `inventory-ledger-service.integration.test.ts` — Gate 3 ของ roadmap: รับ 100 → เบิก 30 → เหลือ 70, เบิกเกินถูกปฏิเสธและสต๊อกไม่ขยับ, กด submit ซ้ำตัดครั้งเดียว, **สองคนเบิกพร้อมกันแล้วสต๊อกไม่ติดลบ**, โอนสองขาใน posting เดียว, rollback ทั้ง posting เมื่อบรรทัดใดล้ม, reversal และการกันสิทธิ์
 - `user-service.integration.test.ts` — สร้าง/แก้ผู้ใช้, เปลี่ยนบทบาทแล้วบันทึกเป็น `PERMISSION_CHANGE`, อีเมลซ้ำ, ปิดใช้งานแทนการลบ, กันแอดมินถอดสิทธิ์/ปิดบัญชีตัวเอง
+- `sheet-sync-service.integration.test.ts` — หัวตารางตามด้วยข้อมูล, **แถวที่ส่งตรงกับที่ CSV จะได้เป๊ะ**, บันทึกรอบที่สำเร็จพร้อมจำนวนแถว, รายงานเปล่าส่งหัวตารางไม่ใช่ไม่ส่งอะไร, Google ปฏิเสธแล้วบันทึกสาเหตุไว้ไม่ทิ้ง, ไม่มีรอบไหนค้างที่ PENDING, การส่งที่ล้มเหลวไม่เขียน audit, ต้องมีทั้ง `report.export` และสิทธิ์ของรายงานนั้น และกรณียังไม่ได้ตั้งค่า credential
+- `report-service.integration.test.ts` — ชื่อวัตถุดิบที่มีทั้งจุลภาคและ quote (`ไก่บด, ไม่ติดมัน ขนาด 5"`) ต้องไม่ทำให้คอลัมน์เลื่อน, ไฟล์ขึ้นต้นด้วย BOM, ช่วงวันที่ว่างได้แค่หัวตาราง, `report.export` แยกจาก `report.view` ทั้งสองทาง, ดู preview ได้โดยไม่ต้องมีสิทธิ์ export, key ที่ไม่มีอยู่, audit บันทึกว่าอะไรออกไปกี่แถว และการส่งออกที่ถูกปฏิเสธต้องไม่ถูกบันทึกว่าส่งออกแล้ว
+- `stock-count-service.integration.test.ts` — ยอดระบบถูก snapshot ตอนเปิดใบไม่ใช่ตอนอนุมัติ, หนึ่งสถานที่เปิดได้ทีละใบ, ลอตยอดศูนย์อยู่ในใบ, ใบที่กรอกไม่ครบอนุมัติไม่ได้, อนุมัติแล้วแก้ไม่ได้, ผลต่างกลายเป็น ADJUSTMENT ใน ledger, ใบที่ยกเลิกไม่ขยับสต๊อกและปลดล็อกสถานที่
+- `waste-service.integration.test.ts` — ตัดของเสียตามลอตแล้วยอดลดจริง, ตัดเกินที่มีไม่ได้, กดซ้ำไม่ตัดซ้ำ, สาเหตุถูกเก็บและสรุปรายเดือนได้, มูลค่าคิดจากราคาลอตนั้นไม่ใช่ค่าเฉลี่ย และการตรวจสิทธิ์
 - `supplier-item-service.integration.test.ts` — MOQ / pack size / lead time, `last_price_at` ขยับเฉพาะตอนราคาเปลี่ยน, ผู้ขายหลักมีได้รายเดียวต่อวัตถุดิบ, ปิดใช้งานแทนการลบ
 
 ต้อง `npm run db:migrate && npm run db:seed` ก่อนรัน integration — เทสจะเก็บกวาดข้อมูลของตัวเองหลังรันเสร็จ
 
 ---
 
-## 21. Deployment (Vercel)
+## 26. Deployment (Vercel)
 
 1. สร้างโปรเจกต์ Supabase แล้วคัดลอก connection string (แนะนำ session pooler port 5432)
 2. Import repository เข้า Vercel
@@ -586,7 +681,7 @@ npm run test:integration  # integration — เขียนจริงลง Po
 
 ---
 
-## 22. Roadmap
+## 27. Roadmap
 
 | Phase | ขอบเขต | สถานะ |
 | --- | --- | --- |
@@ -603,6 +698,11 @@ npm run test:integration  # integration — เขียนจริงลง Po
 | 12 | Auto Purchase Planner: ความต้องการ − สต๊อก − ของที่สั่งแล้ว, MOQ/ขนาดแพ็ก, เลือกผู้ขาย, lead time, สร้างใบสั่งซื้อร่างแบบไม่ซ้ำ | ✅ เสร็จ |
 | 13 | AI Copilot: ถามภาษาไทย, เครื่องมือ read-only 7 ตัว, ตัวเลขมาจากฐานข้อมูลจริง, แนบแหล่งที่มา, จำกัดตามสิทธิ์ | ✅ เสร็จ |
 | 14 | เรื่องที่ต้องดูแล: แจ้งเตือนคำนวณสด 7 แบบ, กันตามสิทธิ์, ตัวอย่างจริงกำกับ, ไม่มีปุ่มปิด, รวมกับแดชบอร์ดเป็นแหล่งเดียว | ✅ เสร็จ |
-| 15+ | ตรวจนับสต๊อก, ของเสีย, command center, รายงาน + export, Google Sheets sync, security hardening | ⏳ |
+| 15 | ตรวจนับสต๊อก: snapshot ยอดตอนเปิดใบ, ไม่ pre-fill ช่องนับ, ลอตยอดศูนย์อยู่ในใบ, อนุมัติแล้ว post ADJUSTMENT เข้า ledger, สิทธิ์อนุมัติแยกจากคนนับ | ✅ เสร็จ |
+| 16 | ของเสีย: posting คือเอกสาร, ตัดตามลอต, สาเหตุเป็น enum 6 แบบ, เชื่อมกับต้นทุนและแจ้งเตือนหมดอายุ | ✅ เสร็จ |
+| 17 | ตั้งค่า: เกณฑ์วันหมดอายุ, prefix เลขเอกสาร, สต๊อกติดลบ — validate ด้วย schema เดียวกับตอนอ่าน + audit log | ✅ เสร็จ |
+| 18 | รายงาน + CSV export: 5 รายงาน, `report.export` เป็นสิทธิ์แยก, quote ทุกฟิลด์, UTF-8 BOM, audit ทุกครั้งที่ดึง | ✅ เสร็จ |
+| 19 | Google Sheets: ทางเดียว ERP → Sheets, แถวมาจาก builder เดียวกับ CSV, บันทึกทุกครั้งที่ส่งรวมที่ล้มเหลว | ✅ เสร็จ |
+| 20 | Security hardening: หน้าไม่มีสิทธิ์ตอบ 403/401 ไม่ใช่ 500, map `AppErrorCode` → HTTP status ที่ route handler | ✅ เสร็จ |
 
-โครงสร้างฐานข้อมูลของเฟสที่เหลือถูกออกแบบและ migrate ไว้แล้วทั้งหมด เหลือเพียงชั้น service และ UI
+**ที่ยังไม่ได้ทำใน V1** — ตารางเวลากะพนักงาน, ระบบขายหน้าร้าน (POS), การเชื่อมบัญชี/ERP ภายนอก และการตั้งเวลา sync Google Sheets อัตโนมัติ (ตอนนี้กดส่งเอง) — ทั้งหมดอยู่นอกขอบเขตที่ตกลงไว้

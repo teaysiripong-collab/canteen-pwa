@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Lock } from "lucide-react";
 import { SIDEBAR_GROUPS, visibleNavItems } from "@/config/navigation";
 import { cn } from "@/lib/utils";
 
@@ -31,34 +30,21 @@ export function Sidebar({ permissions }: { permissions: string[] }) {
             <ul className="flex flex-col gap-0.5">
               {items.map((item) => {
                 const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
-                const upcoming = item.phase !== undefined;
 
                 return (
                   <li key={item.href}>
-                    {upcoming ? (
-                      <span
-                        className="flex items-center justify-between gap-2 rounded-[var(--radius-control)] px-2.5 py-2 text-sm text-ink-subtle"
-                        title={`เปิดใช้งานใน Phase ${item.phase}`}
-                      >
-                        {item.label}
-                        <span className="flex items-center gap-1 text-[0.65rem]">
-                          <Lock className="h-3 w-3" aria-hidden />P{item.phase}
-                        </span>
-                      </span>
-                    ) : (
-                      <Link
-                        href={item.href}
-                        aria-current={active ? "page" : undefined}
-                        className={cn(
-                          "block rounded-[var(--radius-control)] px-2.5 py-2 text-sm",
-                          active
-                            ? "bg-brand-soft font-medium text-brand"
-                            : "text-ink-muted hover:bg-surface-muted hover:text-ink",
-                        )}
-                      >
-                        {item.label}
-                      </Link>
-                    )}
+                    <Link
+                      href={item.href}
+                      aria-current={active ? "page" : undefined}
+                      className={cn(
+                        "block rounded-[var(--radius-control)] px-2.5 py-2 text-sm",
+                        active
+                          ? "bg-brand-soft font-medium text-brand"
+                          : "text-ink-muted hover:bg-surface-muted hover:text-ink",
+                      )}
+                    >
+                      {item.label}
+                    </Link>
                   </li>
                 );
               })}

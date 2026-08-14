@@ -42,7 +42,7 @@ export function MobileHeader({
       {open ? (
         <div className="max-h-[70vh] overflow-y-auto border-t border-border px-4 py-3">
           {SIDEBAR_GROUPS.map((group) => {
-            const items = visibleNavItems(group.items, permissions).filter((item) => !item.phase);
+            const items = visibleNavItems(group.items, permissions);
             if (items.length === 0) return null;
             return (
               <div key={group.label} className="mb-3">

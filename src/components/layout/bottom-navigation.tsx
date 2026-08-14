@@ -27,36 +27,20 @@ export function BottomNavigation({ permissions }: { permissions: string[] }) {
         {items.map((item) => {
           const Icon = ICONS[item.icon];
           const active = pathname === item.href;
-          const upcoming = item.phase !== undefined;
-
-          const content = (
-            <>
-              <Icon className="h-5 w-5" aria-hidden />
-              <span className="text-[0.7rem] leading-tight">{item.label}</span>
-            </>
-          );
 
           return (
             <li key={item.href} className="flex-1">
-              {upcoming ? (
-                <span
-                  className="flex min-h-14 flex-col items-center justify-center gap-1 py-2 text-ink-subtle opacity-60"
-                  title={`เปิดใช้งานใน Phase ${item.phase}`}
-                >
-                  {content}
-                </span>
-              ) : (
-                <Link
-                  href={item.href}
-                  aria-current={active ? "page" : undefined}
-                  className={cn(
-                    "flex min-h-14 flex-col items-center justify-center gap-1 py-2",
-                    active ? "text-brand" : "text-ink-muted",
-                  )}
-                >
-                  {content}
-                </Link>
-              )}
+              <Link
+                href={item.href}
+                aria-current={active ? "page" : undefined}
+                className={cn(
+                  "flex min-h-14 flex-col items-center justify-center gap-1 py-2",
+                  active ? "text-brand" : "text-ink-muted",
+                )}
+              >
+                <Icon className="h-5 w-5" aria-hidden />
+                <span className="text-[0.7rem] leading-tight">{item.label}</span>
+              </Link>
             </li>
           );
         })}
