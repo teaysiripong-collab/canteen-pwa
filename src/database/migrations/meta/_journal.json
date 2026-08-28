@@ -1,0 +1,76 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1786555981029,
+      "tag": "0000_init",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1786575799839,
+      "tag": "0001_clear_fantastic_four",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1786587507788,
+      "tag": "0002_slow_obadiah_stane",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1786591070138,
+      "tag": "0003_brief_outlaw_kid",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1786592115151,
+      "tag": "0004_previous_stepford_cuckoos",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1786625123043,
+      "tag": "0005_premium_dreadnoughts",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1786642254767,
+      "tag": "0006_flat_blackheart",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1786663804878,
+      "tag": "0007_brown_jackal",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1786670875508,
+      "tag": "0008_thankful_shinobi_shaw",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1786704122141,
+      "tag": "0009_sheet_sync_targets",
+      "breakpoints": true
+    }
+  ]
+}

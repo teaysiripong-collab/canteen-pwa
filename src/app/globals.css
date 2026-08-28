@@ -1,0 +1,78 @@
+@import "tailwindcss";
+
+/*
+ * Design tokens. Everything in the UI references these names, so a Figma palette
+ * change is a change in this block and nowhere else.
+ */
+@theme {
+  --color-surface: #ffffff;
+  --color-surface-muted: #f6f7f9;
+  --color-surface-sunken: #eef0f4;
+  --color-border: #e2e5ea;
+  --color-border-strong: #cbd1da;
+
+  --color-ink: #12151a;
+  --color-ink-muted: #5a6473;
+  --color-ink-subtle: #8a93a1;
+  --color-ink-inverse: #ffffff;
+
+  --color-brand: #0f5c4b;
+  --color-brand-hover: #0c4b3d;
+  --color-brand-soft: #e6f2ef;
+
+  --color-normal: #2f7d5d;
+  --color-normal-soft: #e7f4ee;
+  --color-warning: #a86412;
+  --color-warning-soft: #fdf2e2;
+  --color-critical: #b3261e;
+  --color-critical-soft: #fdecea;
+  --color-success: #1f7a3f;
+  --color-success-soft: #e8f5ec;
+  --color-info: #1d4ed8;
+  --color-info-soft: #e8effd;
+
+  --radius-card: 0.75rem;
+  --radius-control: 0.625rem;
+
+  --shadow-card: 0 1px 2px rgb(18 21 26 / 0.05), 0 1px 3px rgb(18 21 26 / 0.04);
+  --shadow-raised: 0 4px 16px rgb(18 21 26 / 0.08);
+
+  --font-sans: "IBM Plex Sans Thai", "Noto Sans Thai", ui-sans-serif, system-ui, sans-serif;
+}
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    background-color: var(--color-surface-muted);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    /* Frontline staff read this on a phone in a bright kitchen. */
+    font-size: 16px;
+    line-height: 1.55;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-brand);
+    outline-offset: 2px;
+  }
+
+  /* Tap targets on mobile stay at least 44px tall. */
+  button,
+  [role="button"],
+  a,
+  input,
+  select,
+  textarea {
+    touch-action: manipulation;
+  }
+}
+
+@utility no-scrollbar {
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}

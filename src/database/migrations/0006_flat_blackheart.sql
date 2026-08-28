@@ -1,0 +1,2 @@
+ALTER TABLE "purchase_orders" ADD COLUMN "plan_key" text;--> statement-breakpoint
+CREATE UNIQUE INDEX "purchase_orders_plan_key_draft_key" ON "purchase_orders" USING btree ("organization_id","plan_key") WHERE "purchase_orders"."plan_key" is not null and "purchase_orders"."status" = 'DRAFT';
