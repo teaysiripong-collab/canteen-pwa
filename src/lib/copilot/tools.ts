@@ -110,6 +110,8 @@ export const COPILOT_TOOLS: CopilotTool[] = [
             location: row.locationCode,
             baseQty: row.baseQty,
             unit: row.baseUnitCode,
+            minimumStock: row.minimumStock,
+            reorderPoint: row.reorderPoint,
           })),
           40,
         ),

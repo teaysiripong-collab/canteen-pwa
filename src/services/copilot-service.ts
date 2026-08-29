@@ -15,6 +15,7 @@ import {
   toolsForUser,
   type CopilotToolContext,
 } from "@/lib/copilot/tools";
+import { askLocalCopilot } from "@/lib/copilot/local-assistant";
 import { AppError } from "@/lib/errors";
 import { writeAuditLog } from "./audit-service";
 
@@ -94,12 +95,22 @@ export async function askCopilot(
     throw new AppError("VALIDATION", "กรุณาพิมพ์คำถาม");
   }
 
-  const client = deps.client ?? liveClient();
   const context = deps.context ?? defaultToolContext(user);
   const available = toolsForUser(user);
 
   if (available.length === 0) {
     throw new AppError("FORBIDDEN", "บัญชีนี้ยังไม่มีสิทธิ์ดูข้อมูลที่ผู้ช่วยเรียกได้");
+  }
+
+  const client = deps.client ?? (copilotApiKey() ? liveClient() : null);
+  if (!client) {
+    const answer = await askLocalCopilot({
+      question: question.content,
+      context,
+      availableTools: available,
+    });
+    await recordQuery(user, question.content, answer.sources, answer.toolCalls);
+    return answer;
   }
 
   const tools: Anthropic.Tool[] = available.map((tool) => ({

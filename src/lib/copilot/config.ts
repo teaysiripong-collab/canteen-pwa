@@ -1,7 +1,7 @@
 /**
- * The copilot is optional. Without an API key the feature announces that it is not
- * configured rather than half-working — a canteen without the key still runs every other
- * part of the system, and a chat box that silently fails is worse than one that is absent.
+ * The paid model enhancement is optional. Without an API key the copilot uses the free,
+ * deterministic Thai router in `local-assistant.ts`; both modes share the same read-only,
+ * permission-scoped tools.
  */
 
 /** Opus 5 — the model this prompt and tool catalogue were written and tested against. */
